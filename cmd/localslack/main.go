@@ -2,12 +2,9 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"localslack/internal/utils"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"localslack/internal/api"
 )
 
 type PlaceHolderConfig struct {
@@ -15,19 +12,13 @@ type PlaceHolderConfig struct {
 }
 
 func main() {
+	log.Println("LocalSlack booting up...")
 
 	cfg := PlaceHolderConfig{
 		Addr: utils.GetEnvWithDefault("SLACK_LISTEN_ADDR", ":3232"),
 	}
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome"))
-	})
+	s := api.NewServer()
 
-	log.Printf("Listening on %s", cfg.Addr)
-	if err := http.ListenAndServe(cfg.Addr, r); err != nil {
-		log.Fatal(err)
-	}
+	s.Start(cfg.Addr)
 }
