@@ -1,10 +1,9 @@
 package api
 
 import (
-	"net/http"
 	"encoding/json"
 	"log"
-	"fmt"
+	"net/http"
 
 	"localslack/internal/utils"
 
@@ -14,42 +13,40 @@ import (
 
 type SlackServer struct {
 	router *chi.Mux
-	deps utils.Deps
+	deps   utils.Deps
 }
 
 func NewServer() *SlackServer {
 	s := &SlackServer{
 		router: chi.NewRouter(),
-		deps: nil,
+		deps:   nil,
 	}
 
-	
 	// --- global middleware ---
 	s.router.Use(middleware.Logger)          // structured logging
 	s.router.Use(middleware.Recoverer)       // panic protection
 	s.router.Use(middleware.RedirectSlashes) // /todos/ -> /todos
-
+	s.router.Use(AuthenticateToken)
 	s.routes()
 	return s
 }
 
 func (s *SlackServer) routes() {
 	r := s.router
-	
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("LocalSlack"))
+		w.Write([]byte("<h1>LocalSlack</h1>"))
 	})
 
-	// --- routes ---
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api", func(r chi.Router) {
 		for methodName, spec := range SlackMethodRegistry {
-				path := "/"+methodName
-				log.Println(fmt.Sprintf("Registered: %s", "/api"+path))
-				r.MethodFunc(spec.Verb, path, s.wrap(methodName, spec.Handler))
+			path := "/" + methodName
+			log.Printf("Registered: %s\n", "/api"+path)
+			r.MethodFunc(spec.Verb, path, s.wrap(methodName, spec.Handler))
 		}
 	})
 

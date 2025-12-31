@@ -29,3 +29,9 @@ clean:
 
 test:
 	go test $(GOTESTFLAGS) ./...
+
+# abstract this later, but gotta do BS on WSL to open file in browser
+wsl-cover:
+	 go test $(GOTESTFLAGS) -coverprofile=coverage.out ./...
+	 go tool cover -html=coverage.out -o coverage.html
+	explorer.exe coverage.html

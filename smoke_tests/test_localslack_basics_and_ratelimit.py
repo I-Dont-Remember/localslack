@@ -3,6 +3,7 @@ import os
 import sys
 import time
 from typing import Any, Dict, List, Callable
+import logging
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
@@ -278,9 +279,12 @@ def main() -> None:
         test_rate_limit_conversations_list(client)
 
     except SlackApiError as e:
+        logging.exception(e)
         fail(f"SlackApiError from SDK: {e.response if e.response is not None else e}")
     except Exception as e:
+        logging.exception(e)
         fail(f"Unhandled exception: {e}")
+
 
     print("=== All tests (basic + rate limits) passed ===")
     sys.exit(0)
