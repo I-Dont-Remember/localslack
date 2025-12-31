@@ -1,0 +1,15 @@
+#:schema https://json.schemastore.org/any.json
+# this avoids BetterTOML warnings in vscode
+
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/localslack ./cmd/localslack"
+bin = "./tmp/localslack"
+full_bin = "LOCALSLACK_CONFIG=configs/dev.yaml LOCALSLACK_ADDR=:3232 ./tmp/localslack"
+include_ext = ["go", "yaml"]
+exclude_dir = ["bin", "tmp", ".git", ".venv"]
+
+[log]
+time = true

@@ -1,5 +1,6 @@
-.PHONY: run build test tidy clean
+.PHONY: run build test tidy clean dev
 
+AIR 		  := air
 APP           := localslack
 CMD_DIR       := ./cmd/$(APP)
 BIN_DIR       := ./bin
@@ -16,6 +17,9 @@ build: $(BIN_DIR)
 
 run:
 	go run $(CMD_DIR)
+
+dev:
+	$(AIR)
 
 tidy:
 	go mod tidy
