@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"localslack/constants"
-	"log"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -14,12 +13,10 @@ func AuthenticateToken(next http.Handler) http.Handler {
 		var token string
 		authHeader := r.Header.Get("Authorization")
 		contentType := r.Header.Get("Content-Type")
-		log.Printf("AuthenticateToken: authHeader: %s, contentType: %s\n", authHeader, contentType)
 		if authHeader == "" {
 			// legacy option is token is allowed to be a param for form-urlencoded
 			if strings.HasPrefix(contentType, constants.CONTENT_TYPE_FORM) {
 				tokenParam := r.FormValue("token")
-				log.Printf("AuthenticateToken: tokenParam: %s\n", tokenParam)
 				if tokenParam == "" {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
 					return

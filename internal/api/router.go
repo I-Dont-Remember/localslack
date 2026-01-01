@@ -49,10 +49,6 @@ func (s *SlackServer) routes() {
 			r.MethodFunc(spec.Verb, path, s.wrap(methodName, spec.Handler))
 		}
 	})
-
-	// r.Post("/api/{method}", s.slackMethodHandler)
-
-	// later: /events, /oauth, /admin/scenarios, etc.
 }
 
 func (s *SlackServer) Start(port string) {

@@ -84,6 +84,7 @@ func ParseRequest(r *http.Request) (ApiRequest, error) {
 		var payload map[string]any
 		bodyBytes, readErr := io.ReadAll(r.Body)
 		if readErr != nil {
+			log.Printf("Error reading request body: %s\n", readErr)
 			return ApiRequest{}, readErr
 		}
 

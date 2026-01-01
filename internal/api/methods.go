@@ -5,14 +5,9 @@ import (
 	"log"
 	"net/http"
 
-	// "net/url"
-	// "strings"
-
-	// "localslack/constants"
 	"localslack/internal/api/handlers"
 	"localslack/internal/core"
 	"localslack/internal/utils"
-	// "github.com/go-chi/chi/v5"
 )
 
 type slackHandler func(ctx context.Context, req utils.ApiRequest, d utils.Deps) (any, *core.SlackError)
@@ -31,10 +26,10 @@ var SlackMethodRegistry = map[string]MethodSpec{
 	"users.list":            {Verb: "GET", Handler: handlers.HandleUsersList},
 }
 
-// TODO: do i want all the parsing logic inside parserequest?
 func (s *SlackServer) wrap(method string, h slackHandler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		req, err := utils.ParseRequest(r) // builds utils.Request{Params, Raw}
+		log.Printf("Incoming request: %s %s %+v\n", r.Method, r.URL.Path, r)
+		req, err := utils.ParseRequest(r)
 		if err != nil {
 			log.Printf("Error parsing request: %s\n", err)
 			utils.WriteJSON(w, http.StatusBadRequest, core.NewSlackError("invalid_arguments"))
@@ -44,10 +39,15 @@ func (s *SlackServer) wrap(method string, h slackHandler) http.HandlerFunc {
 		out, serr := h(r.Context(), req, s.deps)
 		if serr != nil {
 			log.Printf("Error handling request: %s\n", serr.Error)
-			utils.WriteJSON(w, http.StatusOK, serr) // Slack errors are usually 200 + ok:false
+			utils.WriteJSON(w, http.StatusOK, serr)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, out)
+		err = utils.WriteJSON(w, http.StatusOK, out)
+		if err != nil {
+			log.Printf("Error writing response: %s\n", err)
+			return
+		}
+		log.Printf("Response: %s\n", out)
 	}
 }
