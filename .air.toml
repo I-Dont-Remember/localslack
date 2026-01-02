@@ -5,11 +5,13 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
+stop_on_error = true
 cmd = "go build -o ./tmp/localslack ./cmd/localslack"
 bin = "./tmp/localslack"
 full_bin = "LOCALSLACK_CONFIG=configs/dev.yaml LOCALSLACK_ADDR=:3232 ./tmp/localslack"
 include_ext = ["go", "yaml"]
-exclude_dir = ["bin", "tmp", ".git", ".venv"]
+exclude_dir = ["bin", "tmp", ".git", ".venv", "vendor", "testdata"]
+exclude_regex = ["_test.go"]
 
 [log]
 time = true

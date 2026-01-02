@@ -21,3 +21,12 @@ pipenv run ./run-smoke.sh
 ## Key Notes
 
 - [`Slack APIs accepts any API method requests with POST methods`](https://github.com/slackapi/python-slack-sdk/blob/6fc2d5c082f70ca3e222a7644e6eb202f2140893/slack/web/base_client.py#L402), so at least the Python Slack client always sends requests as `POST` even if they are listed as `GET` in the docs, e.g. `users.list`.
+
+
+## Why do this? Couldn't this have been auto-generated faster somehow?
+
+Probably off of an openAPI spec and/or Claude Code, but I wanted a structured project so I can learn Go again. If it ends up useful somewhere, that's a happy bonus but not a requirement.
+
+## Reference
+
+- In a similar ballpark https://github.com/chrishutchinson/slack-testing-library
