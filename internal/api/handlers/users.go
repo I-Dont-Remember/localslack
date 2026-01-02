@@ -6,7 +6,7 @@ import (
 	"localslack/internal/utils"
 )
 
-func HandleUsersList(ctx context.Context, req utils.ApiRequest, d utils.Deps) (any, *core.SlackError) {
+func HandleUsersList(ctx context.Context, req utils.ApiRequest, d utils.Deps) (any, *utils.SlackError) {
 	// TODO: fake this out for now
 
 	members := []core.SlackUser{

@@ -45,8 +45,10 @@ func (s *SlackServer) routes() {
 	r.Route("/api", func(r chi.Router) {
 		for methodName, spec := range SlackMethodRegistry {
 			path := "/" + methodName
-			log.Printf("Registered: %s\n", "/api"+path)
-			r.MethodFunc(spec.Verb, path, s.wrap(methodName, spec.Handler))
+			for _, verb := range spec.Verbs {
+				log.Printf("Registered: %s %s\n", verb, "/api"+path)
+				r.MethodFunc(verb, path, s.wrap(methodName, spec.Handler))
+			}
 		}
 	})
 }

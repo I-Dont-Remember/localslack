@@ -6,16 +6,6 @@ type UserID string
 type ChannelID string
 type MessageID string
 
-type SlackError struct {
-	OK      bool   `json:"ok"`
-	Error   string `json:"error"`
-	Message string `json:"message,omitempty"`
-}
-
-func NewSlackError(code string) *SlackError {
-	return &SlackError{OK: false, Error: code}
-}
-
 type SlackUser struct {
 	ID        UserID           `json:"id"`
 	TeamID    TeamID           `json:"team_id"`
@@ -42,4 +32,43 @@ type SlackUserProfile struct {
 	Image24               string `json:"image_24"`
 	Image32               string `json:"image_32"`
 	Image512              string `json:"image_512"`
+}
+
+type SlackConversation struct {
+	ID                 ChannelID    `json:"id"`
+	Name               string       `json:"name"`
+	IsChannel          bool         `json:"is_channel"`
+	IsGroup            bool         `json:"is_group"`
+	IsIM               bool         `json:"is_im"`
+	Created            int          `json:"created"`
+	Creator            UserID       `json:"creator"`
+	IsArchived         bool         `json:"is_archived"`
+	IsGeneral          bool         `json:"is_general"`
+	Unlinked           int          `json:"unlinked"`
+	NameNormalized     string       `json:"name_normalized"`
+	IsShared           bool         `json:"is_shared"`
+	IsExtShared        bool         `json:"is_ext_shared"`
+	IsOrgShared        bool         `json:"is_org_shared"`
+	PendingShared      []UserID     `json:"pending_shared"`
+	IsPendingExtShared bool         `json:"is_pending_ext_shared"`
+	IsMember           bool         `json:"is_member"`
+	IsPrivate          bool         `json:"is_private"`
+	IsMpim             bool         `json:"is_mpim"`
+	IsOpen             bool         `json:"is_open"`
+	Updated            int          `json:"updated"`
+	Topic              SlackTopic   `json:"topic"`
+	Purpose            SlackPurpose `json:"purpose"`
+	Priority           int          `json:"priority"`
+}
+
+type SlackTopic struct {
+	Value   string `json:"value"`
+	Creator UserID `json:"creator"`
+	LastSet int    `json:"last_set"`
+}
+
+type SlackPurpose struct {
+	Value   string `json:"value"`
+	Creator UserID `json:"creator"`
+	LastSet int    `json:"last_set"`
 }

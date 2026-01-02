@@ -2,11 +2,10 @@ package handlers
 
 import (
 	"context"
-	"localslack/internal/core"
 	"localslack/internal/utils"
 )
 
-func HandleAuthCheck(ctx context.Context, req utils.ApiRequest, d utils.Deps) (any, *core.SlackError) {
+func HandleAuthCheck(ctx context.Context, req utils.ApiRequest, d utils.Deps) (any, *utils.SlackError) {
 	return map[string]any{
 		"ok":      true,
 		"user_id": "FAKE_USER_ID",

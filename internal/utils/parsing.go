@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"localslack/constants"
-	"localslack/internal/core"
 )
 
 type Params map[string][]string
@@ -32,10 +31,10 @@ func (p Params) GetOrDefault(k string, def string) string {
 
 func (p Params) GetAll(k string) []string { return p[k] }
 
-func (p Params) Require(k string) (string, *core.SlackError) {
+func (p Params) Require(k string) (string, *SlackError) {
 	v := p.Get(k)
 	if v == "" {
-		return "", &core.SlackError{
+		return "", &SlackError{
 			OK:      false,
 			Error:   "missing_param",
 			Message: fmt.Sprintf("missing required parameter: %s", k),
@@ -87,9 +86,6 @@ func ParseRequest(r *http.Request) (ApiRequest, error) {
 			log.Printf("Error reading request body: %s\n", readErr)
 			return ApiRequest{}, readErr
 		}
-
-		log.Printf("Content-Type=%q Content-Length=%d raw body=%q",
-			r.Header.Get("Content-Type"), r.ContentLength, string(bodyBytes))
 
 		// If you need to allow empty body as "{}" semantics:
 		if len(bytes.TrimSpace(bodyBytes)) == 0 {
