@@ -16,6 +16,7 @@ import (
 func NewRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/_localslack/health", healthHandler)
+	r.NotFound(notImplementedHandler)
 	return r
 }
 
@@ -57,5 +58,13 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
 		slog.ErrorContext(r.Context(), "encode health response", "error", err)
+	}
+}
+
+func notImplementedHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	if err := json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "not_implemented"}); err != nil {
+		slog.ErrorContext(r.Context(), "encode not_implemented response", "error", err)
 	}
 }
