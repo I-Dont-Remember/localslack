@@ -1,4 +1,4 @@
-.PHONY: run build test tidy clean dev fmt lint vet check review
+.PHONY: run build test tidy clean dev fmt lint vet check review merge
 
 AIR 		  := air
 APP           := localslack
@@ -46,6 +46,11 @@ check:
 
 review:
 	git diff main HEAD | difit
+
+merge:
+	@BRANCH=$$(git rev-parse --abbrev-ref HEAD) && \
+	git checkout main && \
+	git merge --no-ff $$BRANCH
 
 # abstract this later, but gotta do BS on WSL to open file in browser
 wsl-cover:
