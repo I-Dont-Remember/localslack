@@ -4,6 +4,10 @@ Before coding, use AskUserQuestion to clarify requirements and constraints.
 
 Agents MUST keep CLAUDE.md files concise & small. If docs need to be extensive, create a separate file.
 
+Project name: `LocalSlack`, also referred to in code as `localslack`. It is NOT `local Slack` with a space when referring to this project.
+
+See `STATUS.md` for current milestone and progress.
+
 ## Agent usage
 
 - `agent-docs/` is intended for agents to use for gaining useful context about the repo & coding practices for it, as well as where new documentation should be written if it's intended for agents.
@@ -21,7 +25,7 @@ Agents MUST keep CLAUDE.md files concise & small. If docs need to be extensive, 
 
 ## Development
 
-- DO NOT commit unless we are passing all formatters, linters, & other quality of life tools.
+- DO NOT commit unless we are passing all formatters, linters, & other quality of life tools. Unit tests must be fully passing.
 - Prefer simple solutions, unless the simple version creates more complexity elsewhere.
 - Prefer small functions & concise files.
 - all app code lives in `internal/`, there are no exported packages.

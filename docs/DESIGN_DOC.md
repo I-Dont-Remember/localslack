@@ -197,6 +197,7 @@ We want to have layers of automated testing to ensure agents have the tools they
 - These should be kept simple, mainly for regression.
 - We should not go overboard writing unit tests.
 - They must be configured to shuffle order & run in parallel, so we avoid any accidential test dependencies on one another.
+- They must be passing 100% at each commit.
 
 ### Smoke tests
 
@@ -207,12 +208,6 @@ We want to have layers of automated testing to ensure agents have the tools they
   - we can connect a basic Bolt app
   - We can connect a basic Socket Mode app
   - (eventually) does a basic check of one of the rate-limiting tiers
-
-## CI test (?)
-
-Unclear if this one actually provides us any benefit. Theoretically we should ensure we can run this in a CI environment, but if I'm already running the other types of tests against an instance running on a linux server, how different would the CI environment be?
-
-This one is only worthwhile if we can write a version that provides us different information than our other test suites. Even if it is, we will only run it very rarely.
 
 ### Anti-drift / API Parity: conformance test suite
 
@@ -234,10 +229,18 @@ This is somewhat covered by the smoke tests, but could be potentially fleshed ou
 
 We can validate the LocalSlack responses against the published OpenAPI spec for the Slack API automatically. This only validates shape not behavior, but gives us an easy starting point, even if there have been some historical inaccuracies with it.
 
+This does not have to be 100% passing, but we should be able to easily understand the remaining gaps.
+
 
 #### conformance: Detecting API changes
 
 In early stages, we will manually detect when the real API has changed by watching the change-log for the Slack Python SDK. This piece does not need to be automated yet.
+
+### CI test (?)
+
+Unclear if this one actually provides us any benefit. Theoretically we should ensure we can run this in a CI environment, but if I'm already running the other types of tests against an instance running on a linux server, how different would the CI environment be?
+
+This one is only worthwhile if we can write a version that provides us different information than our other test suites. Even if it is, we will only run it very rarely.
 
 ---
 
@@ -248,7 +251,11 @@ In early stages, we will manually detect when the real API has changed by watchi
 initial repo quality of life setup for a best-practices Golang CLI & web server (formatting, linting, vetting, pre-commit, etc.)
   Agents developing in this repo should have lots of automated checks which help them avoid dealing with simple changes & also catch simple to solve issues without having to be directed.
 
-### Milestone 0.5:  & testing infrastructure in place
+### Milestone 0.1: scaffolding
+
+This should set us up with the basic building blocks future milestones will build on top of. Putting together the basic CLI and server with the few commands we already know we'll need (including running the server in the background as an option `-d` like Docker does for containers, and a way to kill that background process). Also other remaining scaffolding for a best practices Golang repo so I can have a "hello world" CLI & server with unit tests passing.
+
+### Milestone 0.5: testing infrastructure in place
 
 Testing setup for LocalSlack (conformance testing, end-2-end testing, smoke tests, etc.)
 
