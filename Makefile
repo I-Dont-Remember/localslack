@@ -49,6 +49,7 @@ review:
 
 merge:
 	@BRANCH=$$(git rev-parse --abbrev-ref HEAD) && \
+	printf "Merge '$$BRANCH' into main? [y/N] " && read CONFIRM && [ "$$CONFIRM" = "y" ] && \
 	git checkout main && \
 	git merge --no-ff $$BRANCH
 
