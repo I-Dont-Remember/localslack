@@ -1,4 +1,4 @@
-.PHONY: run build test tidy clean dev fmt lint vet check
+.PHONY: run build test tidy clean dev fmt lint vet check review
 
 AIR 		  := air
 APP           := localslack
@@ -43,6 +43,9 @@ check:
 	golangci-lint fmt --diff ./...
 	$(MAKE) vet
 	$(MAKE) lint
+
+review:
+	git diff main HEAD | difit
 
 # abstract this later, but gotta do BS on WSL to open file in browser
 wsl-cover:

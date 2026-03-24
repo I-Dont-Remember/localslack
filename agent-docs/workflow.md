@@ -43,11 +43,16 @@ git add <specific files>   # never git add -A blindly
 git commit -m "<concise imperative summary>"
 ```
 
-When done, push the branch and open a PR:
+When done, open the branch for review with `difit`:
 
 ```bash
-git push -u origin <branch>
-gh pr create --title "<title>" --body "<what and why>"
+make review          # pipes git diff main..HEAD into difit
 ```
 
-The PR is reviewed locally by the user via `gh pr checkout`.
+Or manually:
+
+```bash
+git diff main HEAD | difit
+```
+
+The user reviews the diff locally — no push or remote PR needed.
