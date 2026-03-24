@@ -12,14 +12,18 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-// Run starts the HTTP server on addr and blocks until ctx is cancelled or a fatal error occurs.
-func Run(ctx context.Context, addr string) error {
+// NewRouter returns the configured HTTP handler for LocalSlack.
+func NewRouter() http.Handler {
 	r := chi.NewRouter()
 	r.Get("/_localslack/health", healthHandler)
+	return r
+}
 
+// Run starts the HTTP server on addr and blocks until ctx is cancelled or a fatal error occurs.
+func Run(ctx context.Context, addr string) error {
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: r,
+		Handler: NewRouter(),
 	}
 
 	lc := net.ListenConfig{}
