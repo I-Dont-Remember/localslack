@@ -6,7 +6,7 @@ Agents MUST keep CLAUDE.md files concise & small. If docs need to be extensive, 
 
 Project name: `LocalSlack`, also referred to in code as `localslack`. It is NOT `local Slack` with a space when referring to this project.
 
-See `STATUS.md` for current milestone and progress.
+See `agent-docs/STATUS.md` for current milestone and progress.
 
 ## Agent usage
 
