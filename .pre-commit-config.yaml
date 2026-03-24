@@ -1,0 +1,31 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      - id: golangci-lint
+        name: golangci-lint
+        entry: golangci-lint run ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-vet
+        name: go vet
+        entry: go vet ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-mod-tidy
+        name: go mod tidy check
+        entry: bash -c 'cp go.mod /tmp/go.mod.bak && cp go.sum /tmp/go.sum.bak && go mod tidy && diff /tmp/go.mod.bak go.mod && diff /tmp/go.sum.bak go.sum'
+        language: system
+        files: '(\.go|go\.mod|go\.sum)$'
+        pass_filenames: false
