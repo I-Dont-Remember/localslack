@@ -57,3 +57,5 @@ git diff main HEAD | difit
 ```
 
 The user reviews the diff locally. **Agents must not run `make merge`** — merging into main is a human-only action.
+
+Before opening for review, update `agent-docs/STATUS.md` to reflect the current milestone state.
