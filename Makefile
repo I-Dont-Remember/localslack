@@ -1,4 +1,4 @@
-.PHONY: run build test tidy clean dev fmt lint vet check review merge
+.PHONY: run build test tidy clean dev fmt lint vet check review merge smoke conformance test-all
 
 AIR 		  := air
 APP           := localslack
@@ -29,6 +29,18 @@ clean:
 
 test:
 	go test $(GOTESTFLAGS) ./...
+
+conformance:
+	go test ./tests/conformance/...
+
+smoke: build
+	@./bin/localslack start -d; \
+	sleep 1; \
+	uv run --project tests/smoke pytest tests/smoke/ -v; EXIT=$$?; \
+	./bin/localslack stop; \
+	exit $$EXIT
+
+test-all: test conformance smoke
 
 fmt:
 	golangci-lint fmt ./...
