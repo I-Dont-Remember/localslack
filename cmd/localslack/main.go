@@ -1,4 +1,4 @@
-// Command localslack is the local Slack API emulator.
+// Command localslack is the LocalSlack API emulator.
 package main
 
 import (
@@ -8,7 +8,8 @@ import (
 )
 
 type app struct {
-	Start cli.StartCmd `cmd:"" help:"Start the local Slack API server."`
+	Start cli.StartCmd `cmd:"" help:"Start the LocalSlack server."`
+	Stop  cli.StopCmd  `cmd:"" help:"Stop the background LocalSlack server."`
 }
 
 func main() {
