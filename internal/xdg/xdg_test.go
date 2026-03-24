@@ -39,6 +39,34 @@ func TestDataHome(t *testing.T) {
 	}
 }
 
+func TestStateHome(t *testing.T) {
+	tests := []struct {
+		name   string
+		envVal string
+		want   string
+	}{
+		{
+			name:   "default when unset",
+			envVal: "",
+			want:   filepath.Join(os.Getenv("HOME"), ".local", "state"),
+		},
+		{
+			name:   "custom via env",
+			envVal: "/custom/state",
+			want:   "/custom/state",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("XDG_STATE_HOME", tt.envVal)
+			got := xdg.StateHome()
+			if got != tt.want {
+				t.Errorf("StateHome() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestRuntimeDir(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -76,19 +104,19 @@ func TestAppDataDir(t *testing.T) {
 	}
 }
 
-func TestAppRuntimeDir(t *testing.T) {
-	t.Setenv("XDG_RUNTIME_DIR", "/test/runtime")
-	got := xdg.AppRuntimeDir()
-	want := "/test/runtime/localslack"
+func TestAppStateDir(t *testing.T) {
+	t.Setenv("XDG_STATE_HOME", "/test/state")
+	got := xdg.AppStateDir()
+	want := "/test/state/localslack"
 	if got != want {
-		t.Errorf("AppRuntimeDir() = %q, want %q", got, want)
+		t.Errorf("AppStateDir() = %q, want %q", got, want)
 	}
 }
 
 func TestPIDFile(t *testing.T) {
-	t.Setenv("XDG_RUNTIME_DIR", "/test/runtime")
+	t.Setenv("XDG_STATE_HOME", "/test/state")
 	got := xdg.PIDFile()
-	want := "/test/runtime/localslack/localslack.pid"
+	want := "/test/state/localslack/localslack.pid"
 	if got != want {
 		t.Errorf("PIDFile() = %q, want %q", got, want)
 	}
