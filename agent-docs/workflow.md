@@ -20,6 +20,7 @@ Note any uncommitted changes. Don't clobber in-progress work.
 
 ## 2. Make changes
 
+- Before creating a feature branch, check the current branch. If it is **not** `main`, use `AskUserQuestion` to ask whether to proceed (stacking on the existing branch) or stop so they can merge the current branch first.
 - Work in a feature branch: `git checkout -b <short-description>`
 - Follow TDD: write a failing test first, then implement.
 - After each logical chunk of changes, re-run `make check && make test` to stay green.
