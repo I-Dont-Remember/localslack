@@ -1,11 +1,11 @@
-.PHONY: run build test tidy clean dev
+.PHONY: run build test tidy clean dev fmt lint vet check
 
 AIR 		  := air
 APP           := localslack
 CMD_DIR       := ./cmd/$(APP)
 BIN_DIR       := ./bin
 BIN           := $(BIN_DIR)/$(APP)
-GOTESTFLAGS   ?= -race -count=1
+GOTESTFLAGS   ?= -race -count=1 -shuffle=on
 LDFLAGS       ?= -s -w
 
 $(BIN_DIR):
@@ -16,7 +16,7 @@ build: $(BIN_DIR)
 	go build -ldflags "$(LDFLAGS) $(LDVERSION)" -o $(BIN) $(CMD_DIR)
 
 run:
-	go run $(CMD_DIR)
+	go run $(CMD_DIR) start
 
 dev:
 	$(AIR)
@@ -30,8 +30,22 @@ clean:
 test:
 	go test $(GOTESTFLAGS) ./...
 
+fmt:
+	golangci-lint fmt ./...
+
+lint:
+	golangci-lint run ./...
+
+vet:
+	go vet ./...
+
+check:
+	golangci-lint fmt --diff ./...
+	$(MAKE) vet
+	$(MAKE) lint
+
 # abstract this later, but gotta do BS on WSL to open file in browser
 wsl-cover:
-	 go test $(GOTESTFLAGS) -coverprofile=coverage.out ./...
-	 go tool cover -html=coverage.out -o coverage.html
+	go test $(GOTESTFLAGS) -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out -o coverage.html
 	explorer.exe coverage.html

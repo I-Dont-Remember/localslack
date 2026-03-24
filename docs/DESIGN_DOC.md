@@ -124,7 +124,7 @@ rate_limits:
   # fallback if a method has no tier (optional)
   default_per_minute: 60
 
-  # standard Slack tiers https://docs.slack.dev/apis/web-api/rate-limits/ 
+  # standard Slack tiers https://docs.slack.dev/apis/web-api/rate-limits/
   tiers:
     tier1: 1
     tier2: 20
@@ -232,7 +232,7 @@ This is somewhat covered by the smoke tests, but could be potentially fleshed ou
 
 #### conformance: OpenAPI spec
 
-We can validate the LocalSlack responses against the published OpenAPI spec for the Slack API automatically. This only validates shape not behavior, but gives us an easy starting point, even if there have been some historical inaccuracies with it. 
+We can validate the LocalSlack responses against the published OpenAPI spec for the Slack API automatically. This only validates shape not behavior, but gives us an easy starting point, even if there have been some historical inaccuracies with it.
 
 
 #### conformance: Detecting API changes
@@ -319,7 +319,7 @@ Example:
 GET /_localslack/calls?method=chat.postMessage&channel=C123
 
 # Returns: [{ts: "...", payload: {text: "Hello"}}]
-# assert len(calls) == 1 and calls[0]["payload"]["text"] == "Hello". 
+# assert len(calls) == 1 and calls[0]["payload"]["text"] == "Hello".
 ```
 
 ### State snapshot & creation
