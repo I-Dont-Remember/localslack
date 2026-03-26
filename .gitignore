@@ -33,4 +33,4 @@ go.work.sum
 
 .vscode/
 recycle-bin/
-.claude/
+.claude/settings.local.json
