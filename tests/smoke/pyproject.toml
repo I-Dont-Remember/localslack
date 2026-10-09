@@ -16,3 +16,7 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+python_files = ["*_test.py"]
+xfail_strict = true
