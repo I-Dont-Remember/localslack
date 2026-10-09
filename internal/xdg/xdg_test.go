@@ -1,123 +1,50 @@
 package xdg_test
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"localslack/internal/xdg"
 )
 
-// Note: t.Setenv and t.Parallel are incompatible in Go — these tests run
-// sequentially, but the test binary is shuffled via -shuffle=on.
+func lookup(env map[string]string) func(string) string {
+	return func(k string) string { return env[k] }
+}
 
-func TestDataHome(t *testing.T) {
+func TestDirs(t *testing.T) {
+	t.Parallel()
+	home := map[string]string{"HOME": "/h"}
+	custom := map[string]string{
+		"HOME":            "/h",
+		"XDG_DATA_HOME":   "/c/data",
+		"XDG_STATE_HOME":  "/c/state",
+		"XDG_RUNTIME_DIR": "/c/run",
+	}
 	tests := []struct {
-		name   string
-		envVal string
-		want   string
+		name string
+		env  map[string]string
+		fn   func(xdg.Dirs) string
+		want string
 	}{
-		{
-			name:   "default when unset",
-			envVal: "",
-			want:   filepath.Join(os.Getenv("HOME"), ".local", "share"),
-		},
-		{
-			name:   "custom via env",
-			envVal: "/custom/data",
-			want:   "/custom/data",
-		},
+		{"DataHome default", home, xdg.Dirs.DataHome, "/h/.local/share"},
+		{"DataHome custom", custom, xdg.Dirs.DataHome, "/c/data"},
+		{"StateHome default", home, xdg.Dirs.StateHome, "/h/.local/state"},
+		{"StateHome custom", custom, xdg.Dirs.StateHome, "/c/state"},
+		{"RuntimeDir default", home, xdg.Dirs.RuntimeDir, "/h/.local/run"},
+		{"RuntimeDir custom", custom, xdg.Dirs.RuntimeDir, "/c/run"},
+		{"AppDataDir default", home, xdg.Dirs.AppDataDir, "/h/.local/share/localslack"},
+		{"AppDataDir custom", custom, xdg.Dirs.AppDataDir, "/c/data/localslack"},
+		{"AppStateDir default", home, xdg.Dirs.AppStateDir, "/h/.local/state/localslack"},
+		{"AppStateDir custom", custom, xdg.Dirs.AppStateDir, "/c/state/localslack"},
+		{"PIDFile default", home, xdg.Dirs.PIDFile, "/h/.local/state/localslack/localslack.pid"},
+		{"PIDFile custom", custom, xdg.Dirs.PIDFile, "/c/state/localslack/localslack.pid"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("XDG_DATA_HOME", tt.envVal)
-			got := xdg.DataHome()
+			t.Parallel()
+			got := tt.fn(xdg.New(lookup(tt.env)))
 			if got != tt.want {
-				t.Errorf("DataHome() = %q, want %q", got, tt.want)
+				t.Errorf("got %q, want %q", got, tt.want)
 			}
 		})
-	}
-}
-
-func TestStateHome(t *testing.T) {
-	tests := []struct {
-		name   string
-		envVal string
-		want   string
-	}{
-		{
-			name:   "default when unset",
-			envVal: "",
-			want:   filepath.Join(os.Getenv("HOME"), ".local", "state"),
-		},
-		{
-			name:   "custom via env",
-			envVal: "/custom/state",
-			want:   "/custom/state",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("XDG_STATE_HOME", tt.envVal)
-			got := xdg.StateHome()
-			if got != tt.want {
-				t.Errorf("StateHome() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestRuntimeDir(t *testing.T) {
-	tests := []struct {
-		name   string
-		envVal string
-		want   string
-	}{
-		{
-			name:   "default when unset",
-			envVal: "",
-			want:   filepath.Join(os.Getenv("HOME"), ".local", "run"),
-		},
-		{
-			name:   "custom via env",
-			envVal: "/custom/runtime",
-			want:   "/custom/runtime",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Setenv("XDG_RUNTIME_DIR", tt.envVal)
-			got := xdg.RuntimeDir()
-			if got != tt.want {
-				t.Errorf("RuntimeDir() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAppDataDir(t *testing.T) {
-	t.Setenv("XDG_DATA_HOME", "/test/data")
-	got := xdg.AppDataDir()
-	want := "/test/data/localslack"
-	if got != want {
-		t.Errorf("AppDataDir() = %q, want %q", got, want)
-	}
-}
-
-func TestAppStateDir(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "/test/state")
-	got := xdg.AppStateDir()
-	want := "/test/state/localslack"
-	if got != want {
-		t.Errorf("AppStateDir() = %q, want %q", got, want)
-	}
-}
-
-func TestPIDFile(t *testing.T) {
-	t.Setenv("XDG_STATE_HOME", "/test/state")
-	got := xdg.PIDFile()
-	want := "/test/state/localslack/localslack.pid"
-	if got != want {
-		t.Errorf("PIDFile() = %q, want %q", got, want)
 	}
 }
