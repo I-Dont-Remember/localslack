@@ -3,28 +3,31 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"net"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 )
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
-func NewRouter() http.Handler {
+func NewRouter(log *slog.Logger) http.Handler {
 	r := chi.NewRouter()
-	r.Get("/_localslack/health", healthHandler)
-	r.NotFound(notImplementedHandler)
+	r.Use(middleware.RequestID, echoRequestID, recoverer(log), requestLogger(log))
+	h := handlers{log: log}
+	r.Get("/_localslack/health", h.health)
+	r.NotFound(h.notImplemented)
+	r.MethodNotAllowed(h.methodNotAllowed)
 	return r
 }
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled or a fatal error occurs.
-func Run(ctx context.Context, addr string) error {
+func Run(ctx context.Context, log *slog.Logger, addr string) error {
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: NewRouter(),
+		Handler: NewRouter(log),
 	}
 
 	lc := net.ListenConfig{}
@@ -33,7 +36,7 @@ func Run(ctx context.Context, addr string) error {
 		return err
 	}
 
-	slog.Info("server listening", "addr", addr)
+	log.InfoContext(ctx, "server listening", slog.String("addr", addr))
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -45,7 +48,7 @@ func Run(ctx context.Context, addr string) error {
 
 	select {
 	case <-ctx.Done():
-		slog.Info("shutting down")
+		log.InfoContext(ctx, "shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		return srv.Shutdown(shutdownCtx)
@@ -54,17 +57,16 @@ func Run(ctx context.Context, addr string) error {
 	}
 }
 
-func healthHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(map[string]bool{"ok": true}); err != nil {
-		slog.ErrorContext(r.Context(), "encode health response", "error", err)
-	}
+type handlers struct{ log *slog.Logger }
+
+func (h handlers) health(w http.ResponseWriter, r *http.Request) {
+	writeJSON(r.Context(), h.log, w, http.StatusOK, map[string]bool{"ok": true})
 }
 
-func notImplementedHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotFound)
-	if err := json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": "not_implemented"}); err != nil {
-		slog.ErrorContext(r.Context(), "encode not_implemented response", "error", err)
-	}
+func (h handlers) notImplemented(w http.ResponseWriter, r *http.Request) {
+	writeJSON(r.Context(), h.log, w, http.StatusNotFound, errorBody("not_implemented"))
+}
+
+func (h handlers) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
+	writeJSON(r.Context(), h.log, w, http.StatusMethodNotAllowed, errorBody("method_not_allowed"))
 }

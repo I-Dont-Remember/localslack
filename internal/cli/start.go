@@ -4,6 +4,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -28,7 +29,8 @@ func (c *StartCmd) Run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	return server.Run(ctx, c.Addr)
+	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	return server.Run(ctx, log, c.Addr)
 }
 
 func (c *StartCmd) startDetached() error {

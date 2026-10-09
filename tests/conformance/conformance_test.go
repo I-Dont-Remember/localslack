@@ -2,6 +2,8 @@ package conformance_test
 
 import (
 	"encoding/json"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -38,7 +40,7 @@ func TestConformance(t *testing.T) {
 		t.Fatal("no fixture files found")
 	}
 
-	srv := httptest.NewServer(server.NewRouter())
+	srv := httptest.NewServer(server.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil))))
 	t.Cleanup(srv.Close)
 
 	for _, path := range paths {
