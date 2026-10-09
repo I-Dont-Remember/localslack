@@ -27,7 +27,7 @@ func discardLogger() *slog.Logger {
 
 func TestMethodNotAllowedIsJSON(t *testing.T) {
 	t.Parallel()
-	handler := server.NewRouter(discardLogger())
+	handler := server.NewRouter(server.Deps{Log: discardLogger()})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/_localslack/health", nil)
 	w := httptest.NewRecorder()
 
@@ -50,7 +50,7 @@ func TestMethodNotAllowedIsJSON(t *testing.T) {
 
 func TestResponsesCarryRequestID(t *testing.T) {
 	t.Parallel()
-	handler := server.NewRouter(discardLogger())
+	handler := server.NewRouter(server.Deps{Log: discardLogger()})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/_localslack/health", nil)
 	w := httptest.NewRecorder()
 
@@ -63,7 +63,7 @@ func TestResponsesCarryRequestID(t *testing.T) {
 
 func TestNotImplementedHandler(t *testing.T) {
 	t.Parallel()
-	handler := server.NewRouter(discardLogger())
+	handler := server.NewRouter(server.Deps{Log: discardLogger()})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/chat.postMessage", nil)
 	w := httptest.NewRecorder()
 
@@ -88,7 +88,7 @@ func TestNotImplementedHandler(t *testing.T) {
 
 func TestHealthEndpoint(t *testing.T) {
 	t.Parallel()
-	handler := server.NewRouter(discardLogger())
+	handler := server.NewRouter(server.Deps{Log: discardLogger()})
 	req := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/_localslack/health", nil)
 	w := httptest.NewRecorder()
 

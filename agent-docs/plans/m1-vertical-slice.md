@@ -20,16 +20,30 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - Lint policy: `gochecknoglobals` exclusion for `//go:embed`/goose FS; templates parsed at startup returning errors (no `template.Must`/panic); `QueryContext`/`ExecContext` only.
 
 ## Commit order (arch-reviewer mid-run after 3 exists)
-1. [ ] config + DI skeleton + `storetest.NewApp(t)` (temp DB, pinned seed, router)
-2. [ ] store + ids + seed (determinism test) + depguard
-3. [ ] service layer (domain errors, ts, thread bump) -> **run arch-reviewer here**
-4. [ ] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
-5. [ ] conversations.list/create/history/replies/open (+ cursor pagination test)
-6. [ ] chat.postMessage (thread_ts bump, channel_not_found)
-7. [ ] `GET /_localslack/state/conversations`
-8. [ ] web UI (below)
-9. [ ] e2e (below)
-10. [ ] finish (below)
+1. [x] config + DI skeleton + `storetest.NewApp(t)` (temp DB, pinned seed, router)
+2. [x] store + ids + seed (determinism test) + depguard
+3. [x] service layer (domain errors, ts, thread bump) -> arch-reviewer run; blockers fixed (random runtime id seed, `server.Build`, external test pkgs); see "Arch review follow-ups"
+4. [x] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
+5. [x] conversations.list/create/history/replies/open (+ cursor pagination test)
+6. [x] chat.postMessage (thread_ts bump, channel_not_found)
+7. [x] `GET /_localslack/state/conversations`
+8. [x] web UI (below)
+9. [x] e2e (below)
+10. [x] finish (below)
+
+## Arch review follow-ups (after step 3; deferred items tagged with the step that must do them)
+- [x] step 4: shared `service.Err*` -> Slack code table + test that every `Err*` is mapped; acting user stored in request ctx in one place; api uses DTO mappers (never marshal service types)
+- [x] before step 5: service-owned `Conversation` (Peer, IsMember, NumMembers) and `Message` (computed thread info) instead of store aliases; `oldest`/`latest`/`inclusive` on history; one api mapper for thread_ts (`m.ThreadTS`, or `m.TS` if ReplyCount>0); add `reply_users`/`parent_user_id`
+- [x] step 5: tests for full history walk, replies paging (parent only on page 1), exact-limit boundary, mutation between pages
+- [x] step 6: archive seam (service/store method) so `ErrIsArchived` and `ExcludeArchived` are testable; race test CreateChannel/OpenDM; post concurrent with history reads
+- [x] step 8: unpaged name-sorted `ListAll` for the sidebar
+- [ ] later: decide on `data` JSON columns (use or drop); `Service.Reload` for reset; reject `:memory:` DB path; `synchronous=NORMAL`
+
+## Final arch review (2026-10-09): done vs deferred
+- [x] default bind 127.0.0.1 (config only), Host allowlist on loopback, cross-origin write refusal, 2MB body cap, ReadHeaderTimeout, `invalid_arguments`, `safeNext` hardening, e2e acting-as flake, poll logs at DEBUG, doc fixes
+- [ ] M2 prep: `Service.OnEvent` post-commit seam (Bolt/Socket Mode); `registry()` -> `map[string]spec{fn, tier}` for M5 rate limits; make `User` service-owned; move `/_localslack/*` into `internal/admin` with a callerless snapshot (and fix its N+1)
+- [ ] UI: show errors (htmx doesn't swap non-2xx), "load older" beyond 200 messages, `hx-vals` JSON built safely, `limit=abc` -> error, `msg_too_long`
+- [ ] decide `data` JSON columns (unused; cheapest to drop before anyone has a DB), `reset`/`Service.Reload`, reject `:memory:`, `synchronous=NORMAL`
 
 ## Details
 ### Storage (`internal/store`, `internal/ids`)
@@ -54,5 +68,5 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - add `playwright`+`pytest-playwright` to `tests/smoke/pyproject.toml`; `playwright install chromium` in `make setup`; `tests/e2e/` dir; `make e2e` via with-server.sh; add to `test-all`/`verify`
 - tests: seeded channels visible; UI post -> SDK history; SDK post -> UI; thread reply; DM via switcher; screenshots on fail to `tmp/`
 ### Finish
-- [ ] minimal GitHub Actions workflow running `make setup verify`
-- [ ] `make verify` green; `arch-reviewer`; STATUS/CHANGELOG/README "Try it"
+- [x] minimal GitHub Actions workflow running `make setup verify`
+- [x] `make verify` green; `arch-reviewer`; STATUS/CHANGELOG/README "Try it"

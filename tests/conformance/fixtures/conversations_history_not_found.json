@@ -1,0 +1,1 @@
+{"state":"passing","note":"Slack: unknown channel is HTTP 200 ok:false channel_not_found","request":{"method":"POST","path":"/api/conversations.history","token":"xoxb-test","params":{"channel":"C00000000"}},"response":{"status":200,"body":{"ok":false,"error":"channel_not_found"}}}

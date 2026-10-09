@@ -1,0 +1,1 @@
+{"state":"passing","note":"Slack: bad token is HTTP 200 ok:false invalid_auth","request":{"method":"POST","path":"/api/auth.test","token":"xoxp-nope"},"response":{"status":200,"body":{"ok":false,"error":"invalid_auth"}}}

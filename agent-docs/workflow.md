@@ -13,6 +13,7 @@ Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first uncheck
 | `make test` | Go unit tests (`-race -shuffle=on`, excludes `tests/`) |
 | `make conformance` / `make conformance-gaps` | fixture replay / list known gaps vs real Slack |
 | `make smoke` | Python SDK tests against a live isolated server |
+| `make e2e` | Playwright browser tests (UI + SDK) against a live isolated server; failure screenshots in `tmp/e2e-artifacts` |
 | `make verify` | everything above; the "am I done" command |
 | `scripts/with-server.sh <cmd>` | run any command against an isolated live server (`$LOCALSLACK_URL`) |
 | `make run` / `make dev` | run server (:3232) / hot reload with air |
