@@ -27,9 +27,10 @@ type Deps struct {
 func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID, echoRequestID, recoverer(d.Log), requestLogger(d.Log))
-	h := handlers{log: d.Log}
+	h := handlers{log: d.Log, svc: d.Svc}
 	r.Get("/_localslack/health", h.health)
 	if d.Svc != nil {
+		r.Get("/_localslack/state/conversations", h.stateConversations)
 		api.Mount(r, d.Svc, d.Log, h.notImplemented)
 	}
 	r.NotFound(h.notImplemented)
@@ -82,7 +83,10 @@ func Run(ctx context.Context, log *slog.Logger, cfg config.Config) error {
 	}
 }
 
-type handlers struct{ log *slog.Logger }
+type handlers struct {
+	log *slog.Logger
+	svc *service.Service
+}
 
 func (h handlers) health(w http.ResponseWriter, r *http.Request) {
 	writeJSON(r.Context(), h.log, w, http.StatusOK, map[string]bool{"ok": true})

@@ -26,7 +26,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 4. [x] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
 5. [x] conversations.list/create/history/replies/open (+ cursor pagination test)
 6. [x] chat.postMessage (thread_ts bump, channel_not_found)
-7. [ ] `GET /_localslack/state/conversations`
+7. [x] `GET /_localslack/state/conversations`
 8. [ ] web UI (below)
 9. [ ] e2e (below)
 10. [ ] finish (below)

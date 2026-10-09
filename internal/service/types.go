@@ -91,3 +91,43 @@ func (s *Service) Conversation(ctx context.Context, caller User, id string) (Con
 	}
 	return s.enrichOne(ctx, caller, c)
 }
+
+// ConversationState is a full dump of one conversation, for debugging and tests.
+type ConversationState struct {
+	Conversation
+	Members  []string
+	Messages []Message // oldest first, thread replies included
+}
+
+// Snapshot returns every conversation with its members and messages.
+func (s *Service) Snapshot(ctx context.Context, caller User) ([]ConversationState, error) {
+	rows, err := s.st.Conversations(ctx)
+	if err != nil {
+		return nil, err
+	}
+	convs, err := s.enrich(ctx, caller, rows)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]string, 0, len(rows))
+	for _, c := range rows {
+		ids = append(ids, c.ID)
+	}
+	members, err := s.st.MembersOf(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ConversationState, 0, len(convs))
+	for _, c := range convs {
+		msgs, err := s.st.Messages(ctx, c.ID)
+		if err != nil {
+			return nil, err
+		}
+		st := ConversationState{Conversation: c, Members: members[c.ID], Messages: make([]Message, 0, len(msgs))}
+		for _, m := range msgs {
+			st.Messages = append(st.Messages, msgFrom(m))
+		}
+		out = append(out, st)
+	}
+	return out, nil
+}
