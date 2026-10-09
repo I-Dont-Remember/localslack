@@ -4,6 +4,8 @@
 
 What LocalSlack supports, how well each piece is verified against real Slack, and where it knowingly differs. Anything not listed as implemented returns `404 not_implemented`.
 
+**Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
+
 **Methods:** 8 implemented, 1 partial, 16 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 9 llm, 0 none.
 
 ## How to read the evidence column

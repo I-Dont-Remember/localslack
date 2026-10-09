@@ -20,6 +20,9 @@ Evidence levels: `recorded` = a sanitized real Slack response is committed; `doc
 cited source (`ref`); `llm` = written from model knowledge, never checked (the honest default for anything
 you write from memory); `none` = no fixture. Say `llm` when that is what it is: users rely on this table.
 
+Optional per-method `verify = "unlikely"`: set it on methods we expect never to record (admin.*,
+Enterprise-only, destructive). They drop out of `make evidence-gaps` and the matrix says so.
+
 ## Status lifecycle
 `planned` -> `in_progress` -> `implemented` (or `partial` if a high-severity deviation means real apps will
 notice, e.g. `chat.postMessage` ignoring blocks). **Claim work by setting `status = "in_progress"` and

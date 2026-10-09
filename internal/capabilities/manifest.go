@@ -41,12 +41,16 @@ const (
 )
 
 // Method describes one Slack Web API method.
+// VerifyUnlikely marks methods nobody is expected to record from real Slack.
+const VerifyUnlikely = "unlikely"
+
 type Method struct {
 	Status     Status   `toml:"status"`
 	Tier       int      `toml:"tier"` // Slack rate-limit tier 1-4; 0 = special/unset
 	Scopes     []string `toml:"scopes"`
 	Deviations []string `toml:"deviations"`
 	Priority   string   `toml:"priority"`
+	Verify     string   `toml:"verify"`   // "unlikely": we expect never to record this (admin, Enterprise, destructive)
 	Plan       string   `toml:"plan"`     // required while in_progress
 	Fixtures   string   `toml:"fixtures"` // "waived: reason" opts out of the fixture requirement
 }
@@ -129,6 +133,9 @@ func validateMethod(p *problems, m Manifest, repo fs.FS, name string, meth Metho
 		p.addf("method %q: status is required (planned|in_progress|partial|implemented)", name)
 	case !validStatus(meth.Status):
 		p.addf("method %q: invalid status %q", name, meth.Status)
+	}
+	if meth.Verify != "" && meth.Verify != VerifyUnlikely {
+		p.addf("method %q: verify must be %q or empty, got %q", name, VerifyUnlikely, meth.Verify)
 	}
 	if meth.Tier < 0 || meth.Tier > 4 {
 		p.addf("method %q: tier %d out of range 0-4 (0 = special or unset)", name, meth.Tier)

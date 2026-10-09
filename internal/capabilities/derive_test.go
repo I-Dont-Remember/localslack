@@ -163,3 +163,23 @@ func TestSuccessMethods(t *testing.T) {
 		t.Errorf("SuccessMethods mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestGapsSkipsMethodsWhereRecordingIsUnlikely(t *testing.T) {
+	t.Parallel()
+
+	m, err := capabilities.Parse([]byte(`
+[methods."a.common"]
+status = "implemented"
+[methods."admin.thing"]
+status = "implemented"
+verify = "unlikely"
+`))
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	got := capabilities.Report{Manifest: m}.Gaps()
+	want := []string{"a.common"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Gaps mismatch (-want +got):\n%s", diff)
+	}
+}

@@ -218,11 +218,12 @@ func BuildReport(repo fs.FS) (Report, error) {
 }
 
 // Gaps lists shipped methods whose evidence is below "recorded", weakest first:
-// the to-do list for anyone with a throwaway workspace.
+// the to-do list for anyone with a workspace to record from. Methods marked
+// verify = "unlikely" are left out.
 func (r Report) Gaps() []string {
 	var names []string
 	for name, meth := range r.Manifest.Methods {
-		if shipped(meth.Status) && r.level(name) != EvidenceRecorded {
+		if shipped(meth.Status) && meth.Verify != VerifyUnlikely && r.level(name) != EvidenceRecorded {
 			names = append(names, name)
 		}
 	}
@@ -245,8 +246,12 @@ func (r Report) level(method string) Evidence {
 // levelLabel is the evidence cell: the level, flagged when no success-path fixture backs it.
 func (r Report) levelLabel(method string) string {
 	l := r.level(method)
+	label := string(l)
 	if l != EvidenceNone && !r.Success[method] {
-		return string(l) + " (errors only)"
+		label += " (errors only)"
 	}
-	return string(l)
+	if r.Manifest.Methods[method].Verify == VerifyUnlikely {
+		label += " (recording not expected)"
+	}
+	return label
 }

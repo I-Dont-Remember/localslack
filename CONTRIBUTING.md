@@ -17,7 +17,9 @@ Enterprise Grid, paid-plan features, anything destructive) may never be recorded
    scopes you need, and prefer read-only methods. Never record from a workspace holding real
    conversations or data you don't have the right to publish. If you have no such workspace, skip
    recording; docs-based corrections (a `ref` URL on a fixture, a `[deviations.*]` entry) are welcome too.
-2. Pick work: `make evidence-gaps` lists implemented methods that still lack a recording.
+2. Pick work: `make evidence-gaps` lists implemented methods that still lack a recording (methods
+   marked `verify = "unlikely"` in the manifest are left out). The owner records the core
+   `bolt-core`/`common` methods; other recordings are opportunistic, and nobody should chase the rest.
 3. Record, replaying an existing fixture (its `setup` + `request`) against real Slack:
    ```
    export SLACK_TOKEN=xoxb-...   SLACK_WORKSPACE_TYPE=free
