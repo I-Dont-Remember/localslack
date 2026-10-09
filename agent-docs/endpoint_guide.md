@@ -25,7 +25,7 @@ Process for adding a new Slack API endpoint. Check `internal/capabilities/capabi
    `tests/conformance/RECORDING.md`).
 
 6. **Call it through the real SDK** in `tests/smoke` (write-then-read-back; this also derives the
-   SDK-tested column). Cover SDK pagination iterators if the method paginates.
+   SDK-called column). Cover SDK pagination iterators if the method paginates.
 
 7. **Update the manifest** — `status = "implemented"` (or `partial`), tier, scopes, and a
    `[deviations.<id>]` entry for anything you knowingly do differently from Slack (add a

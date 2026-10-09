@@ -35,6 +35,7 @@ summary = "Something differs."
 	return capabilities.Report{
 		Manifest: m,
 		Evidence: map[string]capabilities.Evidence{"a.shipped": capabilities.EvidenceRecorded},
+		Success:  map[string]bool{"a.shipped": true},
 		SDK:      map[string][]string{"a.shipped": {"tests/smoke/a_test.py"}},
 		DevTests: map[string][]string{"gap": {"tests/smoke/known_deviations_test.py"}},
 		Clients:  []capabilities.Client{{Name: "slack-sdk", Version: "3.41.0"}, {Name: "slack-bolt"}},

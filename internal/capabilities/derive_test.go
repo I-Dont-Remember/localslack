@@ -147,3 +147,19 @@ func TestRepoDeviationTestsReferenceKnownDeviations(t *testing.T) {
 		t.Error("no @deviation(...) tests found; the red-test scan is probably broken")
 	}
 }
+
+func TestSuccessMethods(t *testing.T) {
+	t.Parallel()
+
+	fx := func(path string, ok bool) capabilities.NamedFixture {
+		return capabilities.NamedFixture{Fixture: capabilities.Fixture{
+			Request:  capabilities.FixtureRequest{Path: "/api/" + path},
+			Response: capabilities.FixtureResponse{Body: map[string]any{"ok": ok}},
+		}}
+	}
+	got := capabilities.SuccessMethods([]capabilities.NamedFixture{fx("a.ok", true), fx("a.ok", false), fx("b.err", false)})
+	want := map[string]bool{"a.ok": true}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("SuccessMethods mismatch (-want +got):\n%s", diff)
+	}
+}

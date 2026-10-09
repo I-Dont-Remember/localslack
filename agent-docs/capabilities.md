@@ -12,7 +12,7 @@ Slack. `docs/COMPATIBILITY.md` is generated from it for users. Do not keep metho
 | Non-endpoint behaviors (rate limiting, scopes, Socket Mode, POST-for-GET, ...) | `[behaviors.*]` | yes (incl. `evidence`) |
 | Known deviations from Slack | `[deviations.*]` (id, severity, one-sentence summary) | yes |
 | Per-method **evidence level** (`recorded` > `docs` > `llm` > `none`) | best `source` among the method's conformance fixtures | **derived** |
-| **SDK-tested** | scan of `tests/smoke`, `tests/e2e` for `client.<method_with_underscores>(` | **derived** |
+| **SDK-called** (hint only) | scan of `tests/smoke`, `tests/e2e` for `client.<method_with_underscores>(` | **derived** |
 | Client versions | `tests/smoke/uv.lock` | **derived** |
 | `docs/COMPATIBILITY.md` | `make docs` | **generated** (a test fails if stale) |
 
@@ -23,9 +23,14 @@ you write from memory); `none` = no fixture. Say `llm` when that is what it is: 
 ## Status lifecycle
 `planned` -> `in_progress` -> `implemented` (or `partial` if a high-severity deviation means real apps will
 notice, e.g. `chat.postMessage` ignoring blocks). **Claim work by setting `status = "in_progress"` and
-`plan = "agent-docs/plans/<your plan>.md"`** (the file must exist), in the same branch you start on, so
-other agents see it. Check the manifest before starting anything: if it is `in_progress`, talk to the
-owner instead of duplicating it.
+`plan = "agent-docs/plans/<your plan>.md"`** (the file must exist), as its own small commit **on `main`**
+first (claims on a feature branch are invisible to parallel agents). Before starting, check main:
+`git fetch && git show origin/main:internal/capabilities/capabilities.toml | rg -B1 -A4 'in_progress'`.
+If the method is `in_progress`, talk to the owner instead of duplicating it. Claims never expire on
+their own: if one looks stale, ask the owner.
+
+`docs/COMPATIBILITY.md` is generated and will conflict between branches: on conflict, take either side
+and run `make docs`. Never hand-merge it.
 
 ## Checklist when you add or change behavior
 1. Register the method in `internal/api/api.go` `registry()` (see `endpoint_guide.md`).
@@ -34,7 +39,7 @@ owner instead of duplicating it.
 3. Add a conformance fixture in `tests/conformance/fixtures/` with a truthful `source` (see
    `tests/conformance/RECORDING.md`); a shipped method without one fails the tests unless you set
    `fixtures = "waived: <reason>"`.
-4. Call it through the real SDK in a smoke test (this is what flips SDK-tested).
+4. Call it through the real SDK in a smoke test (this is what flips SDK-called).
 5. `make docs`, then `make verify`.
 
 ## What fails, and why

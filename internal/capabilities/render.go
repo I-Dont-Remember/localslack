@@ -25,7 +25,7 @@ func Render(r Report) string {
 	b.WriteString("| `none` | No conformance fixture exists. |\n\n")
 	b.WriteString("\"Red test\" in the deviations table means an executable strict-xfail test in `tests/smoke/known_deviations_test.py` encodes the real Slack behavior. ")
 	b.WriteString("Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. ")
-	b.WriteString("\"SDK-tested\" means a real Slack SDK client calls the method in `tests/smoke` or `tests/e2e`.\n\n")
+	b.WriteString("\"SDK-called\" is a text scan: a Slack SDK client call to the method appears in `tests/smoke` or `tests/e2e`. It is a hint, not proof the behavior is verified.\n\n")
 
 	renderShipped(&b, r)
 	renderPlanned(&b, m)
@@ -58,7 +58,7 @@ func summary(m Manifest, r Report) string {
 
 func renderShipped(b *strings.Builder, r Report) {
 	b.WriteString("## Methods\n\n")
-	b.WriteString("| Method | Status | Evidence | Tier | Scopes | SDK-tested | Deviations |\n|---|---|---|---|---|---|---|\n")
+	b.WriteString("| Method | Status | Evidence | Tier | Scopes | SDK-called | Deviations |\n|---|---|---|---|---|---|---|\n")
 	for _, name := range sortedKeys(r.Manifest.Methods) {
 		meth := r.Manifest.Methods[name]
 		if !shipped(meth.Status) {
@@ -69,7 +69,7 @@ func renderShipped(b *strings.Builder, r Report) {
 			sdk = "yes"
 		}
 		fmt.Fprintf(b, "| `%s` | %s | %s | %s | %s | %s | %s |\n",
-			name, meth.Status, r.level(name), tier(meth.Tier), codes(meth.Scopes), sdk, codes(meth.Deviations))
+			name, meth.Status, r.levelLabel(name), tier(meth.Tier), codes(meth.Scopes), sdk, codes(meth.Deviations))
 	}
 	b.WriteString("\n")
 }

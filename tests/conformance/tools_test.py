@@ -6,7 +6,6 @@ The end-to-end test records against a live LocalSlack, so run via `make tools-te
 
 import json
 import os
-import re
 from pathlib import Path
 
 import pytest
@@ -66,6 +65,9 @@ def test_redact_check_accepts_clean(doc):
         ({"e": "alice@example.com"}, "email"),
         ({"u": "https://acme.slack.com/archives/C1"}, "slack url"),
         ({"i": "U012ABCDEFG"}, "id"),
+        ({"i": "F012ABCDEFG"}, "id"),
+        ({"i": "<@U012ABCDEFG> hi"}, "id"),
+        ({"s": "0123456789abcdef0123456789abcdef"}, "hex"),
         ({"x": "word " * 30}, "long"),
     ],
 )
@@ -93,12 +95,11 @@ def test_record_from_fixture_against_localslack(tmp_path):
     assert record.main(argv, env) == 0
     data = json.loads((tmp_path / "conversations_replies__recorded.json").read_text())
 
-    assert data["source"] == "recorded"
+    assert data["source"] == "local", (
+        "non-Slack hosts must never produce recorded evidence"
+    )
+    assert "recorded" not in data
     assert data["state"] == "known_gap"
-    prov = data["recorded"]
-    assert prov["workspace_type"] == "localslack-test"
-    assert prov["tool"] == "record.py"
-    assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", prov["date"])
     # The saved request keeps the fixture's own params; the unique suffix only went on the wire.
     assert data["request"]["token"] == "xoxb-test"
     assert data["request"]["params"]["channel"] == "{{chan}}"
@@ -108,3 +109,18 @@ def test_record_from_fixture_against_localslack(tmp_path):
     assert redact_check.find_problems(data) == []
 
     assert record.main(argv, env) != 0, "must refuse to overwrite an existing recording"
+
+
+@pytest.mark.parametrize(
+    "path", ["@evil.example/x", "//evil/x", "/api/../x", "/other", "/api/a?b=1"]
+)
+def test_unsafe_paths_are_refused(path):
+    with pytest.raises(ValueError):
+        record.safe_path(path)
+
+
+def test_is_slack_host():
+    assert record.is_slack("https://slack.com")
+    assert record.is_slack("https://acme.slack.com")
+    assert not record.is_slack("https://slack.com.evil.example")
+    assert not record.is_slack("http://127.0.0.1:3232")

@@ -15,19 +15,19 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `llm` | Written from model knowledge and never checked. Treat as a best guess. |
 | `none` | No conformance fixture exists. |
 
-"Red test" in the deviations table means an executable strict-xfail test in `tests/smoke/known_deviations_test.py` encodes the real Slack behavior. Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. "SDK-tested" means a real Slack SDK client calls the method in `tests/smoke` or `tests/e2e`.
+"Red test" in the deviations table means an executable strict-xfail test in `tests/smoke/known_deviations_test.py` encodes the real Slack behavior. Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. "SDK-called" is a text scan: a Slack SDK client call to the method appears in `tests/smoke` or `tests/e2e`. It is a hint, not proof the behavior is verified.
 
 ## Methods
 
-| Method | Status | Evidence | Tier | Scopes | SDK-tested | Deviations |
+| Method | Status | Evidence | Tier | Scopes | SDK-called | Deviations |
 |---|---|---|---|---|---|---|
-| `auth.test` | implemented | llm | — | — | yes | `fabricated-bot-id`, `any-token-accepted` |
+| `auth.test` | implemented | llm | 3 | — | yes | `fabricated-bot-id`, `any-token-accepted` |
 | `chat.postMessage` | partial | llm | — | `chat:write`, `chat:write.public` | yes | `no-blocks`, `name-targets-unresolved`, `no-membership-check`, `partial-message-fields`, `message-length-unbounded` |
 | `conversations.archive` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors` |
 | `conversations.create` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors`, `no-private-channels` |
 | `conversations.history` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
 | `conversations.list` | implemented | llm | 2 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `no-private-channels`, `partial-conversation-fields`, `limit-clamping` |
-| `conversations.open` | implemented | llm | 3 | `groups:write`, `im:write`, `mpim:write` | yes | `partial-conversation-fields` |
+| `conversations.open` | implemented | llm (errors only) | 3 | `groups:write`, `im:write`, `mpim:write` | yes | `partial-conversation-fields` |
 | `conversations.replies` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
 | `users.list` | implemented | llm | 2 | `users:read` | yes | `users-list-unpaginated`, `partial-user-fields` |
 

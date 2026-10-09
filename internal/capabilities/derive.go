@@ -56,6 +56,18 @@ func EvidenceByMethod(fixtures []NamedFixture) map[string]Evidence {
 	return out
 }
 
+// SuccessMethods reports which methods have at least one fixture whose response is ok:true.
+// Without one, the evidence level only covers error paths.
+func SuccessMethods(fixtures []NamedFixture) map[string]bool {
+	out := map[string]bool{}
+	for _, nf := range fixtures {
+		if ok, _ := nf.Fixture.Response.Body["ok"].(bool); ok && nf.Fixture.Method() != "" {
+			out[nf.Fixture.Method()] = true
+		}
+	}
+	return out
+}
+
 // sdkTestDirs are scanned for real Slack SDK calls.
 var sdkTestDirs = []string{"tests/smoke", "tests/e2e"} //nolint:gochecknoglobals // immutable
 
@@ -167,6 +179,7 @@ func ClientVersions(lock []byte, names ...string) ([]Client, error) {
 type Report struct {
 	Manifest Manifest
 	Evidence map[string]Evidence // per method
+	Success  map[string]bool     // per method: has an ok:true fixture
 	SDK      map[string][]string // per method: test files calling it
 	DevTests map[string][]string // per deviation: red tests tagged @deviation(id)
 	Clients  []Client
@@ -201,7 +214,7 @@ func BuildReport(repo fs.FS) (Report, error) {
 			return Report{}, err
 		}
 	}
-	return Report{Manifest: m, Evidence: EvidenceByMethod(fixtures), SDK: sdk, DevTests: devTests, Clients: clients}, nil
+	return Report{Manifest: m, Evidence: EvidenceByMethod(fixtures), Success: SuccessMethods(fixtures), SDK: sdk, DevTests: devTests, Clients: clients}, nil
 }
 
 // Gaps lists shipped methods whose evidence is below "recorded", weakest first:
@@ -227,4 +240,13 @@ func (r Report) level(method string) Evidence {
 		return e
 	}
 	return EvidenceNone
+}
+
+// levelLabel is the evidence cell: the level, flagged when no success-path fixture backs it.
+func (r Report) levelLabel(method string) string {
+	l := r.level(method)
+	if l != EvidenceNone && !r.Success[method] {
+		return string(l) + " (errors only)"
+	}
+	return string(l)
 }

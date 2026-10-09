@@ -13,7 +13,9 @@ from pathlib import Path
 TOKEN = re.compile(r"\b(?:xox[a-z]|xapp)-[0-9A-Za-z-]{10,}")
 EMAIL = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 URL = re.compile(r"https?://([\w.-]+)", re.IGNORECASE)
-ID = re.compile(r"^[TUCDGWB][A-Z0-9]{8,}$")
+# Any uppercase id-ish token with a digit, anywhere in a string (T/U/C/D/G/W/B/F/A/E/S/... ids).
+ID = re.compile(r"\b[A-Z][A-Z0-9]{8,}\b")
+HEX_SECRET = re.compile(r"\b[0-9a-f]{32,}\b")
 PLACEHOLDER_ID = re.compile(r"^[A-Z]0{8,}$")  # C00000000 etc: obviously fake
 OK_HOSTS = {"slack.com", "www.slack.com", "api.slack.com", "docs.slack.dev"}
 WORKSPACE_HOST = re.compile(
@@ -47,8 +49,12 @@ def _string_problems(value: str, path: str) -> list[str]:
     for host in URL.findall(value):
         if host.lower() not in OK_HOSTS and WORKSPACE_HOST.search(host):
             out.append(f"{path}: contains a workspace slack url ({host})")
-    if ID.match(value) and not PLACEHOLDER_ID.match(value):
-        out.append(f"{path}: literal Slack id {value!r}; use an <id:X> matcher")
+    for m in ID.finditer(value):
+        token = m.group()
+        if any(c.isdigit() for c in token) and not PLACEHOLDER_ID.match(token):
+            out.append(f"{path}: literal Slack id {token!r}; use an <id:X> matcher")
+    if HEX_SECRET.search(value):
+        out.append(f"{path}: long hex string (secret or hash?)")
     last = path.rsplit(".", 1)[-1].split("[")[0]
     if len(value) > LONG_TEXT and not value.startswith("<") and last not in PROSE_KEYS:
         out.append(

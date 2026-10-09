@@ -9,8 +9,14 @@ LocalSlack's goal is to behave like real Slack, and most of what we know about S
 **unverified** (see the `llm`/`none` rows in [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md)).
 A response recorded from a real workspace upgrades a method to `recorded` evidence.
 
-1. **Use a throwaway workspace** (a free one is fine) and a token with only the scopes you need.
-   Never use a workspace that holds real conversations.
+Recording is opt-in and best-effort. We don't provide a workspace, and many methods (admin.*,
+Enterprise Grid, paid-plan features, anything destructive) may never be recorded. That's fine:
+`docs`/`llm` evidence is shown honestly in the matrix. Only record what you can safely reach.
+
+1. **Use a workspace you can afford to pollute** (a free personal one is ideal), a token with only the
+   scopes you need, and prefer read-only methods. Never record from a workspace holding real
+   conversations or data you don't have the right to publish. If you have no such workspace, skip
+   recording; docs-based corrections (a `ref` URL on a fixture, a `[deviations.*]` entry) are welcome too.
 2. Pick work: `make evidence-gaps` lists implemented methods that still lack a recording.
 3. Record, replaying an existing fixture (its `setup` + `request`) against real Slack:
    ```

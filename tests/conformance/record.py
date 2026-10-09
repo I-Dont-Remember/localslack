@@ -29,6 +29,7 @@ import re
 import sys
 import uuid
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import httpx
 
@@ -98,13 +99,27 @@ def substitute(text: str, caps: dict[str, str]) -> str:
     return text
 
 
+def safe_path(path: str) -> str:
+    """Fixtures come from PRs: never let a path redirect the bearer token to another host."""
+    if not path.startswith("/api/") or any(
+        bad in path for bad in ("@", "//", "..", "\\", "?", "#")
+    ):
+        raise ValueError(f"refusing unsafe request path {path!r}")
+    return path
+
+
+def is_slack(base: str) -> bool:
+    host = urlsplit(base).hostname or ""
+    return host == "slack.com" or host.endswith(".slack.com")
+
+
 def call(client: httpx.Client, base: str, token: str, step: dict, caps, unique: str):
     params = {}
     for k, v in (step.get("params") or {}).items():
         v = substitute(v, caps)
         params[k] = f"{v}-{unique}" if k in WIRE_UNIQUE_PARAMS and "{{" not in v else v
     return client.post(
-        base + substitute(step["path"], caps),
+        base + safe_path(substitute(step["path"], caps)),
         headers={"Authorization": f"Bearer {token}"},
         data=params,
     )
@@ -114,7 +129,18 @@ def keep_headers(resp: httpx.Response) -> dict[str, str]:
     return {h: resp.headers[h] for h in KEEP_HEADERS if h in resp.headers}
 
 
-def build_fixture(name, steps, main_req, resp, workspace_type, token):
+def build_fixture(name, steps, main_req, resp, workspace_type, token, real=True):
+    if not real:  # not Slack: never claim recorded evidence
+        return {
+            "state": "known_gap",
+            "note": f"replayed against a non-Slack host: {name}",
+            "source": "local",
+            "request": {**main_req, "token": "xoxb-test"},
+            "response": {"status": resp.status_code, "body": sanitize(resp.json())},
+            **(
+                {"setup": [{**s, "token": "xoxb-test"} for s in steps]} if steps else {}
+            ),
+        }
     headers = keep_headers(resp)
     scopes = [
         s.strip() for s in headers.get("x-oauth-scopes", "").split(",") if s.strip()
@@ -157,6 +183,9 @@ def parse_args(argv):
     )
     p.add_argument("--out-dir", default=str(FIXTURES))
     p.add_argument(
+        "--allow-error", action="store_true", help="record an ok=false response"
+    )
+    p.add_argument(
         "--replace", action="store_true", help="with --from: overwrite the source file"
     )
     return p.parse_args(argv)
@@ -190,11 +219,24 @@ def main(argv=None, env=None) -> int:
         )
         return 1
 
+    if urlsplit(args.base_url).scheme not in ("https", "http"):
+        print("bad --base-url", file=sys.stderr)
+        return 2
+    print(f"will replay {len(steps) + 1} call(s) to {args.base_url}:", file=sys.stderr)
+    for st in [*steps, main_req]:
+        print(f"  {st['path']}", file=sys.stderr)
     unique, caps = uuid.uuid4().hex[:8], {}
     with httpx.Client(timeout=30) as client:
         for step in steps:
             resp = call(client, args.base_url, token, step, caps, unique)
             body = resp.json()
+            if not body.get("ok"):
+                print(
+                    f"setup step {step['path']} failed: {body.get('error')}; "
+                    f"created so far: {caps}. Clean up manually.",
+                    file=sys.stderr,
+                )
+                return 1
             for cap_name, path in (step.get("capture") or {}).items():
                 caps[cap_name] = dig(body, path)
         resp = call(client, args.base_url, token, main_req, caps, unique)
@@ -205,7 +247,15 @@ def main(argv=None, env=None) -> int:
         )
         return 1
 
-    out = build_fixture(name, steps, main_req, resp, workspace_type, token)
+    real = is_slack(args.base_url)
+    if real and not resp.json().get("ok") and not args.allow_error:
+        print(
+            f"main call returned ok=false ({resp.json().get('error')}); pass --allow-error "
+            "if this error case is the point of the fixture",
+            file=sys.stderr,
+        )
+        return 1
+    out = build_fixture(name, steps, main_req, resp, workspace_type, token, real)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(json.dumps(out, indent=2) + "\n")
     print(f"wrote {dest}")

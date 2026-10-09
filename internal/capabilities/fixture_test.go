@@ -124,14 +124,11 @@ func TestEveryShippedMethodHasAFixture(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	have := map[string]bool{}
-	for _, nf := range repoFixtures(t) {
-		have[nf.Fixture.Method()] = true
-	}
+	have := capabilities.SuccessMethods(repoFixtures(t))
 	for name, meth := range m.Methods {
 		if (meth.Status == capabilities.StatusImplemented || meth.Status == capabilities.StatusPartial) &&
-			!have[name] && !strings.HasPrefix(meth.Fixtures, "waived:") {
-			t.Errorf("method %s is %s but has no fixture in tests/conformance/fixtures; add one or set fixtures = \"waived: reason\"", name, meth.Status)
+			!have[name] && (!strings.HasPrefix(meth.Fixtures, "waived:") || len(meth.Fixtures) <= len("waived: ")+10) {
+			t.Errorf("method %s is %s but has no ok:true fixture in tests/conformance/fixtures; add one or set fixtures = \"waived: reason\"", name, meth.Status)
 		}
 	}
 }

@@ -11,7 +11,6 @@ The expected Slack behavior in these tests comes from memory of Slack's docs (ev
 
 import httpx
 from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
 
 from conftest import deviation, error_of, humans
 
@@ -117,8 +116,3 @@ def test_messages_carry_bot_fields(client, unique):
 def test_empty_channel_name_has_its_own_error(client):
     status, error = error_of(lambda: client.conversations_create(name=""))
     assert (status, error) == (200, "invalid_name_required")
-
-
-def test_known_deviation_helpers_import_cleanly():
-    """Keeps SlackApiError imported for the helpers' typing and guards the module itself."""
-    assert issubclass(SlackApiError, Exception)

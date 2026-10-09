@@ -1,0 +1,54 @@
+{
+  "state": "passing",
+  "source": "llm",
+  "note": "shape from memory of the Slack docs (subset: extras we emit are ignored)",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-history"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "hello"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.history",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "has_more": false,
+      "messages": [
+        {
+          "type": "message",
+          "user": "<id:U>",
+          "text": "hello",
+          "ts": "<ts>"
+        }
+      ]
+    },
+    "ignore": [
+      "pin_count",
+      "response_metadata"
+    ]
+  }
+}
