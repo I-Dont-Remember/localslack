@@ -34,3 +34,5 @@ go.work.sum
 .vscode/
 recycle-bin/
 .claude/settings.local.json
+__pycache__/
+.ruff_cache/

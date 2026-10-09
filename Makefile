@@ -1,4 +1,4 @@
-.PHONY: build run dev tidy clean test conformance smoke test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: lint-py build run dev tidy clean test conformance smoke test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -48,9 +48,14 @@ setup:
 
 fmt:
 	golangci-lint fmt ./...
+	uv run --project tests/smoke ruff format tests
 
 lint:
 	golangci-lint run ./...
+
+lint-py:
+	uv run --project tests/smoke ruff check tests
+	uv run --project tests/smoke ruff format --check tests
 
 vet:
 	go vet ./...
@@ -59,6 +64,7 @@ check:
 	golangci-lint fmt --diff ./...
 	$(MAKE) vet
 	$(MAKE) lint
+	$(MAKE) lint-py
 
 review:
 	git diff main HEAD | difit

@@ -23,9 +23,37 @@ repos:
         types: [go]
         pass_filenames: false
 
+      - id: go-build
+        name: go build
+        entry: go build ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
+      - id: go-test
+        name: go test -short
+        entry: go test -short -shuffle=on ./...
+        language: system
+        types: [go]
+        pass_filenames: false
+
       - id: go-mod-tidy
         name: go mod tidy check
-        entry: bash -c 'cp go.mod /tmp/go.mod.bak && cp go.sum /tmp/go.sum.bak && go mod tidy && diff /tmp/go.mod.bak go.mod && diff /tmp/go.sum.bak go.sum'
+        entry: go mod tidy -diff
         language: system
         files: '(\.go|go\.mod|go\.sum)$'
+        pass_filenames: false
+
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --project tests/smoke ruff check tests
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --project tests/smoke ruff format --check tests
+        language: system
+        types: [python]
         pass_filenames: false

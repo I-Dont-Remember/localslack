@@ -7,3 +7,12 @@ dependencies = [
     "pytest",
     "httpx",
 ]
+
+[dependency-groups]
+dev = ["ruff"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
