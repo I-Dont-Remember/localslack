@@ -31,15 +31,15 @@ func nextCursor(body map[string]any) string {
 	return c
 }
 
-func channelByName(t *testing.T, app *storetest.App, name string) string {
+func generalID(t *testing.T, app *storetest.App) string {
 	t.Helper()
 	_, body := call(t, app, "conversations.list", botToken, map[string]string{"limit": "1000"})
 	for _, c := range items(t, body, "channels") {
-		if c["name"] == name {
+		if c["name"] == "general" {
 			return c["id"].(string)
 		}
 	}
-	t.Fatalf("no channel %q", name)
+	t.Fatal("no #general")
 	return ""
 }
 
@@ -180,7 +180,7 @@ func TestHistoryAndReplies(t *testing.T) {
 	t.Parallel()
 
 	app := storetest.NewApp(t)
-	general := channelByName(t, app, "general")
+	general := generalID(t, app)
 
 	_, hist := call(t, app, "conversations.history", botToken, map[string]string{"channel": general, "limit": "1000"})
 	msgs := items(t, hist, "messages")
@@ -237,7 +237,7 @@ func TestHistoryPaginationWalk(t *testing.T) {
 	t.Parallel()
 
 	app := storetest.NewApp(t)
-	general := channelByName(t, app, "general")
+	general := generalID(t, app)
 	_, full := call(t, app, "conversations.history", botToken, map[string]string{"channel": general, "limit": "1000"})
 	var want []string
 	for _, m := range items(t, full, "messages") {

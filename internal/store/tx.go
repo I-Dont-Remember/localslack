@@ -103,6 +103,18 @@ func (t *Tx) BumpThread(ctx context.Context, channelID, parentTS, replyTS string
 	return nil
 }
 
+// SetArchived flips a conversation's archived flag; ErrNotFound if it does not exist.
+func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
+	res, err := t.tx.ExecContext(ctx, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
+	if err != nil {
+		return fmt.Errorf("set archived: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("set archived %s: %w", id, ErrNotFound)
+	}
+	return nil
+}
+
 // InsertMessage adds a message.
 func (t *Tx) InsertMessage(ctx context.Context, m Message) error {
 	return t.exec(ctx, "insert message",

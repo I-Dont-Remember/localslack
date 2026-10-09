@@ -25,6 +25,8 @@ func ErrorCode(err error) (string, bool) {
 		{service.ErrInvalidCursor, "invalid_cursor"},
 		{service.ErrInvalidTypes, "invalid_types"},
 		{service.ErrIsArchived, "is_archived"},
+		{service.ErrAlreadyArchived, "already_archived"},
+		{service.ErrCantArchiveGeneral, "cant_archive_general"},
 	}
 	for _, e := range table {
 		if errors.Is(err, e.err) {

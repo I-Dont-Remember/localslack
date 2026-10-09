@@ -49,6 +49,8 @@ func (a *API) registry() map[string]method {
 		"conversations.open":    a.conversationsOpen,
 		"conversations.history": a.conversationsHistory,
 		"conversations.replies": a.conversationsReplies,
+		"conversations.archive": a.conversationsArchive,
+		"chat.postMessage":      a.chatPostMessage,
 	}
 }
 

@@ -572,3 +572,88 @@ func TestHistoryRange(t *testing.T) {
 		})
 	}
 }
+
+func TestArchive(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, _ := usersOf(t, svc)
+	general := generalID(t, svc, caller)
+	ch, err := svc.CreateChannel(t.Context(), caller, "doomed")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	if err := svc.ArchiveChannel(t.Context(), caller, general); !errors.Is(err, service.ErrCantArchiveGeneral) {
+		t.Errorf("archive general err = %v, want ErrCantArchiveGeneral", err)
+	}
+	if err := svc.ArchiveChannel(t.Context(), caller, "CNOPE"); !errors.Is(err, service.ErrChannelNotFound) {
+		t.Errorf("archive missing err = %v, want ErrChannelNotFound", err)
+	}
+	if err := svc.ArchiveChannel(t.Context(), caller, ch.ID); err != nil {
+		t.Fatalf("archive: %v", err)
+	}
+	if err := svc.ArchiveChannel(t.Context(), caller, ch.ID); !errors.Is(err, service.ErrAlreadyArchived) {
+		t.Errorf("second archive err = %v, want ErrAlreadyArchived", err)
+	}
+	if _, err := svc.PostMessage(t.Context(), caller, ch.ID, "hi", ""); !errors.Is(err, service.ErrIsArchived) {
+		t.Errorf("post to archived err = %v, want ErrIsArchived", err)
+	}
+
+	for _, tc := range []struct {
+		exclude bool
+		present bool
+	}{{false, true}, {true, false}} {
+		page, err := svc.ListConversations(t.Context(), caller, service.ListOpts{ExcludeArchived: tc.exclude, Limit: 1000})
+		if err != nil {
+			t.Fatalf("list: %v", err)
+		}
+		found := false
+		for _, c := range page.Items {
+			found = found || c.ID == ch.ID
+		}
+		if found != tc.present {
+			t.Errorf("exclude_archived=%v: archived channel listed=%v, want %v", tc.exclude, found, tc.present)
+		}
+	}
+}
+
+func TestConcurrentCreateAndPostAndRead(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, other := usersOf(t, svc)
+	ch := generalID(t, svc, caller)
+
+	var wg sync.WaitGroup
+	for i := range 6 {
+		wg.Add(3)
+		go func() {
+			defer wg.Done()
+			if _, err := svc.CreateChannel(t.Context(), caller, "race-"+strconv.Itoa(i)); err != nil {
+				t.Errorf("create: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if _, err := svc.OpenDM(t.Context(), caller, []string{other.ID}); err != nil {
+				t.Errorf("open dm: %v", err)
+			}
+			if _, err := svc.PostMessage(t.Context(), caller, ch, "r", ""); err != nil {
+				t.Errorf("post: %v", err)
+			}
+		}()
+		go func() {
+			defer wg.Done()
+			if _, err := svc.History(t.Context(), caller, ch, service.PageOpts{}); err != nil {
+				t.Errorf("history: %v", err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	ims, err := svc.ListConversations(t.Context(), caller, service.ListOpts{Types: []string{"im"}})
+	if err != nil || len(ims.Items) != 1 {
+		t.Errorf("concurrent OpenDM made %d ims, %v; want exactly 1", len(ims.Items), err)
+	}
+}

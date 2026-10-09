@@ -165,3 +165,28 @@ func notFoundAs(err, domain error) error {
 	}
 	return err
 }
+
+// ArchiveChannel archives a public channel (never #general).
+func (s *Service) ArchiveChannel(ctx context.Context, _ User, id string) error {
+	return s.st.Write(ctx, func(tx *store.Tx) error {
+		c, err := tx.Conversation(ctx, id)
+		if err != nil || c.Kind != KindChannel {
+			return notFoundOr(err, ErrChannelNotFound)
+		}
+		switch {
+		case c.Name == "general":
+			return ErrCantArchiveGeneral
+		case c.IsArchived:
+			return ErrAlreadyArchived
+		}
+		return tx.SetArchived(ctx, id, true)
+	})
+}
+
+// notFoundOr maps any lookup failure or kind mismatch to domain; real faults pass through.
+func notFoundOr(err, domain error) error {
+	if err == nil || errors.Is(err, store.ErrNotFound) {
+		return domain
+	}
+	return err
+}

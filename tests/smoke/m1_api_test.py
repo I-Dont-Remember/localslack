@@ -1,16 +1,10 @@
 """M1 vertical-slice API tests (write, then read back through a different endpoint).
 
-Strict xfail per test until its endpoint ships: must FAIL now (red) with an API/assertion
-error only (not a crash or typo); delete the `@m1` marker per test as endpoints land (green).
-XPASS fails the run, forcing marker removal.
+All M1 endpoints have shipped; these are plain passing tests.
 """
 
 import pytest
 from slack_sdk.errors import SlackApiError
-
-m1 = pytest.mark.xfail(
-    strict=True, raises=(SlackApiError, AssertionError), reason="M1: not implemented yet"
-)
 
 
 def test_auth_test(client):
@@ -42,7 +36,6 @@ def test_create_duplicate_channel_is_name_taken(client, unique):
     assert exc_info.value.response["error"] == "name_taken"
 
 
-@m1
 def test_post_message_persists(client, unique):
     channel = client.conversations_create(name=f"msg-{unique}")["channel"]["id"]
     posted = client.chat_postMessage(channel=channel, text=f"hello {unique}")
@@ -50,14 +43,12 @@ def test_post_message_persists(client, unique):
     assert [(m["ts"], m["text"]) for m in history] == [(posted["ts"], f"hello {unique}")]
 
 
-@m1
 def test_post_to_missing_channel(client):
     with pytest.raises(SlackApiError) as exc_info:
         client.chat_postMessage(channel="C00000000", text="x")
     assert exc_info.value.response["error"] == "channel_not_found"
 
 
-@m1
 def test_thread_reply_persists(client, unique):
     channel = client.conversations_create(name=f"thr-{unique}")["channel"]["id"]
     parent = client.chat_postMessage(channel=channel, text="parent")["ts"]
@@ -84,7 +75,6 @@ def test_conversations_list_paginates(client, unique):
     assert walked == everything
 
 
-@m1
 def test_open_dm_and_message_persists(client, unique):
     me = client.auth_test()["user_id"]
     others = [u["id"] for u in client.users_list()["members"] if not u["is_bot"] and u["id"] != me]
