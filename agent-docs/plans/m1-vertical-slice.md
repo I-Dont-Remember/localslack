@@ -28,7 +28,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 6. [x] chat.postMessage (thread_ts bump, channel_not_found)
 7. [x] `GET /_localslack/state/conversations`
 8. [x] web UI (below)
-9. [ ] e2e (below)
+9. [x] e2e (below)
 10. [ ] finish (below)
 
 ## Arch review follow-ups (after step 3; deferred items tagged with the step that must do them)

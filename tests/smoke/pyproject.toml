@@ -6,6 +6,8 @@ dependencies = [
     "slack-sdk",
     "pytest",
     "httpx",
+    "playwright>=1.63.0",
+    "pytest-playwright>=0.10.0",
 ]
 
 [dependency-groups]

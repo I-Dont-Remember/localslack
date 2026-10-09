@@ -77,6 +77,19 @@
     <button type="submit" data-testid="reply-send">Reply</button>
   </form>
 </section>{{end}}
+<script>
+  // Open scrolled to the newest message; keep following new ones unless the reader scrolled up.
+  const toBottom = (el) => { el.scrollTop = el.scrollHeight; };
+  document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('.scroll').forEach(toBottom));
+  document.body.addEventListener('htmx:beforeSwap', (e) => {
+    const s = e.target.closest('.scroll');
+    if (s) s.dataset.stick = String(s.scrollHeight - s.scrollTop - s.clientHeight < 40);
+  });
+  document.body.addEventListener('htmx:afterSwap', (e) => {
+    const s = e.target.closest('.scroll');
+    if (s && s.dataset.stick === 'true') toBottom(s);
+  });
+</script>
 </body>
 </html>
 {{end}}
