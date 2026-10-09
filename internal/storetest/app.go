@@ -11,6 +11,7 @@ import (
 
 	"localslack/internal/config"
 	"localslack/internal/server"
+	"localslack/internal/service"
 	"localslack/internal/store"
 )
 
@@ -22,9 +23,10 @@ func PinnedNow() time.Time { return time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC) 
 
 // App is a running server backed by its own temp-file database.
 type App struct {
-	URL    string
-	Config config.Config
-	Store  *store.Store
+	URL     string
+	Config  config.Config
+	Store   *store.Store
+	Service *service.Service
 }
 
 // NewApp starts an isolated app (temp DB, pinned seed) and stops it on cleanup.
@@ -37,18 +39,18 @@ func NewApp(t *testing.T) *App {
 		Seed:   PinnedSeed,
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	st, err := server.OpenStore(t.Context(), log, cfg, PinnedNow())
+	built, err := server.Build(t.Context(), log, cfg, PinnedNow)
 	if err != nil {
-		t.Fatalf("open store: %v", err)
+		t.Fatalf("build app: %v", err)
 	}
 	t.Cleanup(func() {
-		if err := st.Close(); err != nil {
-			t.Errorf("close store: %v", err)
+		if err := built.Close(); err != nil {
+			t.Errorf("close app: %v", err)
 		}
 	})
-	srv := httptest.NewServer(server.NewRouter(server.Deps{Log: log}))
+	srv := httptest.NewServer(built.Handler)
 	t.Cleanup(srv.Close)
-	return &App{URL: srv.URL, Config: cfg, Store: st}
+	return &App{URL: srv.URL, Config: cfg, Store: built.Store, Service: built.Service}
 }
 
 // NewStore opens a seeded (pinned seed and clock) temp-file store, closed on cleanup.

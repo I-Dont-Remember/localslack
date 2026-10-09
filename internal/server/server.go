@@ -12,12 +12,14 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"localslack/internal/config"
+	"localslack/internal/service"
 )
 
 // Deps are the collaborators the router needs. Service-backed routes are
 // mounted only when their dependency is set, so health works without any.
 type Deps struct {
 	Log *slog.Logger
+	Svc *service.Service
 }
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
@@ -33,20 +35,20 @@ func NewRouter(d Deps) http.Handler {
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled or a fatal error occurs.
 func Run(ctx context.Context, log *slog.Logger, cfg config.Config) error {
-	st, err := OpenStore(ctx, log, cfg, time.Now())
+	app, err := Build(ctx, log, cfg, time.Now)
 	if err != nil {
 		return err
 	}
 	defer func() {
-		if cerr := st.Close(); cerr != nil {
-			log.ErrorContext(ctx, "close store", slog.Any("err", cerr))
+		if cerr := app.Close(); cerr != nil {
+			log.ErrorContext(ctx, "close app", slog.Any("err", cerr))
 		}
 	}()
 
 	addr := cfg.Addr
 	srv := &http.Server{
 		Addr:    addr,
-		Handler: NewRouter(Deps{Log: log}),
+		Handler: app.Handler,
 	}
 
 	lc := net.ListenConfig{}

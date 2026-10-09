@@ -108,7 +108,6 @@ func TestCreateChannel(t *testing.T) {
 	}{
 		{"ok", "project-x", nil},
 		{"duplicate", "project-x", service.ErrNameTaken},
-		{"duplicate ignores case in lookup", "project-x", service.ErrNameTaken},
 		{"general exists from seed", "general", service.ErrNameTaken},
 		{"uppercase", "Project", service.ErrInvalidName},
 		{"space", "my channel", service.ErrInvalidName},
@@ -203,7 +202,7 @@ func TestPostMessageAndHistory(t *testing.T) {
 		t.Errorf("ts not strictly increasing: %v", posted)
 	}
 
-	page, err := svc.History(t.Context(), ch, service.PageOpts{Limit: 2})
+	page, err := svc.History(t.Context(), caller, ch, service.PageOpts{Limit: 2})
 	if err != nil {
 		t.Fatalf("History: %v", err)
 	}
@@ -213,14 +212,14 @@ func TestPostMessageAndHistory(t *testing.T) {
 	if page.NextCursor == "" {
 		t.Fatal("expected a next cursor")
 	}
-	next, err := svc.History(t.Context(), ch, service.PageOpts{Limit: 2, Cursor: page.NextCursor})
+	next, err := svc.History(t.Context(), caller, ch, service.PageOpts{Limit: 2, Cursor: page.NextCursor})
 	if err != nil {
 		t.Fatalf("History next: %v", err)
 	}
 	if len(next.Items) == 0 || next.Items[0].TS >= posted[1] {
 		t.Errorf("second page starts at %v, want older than %s", next.Items, posted[1])
 	}
-	if _, err := svc.History(t.Context(), "CNOPE", service.PageOpts{}); !errors.Is(err, service.ErrChannelNotFound) {
+	if _, err := svc.History(t.Context(), caller, "CNOPE", service.PageOpts{}); !errors.Is(err, service.ErrChannelNotFound) {
 		t.Errorf("history of missing channel err = %v", err)
 	}
 }
@@ -252,7 +251,7 @@ func TestThreads(t *testing.T) {
 		t.Errorf("orphan err = %v, want ErrThreadNotFound", err)
 	}
 
-	replies, err := svc.Replies(t.Context(), ch, parent.TS, service.PageOpts{})
+	replies, err := svc.Replies(t.Context(), caller, ch, parent.TS, service.PageOpts{})
 	if err != nil {
 		t.Fatalf("Replies: %v", err)
 	}
@@ -267,14 +266,14 @@ func TestThreads(t *testing.T) {
 		t.Errorf("parent = %+v, want reply_count 2 latest %s", p, reply2.TS)
 	}
 
-	hist, err := svc.History(t.Context(), ch, service.PageOpts{Limit: 1})
+	hist, err := svc.History(t.Context(), caller, ch, service.PageOpts{Limit: 1})
 	if err != nil {
 		t.Fatalf("History: %v", err)
 	}
 	if len(hist.Items) != 1 || hist.Items[0].TS != parent.TS {
 		t.Errorf("history top = %+v, want only the parent (replies excluded)", hist.Items)
 	}
-	if _, err := svc.Replies(t.Context(), ch, "1.000001", service.PageOpts{}); !errors.Is(err, service.ErrThreadNotFound) {
+	if _, err := svc.Replies(t.Context(), caller, ch, "1.000001", service.PageOpts{}); !errors.Is(err, service.ErrThreadNotFound) {
 		t.Errorf("replies of missing thread err = %v", err)
 	}
 }
@@ -311,7 +310,7 @@ func TestOpenDM(t *testing.T) {
 	if _, err := svc.PostMessage(t.Context(), caller, im.ID, "psst", ""); err != nil {
 		t.Fatalf("post to dm: %v", err)
 	}
-	h, err := svc.History(t.Context(), im.ID, service.PageOpts{})
+	h, err := svc.History(t.Context(), caller, im.ID, service.PageOpts{})
 	if err != nil || len(h.Items) != 1 || h.Items[0].Text != "psst" {
 		t.Errorf("dm history = %+v, %v", h.Items, err)
 	}
@@ -328,7 +327,7 @@ func TestOpenGroupDM(t *testing.T) {
 	svc, _ := newSvc(t)
 	us, err := svc.Users(t.Context())
 	if err != nil || len(us) < 3 {
-		t.Skipf("pinned seed has %d users; need 3 for an mpim (err %v)", len(us), err)
+		t.Fatalf("pinned seed has %d users (err %v); the mpim test needs 3, pick another PinnedSeed", len(us), err)
 	}
 	mp, err := svc.OpenDM(t.Context(), us[0], []string{us[1].ID, us[2].ID})
 	if err != nil || mp.Kind != service.KindMPIM || mp.ID[0] != 'G' {
@@ -408,5 +407,55 @@ func TestTSSurvivesRestartWithEarlierClock(t *testing.T) {
 	}
 	if m2.TS <= m1.TS {
 		t.Errorf("ts after restart %s <= before %s", m2.TS, m1.TS)
+	}
+}
+
+func TestRuntimeIDsDoNotCollideAcrossRestarts(t *testing.T) {
+	t.Parallel()
+
+	st := storetest.NewStore(t)
+	for i := range 3 { // each "process start" must mint fresh ids
+		svc, err := service.New(t.Context(), st, fixedClock(), "")
+		if err != nil {
+			t.Fatalf("New #%d: %v", i, err)
+		}
+		caller, _ := usersOf(t, svc)
+		if _, err := svc.CreateChannel(t.Context(), caller, "restart-"+strconv.Itoa(i)); err != nil {
+			t.Fatalf("CreateChannel after restart #%d: %v", i, err)
+		}
+	}
+}
+
+func TestCursorsAreBoundToTheirEndpoint(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, _ := usersOf(t, svc)
+	ch := generalID(t, svc, caller)
+	for range 3 {
+		if _, err := svc.PostMessage(t.Context(), caller, ch, "x", ""); err != nil {
+			t.Fatalf("post: %v", err)
+		}
+	}
+	hist, err := svc.History(t.Context(), caller, ch, service.PageOpts{Limit: 1})
+	if err != nil || hist.NextCursor == "" {
+		t.Fatalf("history page: %+v, %v", hist, err)
+	}
+	if _, err := svc.ListConversations(t.Context(), caller, service.ListOpts{Cursor: hist.NextCursor}); !errors.Is(err, service.ErrInvalidCursor) {
+		t.Errorf("history cursor on conversations.list err = %v, want ErrInvalidCursor", err)
+	}
+}
+
+func TestAuthenticateEdges(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	for _, tok := range []string{"xoxp-", "xoxp"} {
+		if _, err := svc.Authenticate(t.Context(), tok); !errors.Is(err, service.ErrInvalidAuth) {
+			t.Errorf("Authenticate(%q) err = %v, want ErrInvalidAuth", tok, err)
+		}
+	}
+	if _, err := svc.Authenticate(t.Context(), "xoxb-"); err != nil {
+		t.Errorf("bare xoxb- err = %v, want nil (any bot token)", err)
 	}
 }

@@ -53,7 +53,7 @@ func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
-	after, err := decodeCursor(o.Cursor)
+	after, err := decodeCursor(cursorConversations, o.Cursor)
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
-	return paginate(items, limit, func(c Conversation) string { return c.ID }), nil
+	return paginate(cursorConversations, items, limit, func(c Conversation) string { return c.ID }), nil
 }
 
 func kindsFor(types []string) ([]string, error) {

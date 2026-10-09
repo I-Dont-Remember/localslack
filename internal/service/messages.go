@@ -57,11 +57,11 @@ func threadRoot(ctx context.Context, tx *store.Tx, channelID, threadTS string) (
 }
 
 // History returns a channel's top-level messages, newest first.
-func (s *Service) History(ctx context.Context, channelID string, o PageOpts) (Page[Message], error) {
+func (s *Service) History(ctx context.Context, _ User, channelID string, o PageOpts) (Page[Message], error) {
 	if err := s.requireChannel(ctx, channelID); err != nil {
 		return Page[Message]{}, err
 	}
-	before, err := decodeCursor(o.Cursor)
+	before, err := decodeCursor(cursorHistory, o.Cursor)
 	if err != nil {
 		return Page[Message]{}, err
 	}
@@ -70,15 +70,15 @@ func (s *Service) History(ctx context.Context, channelID string, o PageOpts) (Pa
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return paginate(items, limit, func(m Message) string { return m.TS }), nil
+	return paginate(cursorHistory, items, limit, func(m Message) string { return m.TS }), nil
 }
 
 // Replies returns a thread (root first, then replies oldest first).
-func (s *Service) Replies(ctx context.Context, channelID, threadTS string, o PageOpts) (Page[Message], error) {
+func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS string, o PageOpts) (Page[Message], error) {
 	if err := s.requireChannel(ctx, channelID); err != nil {
 		return Page[Message]{}, err
 	}
-	after, err := decodeCursor(o.Cursor)
+	after, err := decodeCursor(cursorReplies, o.Cursor)
 	if err != nil {
 		return Page[Message]{}, err
 	}
@@ -95,7 +95,7 @@ func (s *Service) Replies(ctx context.Context, channelID, threadTS string, o Pag
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return paginate(items, limit, func(m Message) string { return m.TS }), nil
+	return paginate(cursorReplies, items, limit, func(m Message) string { return m.TS }), nil
 }
 
 func (s *Service) requireChannel(ctx context.Context, channelID string) error {

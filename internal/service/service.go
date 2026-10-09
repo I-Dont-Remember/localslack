@@ -4,6 +4,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"strings"
@@ -36,8 +38,9 @@ type Service struct {
 	ts  *tsGen
 }
 
-// New builds a Service. idSeed seeds id generation for newly created
-// conversations; use a value distinct from the data seed.
+// New builds a Service. idSeed makes new conversation ids deterministic for
+// tests; production passes "" to get a fresh random seed per process, so ids
+// never replay after a restart. Exactly one Service may write to a store.
 func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed string) (*Service, error) {
 	maxTS, err := st.MaxTS(ctx)
 	if err != nil {
@@ -46,6 +49,11 @@ func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed stri
 	gen, err := newTSGen(maxTS)
 	if err != nil {
 		return nil, fmt.Errorf("seed ts generator: %w", err)
+	}
+	if idSeed == "" {
+		if idSeed, err = randomSeed(); err != nil {
+			return nil, err
+		}
 	}
 	return &Service{st: st, now: now, ids: ids.NewGenerator(idSeed), ts: gen}, nil
 }
@@ -76,3 +84,11 @@ func (s *Service) Team(ctx context.Context) (Team, error) { return s.st.Team(ctx
 
 // Users returns all users.
 func (s *Service) Users(ctx context.Context) ([]User, error) { return s.st.Users(ctx) }
+
+func randomSeed() (string, error) {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("random id seed: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}

@@ -94,14 +94,17 @@ func migrate(ctx context.Context, db *sql.DB) error {
 }
 
 // Write runs fn in a transaction on the writer connection; it commits if fn
-// returns nil and rolls back otherwise.
+// returns nil and rolls back otherwise. Do not call Write from inside fn: the
+// single writer connection would deadlock.
 func (s *Store) Write(ctx context.Context, fn func(*Tx) error) error {
 	tx, err := s.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
+	// Release the single writer connection even if fn panics (no-op after commit).
+	defer func() { _ = rollback(tx) }()
 	if err := fn(&Tx{tx: tx}); err != nil {
-		return errors.Join(err, rollback(tx))
+		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
