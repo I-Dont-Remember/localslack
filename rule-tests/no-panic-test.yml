@@ -1,0 +1,5 @@
+id: no-panic
+valid:
+  - 'return errors.New("x")'
+invalid:
+  - 'panic("x")'

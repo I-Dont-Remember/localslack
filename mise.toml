@@ -1,2 +1,8 @@
 [tools]
+air = "latest"
 go = "1.24"
+golangci-lint = "latest"
+python = "3.12"
+pre-commit = "latest"
+uv = "latest"
+ast-grep = "latest"

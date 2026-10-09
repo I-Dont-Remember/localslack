@@ -1,0 +1,8 @@
+id: no-t-setenv
+language: go
+severity: error
+message: t.Setenv forbids t.Parallel and hides global state. Inject an env lookup func (see internal/xdg.New).
+rule:
+  pattern:
+    context: 'func _() { t.Setenv($$$) }'
+    selector: call_expression

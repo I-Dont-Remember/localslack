@@ -1,0 +1,22 @@
+[project]
+name = "localslack-smoke"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "slack-sdk",
+    "pytest",
+    "httpx",
+]
+
+[dependency-groups]
+dev = ["ruff"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pytest.ini_options]
+python_files = ["*_test.py"]
+xfail_strict = true

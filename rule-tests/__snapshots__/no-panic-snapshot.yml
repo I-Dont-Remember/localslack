@@ -1,0 +1,8 @@
+id: no-panic
+snapshots:
+  panic("x"):
+    labels:
+    - source: panic("x")
+      style: primary
+      start: 0
+      end: 10

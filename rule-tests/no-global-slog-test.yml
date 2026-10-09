@@ -1,0 +1,8 @@
+id: no-global-slog
+valid:
+  - 'func f() { log.InfoContext(ctx, "x") }'
+  - 'func f() { _ = slog.String("k", "v") }'
+  - 'func f() { _ = slog.New(h) }'
+invalid:
+  - 'func f() { slog.Info("x") }'
+  - 'func f() { slog.ErrorContext(ctx, "x", "error", err) }'

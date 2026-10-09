@@ -1,0 +1,46 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - revive
+    - misspell
+    - nilerr
+    - unparam
+    - ineffassign
+    - gochecknoinits
+    - gochecknoglobals
+    - noctx
+    - errorlint
+    - bodyclose
+    - thelper
+    - paralleltest
+  settings:
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: dot-imports
+        - name: error-strings
+        - name: var-naming
+        - name: indent-error-flow
+        - name: if-return
+        - name: increment-decrement
+        - name: range
+  exclusions:
+    paths:
+      - tmp
+
+formatters:
+  enable:
+    - goimports
+    - gofumpt
+  settings:
+    goimports:
+      local-prefixes:
+        - localslack
+    gofumpt:
+      module-path: localslack

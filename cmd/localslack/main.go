@@ -1,24 +1,21 @@
+// Command localslack is the LocalSlack API emulator.
 package main
 
 import (
-	"log"
+	"github.com/alecthomas/kong"
 
-	"localslack/internal/utils"
-	"localslack/internal/api"
+	"localslack/internal/cli"
 )
 
-type PlaceHolderConfig struct {
-	Addr string
+type app struct {
+	Start cli.StartCmd `cmd:"" help:"Start the LocalSlack server."`
+	Stop  cli.StopCmd  `cmd:"" help:"Stop the background LocalSlack server."`
 }
 
 func main() {
-	log.Println("LocalSlack booting up...")
-
-	cfg := PlaceHolderConfig{
-		Addr: utils.GetEnvWithDefault("SLACK_LISTEN_ADDR", ":3232"),
+	a := app{}
+	kctx := kong.Parse(&a)
+	if err := kctx.Run(); err != nil {
+		kctx.Fatalf("%v", err)
 	}
-
-	s := api.NewServer()
-
-	s.Start(cfg.Addr)
 }

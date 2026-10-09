@@ -1,0 +1,12 @@
+id: no-panic
+language: go
+severity: error
+message: Return errors instead of panicking (agent-docs/coding_standards.md).
+rule:
+  pattern: panic($$$)
+files:
+  - "**/*.go"
+ignores:
+  - "**/*_test.go"
+  - cmd/**
+  - internal/server/middleware.go
