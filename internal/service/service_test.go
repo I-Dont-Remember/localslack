@@ -459,3 +459,116 @@ func TestAuthenticateEdges(t *testing.T) {
 		t.Errorf("bare xoxb- err = %v, want nil (any bot token)", err)
 	}
 }
+
+func TestConversationShape(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, other := usersOf(t, svc)
+	all, err := svc.Users(t.Context())
+	if err != nil {
+		t.Fatalf("Users: %v", err)
+	}
+
+	ch, err := svc.CreateChannel(t.Context(), caller, "shape")
+	if err != nil || !ch.IsMember || ch.NumMembers != 1 {
+		t.Errorf("created channel = %+v, %v; want IsMember and 1 member", ch, err)
+	}
+	im, err := svc.OpenDM(t.Context(), caller, []string{other.ID})
+	if err != nil || im.Peer != other.ID || im.NumMembers != 2 {
+		t.Errorf("im = %+v, %v; want Peer %s, 2 members", im, err, other.ID)
+	}
+	self, err := svc.OpenDM(t.Context(), caller, []string{caller.ID})
+	if err != nil || self.Peer != caller.ID {
+		t.Errorf("self im = %+v, %v; want Peer %s", self, err, caller.ID)
+	}
+
+	general := generalID(t, svc, caller)
+	got, err := svc.Conversation(t.Context(), caller, general)
+	if err != nil || !got.IsMember || got.NumMembers != len(all) {
+		t.Errorf("#general = %+v, %v; want member of %d", got, err, len(all))
+	}
+	if _, err := svc.Conversation(t.Context(), caller, "CNOPE"); !errors.Is(err, service.ErrChannelNotFound) {
+		t.Errorf("missing conversation err = %v", err)
+	}
+}
+
+func TestMessageThreadFields(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, other := usersOf(t, svc)
+	ch := generalID(t, svc, caller)
+	plain, _ := svc.PostMessage(t.Context(), caller, ch, "plain", "")
+	root, _ := svc.PostMessage(t.Context(), caller, ch, "root", "")
+	if _, err := svc.PostMessage(t.Context(), other, ch, "reply", root.TS); err != nil {
+		t.Fatalf("reply: %v", err)
+	}
+
+	hist, err := svc.History(t.Context(), caller, ch, service.PageOpts{Limit: 2})
+	if err != nil {
+		t.Fatalf("History: %v", err)
+	}
+	byTS := map[string]service.Message{}
+	for _, m := range hist.Items {
+		byTS[m.TS] = m
+	}
+	if got := byTS[plain.TS].ThreadTS; got != "" {
+		t.Errorf("plain.ThreadTS = %q, want empty", got)
+	}
+	if got := byTS[root.TS]; got.ThreadTS != root.TS || got.ReplyCount != 1 {
+		t.Errorf("root = %+v, want ThreadTS == own ts and 1 reply", got)
+	}
+
+	th, err := svc.Replies(t.Context(), caller, ch, root.TS, service.PageOpts{})
+	if err != nil || len(th.Items) != 2 {
+		t.Fatalf("Replies = %+v, %v", th.Items, err)
+	}
+	if r := th.Items[1]; r.ParentUserID != caller.ID || r.ThreadTS != root.TS {
+		t.Errorf("reply = %+v, want ParentUserID %s ThreadTS %s", r, caller.ID, root.TS)
+	}
+	if th.Items[0].ParentUserID != "" {
+		t.Errorf("root.ParentUserID = %q, want empty", th.Items[0].ParentUserID)
+	}
+}
+
+func TestHistoryRange(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, _ := usersOf(t, svc)
+	ch := generalID(t, svc, caller)
+	var ts []string
+	for _, text := range []string{"a", "b", "c"} {
+		m, err := svc.PostMessage(t.Context(), caller, ch, text, "")
+		if err != nil {
+			t.Fatalf("post: %v", err)
+		}
+		ts = append(ts, m.TS)
+	}
+	tests := []struct {
+		name string
+		opts service.PageOpts
+		want []string
+	}{
+		{"exclusive bounds", service.PageOpts{Oldest: ts[0], Latest: ts[2]}, []string{ts[1]}},
+		{"inclusive bounds", service.PageOpts{Oldest: ts[0], Latest: ts[2], Inclusive: true}, []string{ts[2], ts[1], ts[0]}},
+		{"oldest only", service.PageOpts{Oldest: ts[1]}, []string{ts[2]}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			page, err := svc.History(t.Context(), caller, ch, tt.opts)
+			if err != nil {
+				t.Fatalf("History: %v", err)
+			}
+			var got []string
+			for _, m := range page.Items {
+				got = append(got, m.TS)
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("(-want +got):\n%s", diff)
+			}
+		})
+	}
+}

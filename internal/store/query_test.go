@@ -129,7 +129,7 @@ func TestHistoryAndThread(t *testing.T) {
 
 	t.Run("history is top-level newest first", func(t *testing.T) {
 		t.Parallel()
-		got, err := s.HistoryPage(ctx, "C1", "", 0)
+		got, err := s.HistoryPage(ctx, "C1", HistoryQuery{})
 		if err != nil {
 			t.Fatalf("HistoryPage: %v", err)
 		}
@@ -145,11 +145,40 @@ func TestHistoryAndThread(t *testing.T) {
 	})
 	t.Run("history before cursor with limit", func(t *testing.T) {
 		t.Parallel()
-		got, err := s.HistoryPage(ctx, "C1", "104.000001", 2)
+		got, err := s.HistoryPage(ctx, "C1", HistoryQuery{Before: "104.000001", Limit: 2})
 		if err != nil {
 			t.Fatalf("HistoryPage: %v", err)
 		}
 		if diff := cmp.Diff([]string{"103.000001", "102.000001"}, tss(got)); diff != "" {
+			t.Errorf("(-want +got):\n%s", diff)
+		}
+	})
+	t.Run("range bounds exclusive then inclusive", func(t *testing.T) {
+		t.Parallel()
+		for _, tc := range []struct {
+			inclusive bool
+			want      []string
+		}{
+			{false, []string{"103.000001", "102.000001"}},
+			{true, []string{"104.000001", "103.000001", "102.000001", "101.000001"}},
+		} {
+			hq := HistoryQuery{Oldest: "101.000001", Latest: "104.000001", Inclusive: tc.inclusive}
+			got, err := s.HistoryPage(ctx, "C1", hq)
+			if err != nil {
+				t.Fatalf("HistoryPage: %v", err)
+			}
+			if diff := cmp.Diff(tc.want, tss(got)); diff != "" {
+				t.Errorf("inclusive=%v (-want +got):\n%s", tc.inclusive, diff)
+			}
+		}
+	})
+	t.Run("members of", func(t *testing.T) {
+		t.Parallel()
+		got, err := s.MembersOf(ctx, []string{"D1", "C1"})
+		if err != nil {
+			t.Fatalf("MembersOf: %v", err)
+		}
+		if diff := cmp.Diff(map[string][]string{"D1": {"U1", "U2"}}, got); diff != "" {
 			t.Errorf("(-want +got):\n%s", diff)
 		}
 	})

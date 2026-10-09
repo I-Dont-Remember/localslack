@@ -71,3 +71,16 @@ func csv(s string) []string {
 	}
 	return out
 }
+
+func intParam(v url.Values, key string) int {
+	n, err := strconv.Atoi(v.Get(key))
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func boolParam(v url.Values, key string) bool {
+	b, _ := strconv.ParseBool(v.Get(key))
+	return b
+}

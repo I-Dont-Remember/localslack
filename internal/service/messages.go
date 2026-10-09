@@ -13,7 +13,7 @@ func (s *Service) PostMessage(ctx context.Context, author User, channelID, text,
 	if text == "" {
 		return Message{}, ErrNoText
 	}
-	var msg Message
+	var msg store.Message
 	err := s.st.Write(ctx, func(tx *store.Tx) error {
 		conv, err := tx.Conversation(ctx, channelID)
 		if err != nil {
@@ -26,7 +26,7 @@ func (s *Service) PostMessage(ctx context.Context, author User, channelID, text,
 		if err != nil {
 			return err
 		}
-		msg = Message{ChannelID: channelID, TS: s.ts.next(s.now()), UserID: author.ID, Text: text, ThreadTS: root}
+		msg = store.Message{ChannelID: channelID, TS: s.ts.next(s.now()), UserID: author.ID, Text: text, ThreadTS: root}
 		if err := tx.InsertMessage(ctx, msg); err != nil {
 			return err
 		}
@@ -38,7 +38,7 @@ func (s *Service) PostMessage(ctx context.Context, author User, channelID, text,
 	if err != nil {
 		return Message{}, err
 	}
-	return msg, nil
+	return msgFrom(msg), nil
 }
 
 // threadRoot resolves threadTS to the root message's ts ("" for a top-level post).
@@ -66,11 +66,13 @@ func (s *Service) History(ctx context.Context, _ User, channelID string, o PageO
 		return Page[Message]{}, err
 	}
 	limit := clampLimit(o.Limit)
-	items, err := s.st.HistoryPage(ctx, channelID, before, limit+1)
+	items, err := s.st.HistoryPage(ctx, channelID, store.HistoryQuery{
+		Before: before, Oldest: o.Oldest, Latest: o.Latest, Inclusive: o.Inclusive, Limit: limit + 1,
+	})
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return paginate(cursorHistory, items, limit, func(m Message) string { return m.TS }), nil
+	return mapPage(paginate(cursorHistory, items, limit, func(m store.Message) string { return m.TS }), msgFrom), nil
 }
 
 // Replies returns a thread (root first, then replies oldest first).
@@ -86,16 +88,27 @@ func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS strin
 	if err != nil {
 		return Page[Message]{}, notFoundAs(err, ErrThreadNotFound)
 	}
-	root := threadTS
+	rootTS := threadTS
 	if m.ThreadTS != "" {
-		root = m.ThreadTS
+		rootTS = m.ThreadTS
+	}
+	root, err := s.st.Message(ctx, channelID, rootTS)
+	if err != nil {
+		return Page[Message]{}, notFoundAs(err, ErrThreadNotFound)
 	}
 	limit := clampLimit(o.Limit)
-	items, err := s.st.ThreadPage(ctx, channelID, root, after, limit+1)
+	items, err := s.st.ThreadPage(ctx, channelID, rootTS, after, limit+1)
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return paginate(cursorReplies, items, limit, func(m Message) string { return m.TS }), nil
+	page := paginate(cursorReplies, items, limit, func(m store.Message) string { return m.TS })
+	return mapPage(page, func(m store.Message) Message {
+		out := msgFrom(m)
+		if m.ThreadTS != "" {
+			out.ParentUserID = root.UserID
+		}
+		return out
+	}), nil
 }
 
 func (s *Service) requireChannel(ctx context.Context, channelID string) error {

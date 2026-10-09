@@ -42,8 +42,13 @@ func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.H
 
 func (a *API) registry() map[string]method {
 	return map[string]method{
-		"auth.test":  a.authTest,
-		"users.list": a.usersList,
+		"auth.test":             a.authTest,
+		"users.list":            a.usersList,
+		"conversations.create":  a.conversationsCreate,
+		"conversations.list":    a.conversationsList,
+		"conversations.open":    a.conversationsOpen,
+		"conversations.history": a.conversationsHistory,
+		"conversations.replies": a.conversationsReplies,
 	}
 }
 

@@ -42,17 +42,60 @@ func (s *Store) ConversationsPage(ctx context.Context, cq ConvQuery) ([]Conversa
 	return query(ctx, s.reader, "conversations page", q, scanConv, args...)
 }
 
+// HistoryQuery selects top-level messages. Zero values mean "no bound".
+// Before is an exclusive keyset cursor; Oldest/Latest are Slack range bounds
+// (exclusive unless Inclusive). Limit 0 means unlimited.
+type HistoryQuery struct {
+	Before, Oldest, Latest string
+	Inclusive              bool
+	Limit                  int
+}
+
 // HistoryPage returns top-level messages (thread replies excluded), newest first.
-// beforeTS is an exclusive keyset cursor; limit 0 means unlimited.
-func (s *Store) HistoryPage(ctx context.Context, channelID, beforeTS string, limit int) ([]Message, error) {
+func (s *Store) HistoryPage(ctx context.Context, channelID string, hq HistoryQuery) ([]Message, error) {
 	q := `SELECT ` + msgCols + ` FROM messages WHERE channel_id = ? AND thread_ts = ''`
 	args := []any{channelID}
-	if beforeTS != "" {
-		q += ` AND ts < ?`
-		args = append(args, beforeTS)
+	lo, hi := ">", "<"
+	if hq.Inclusive {
+		lo, hi = ">=", "<="
 	}
-	q, args = withLimit(q+` ORDER BY ts DESC`, args, limit)
+	if hq.Before != "" {
+		q += ` AND ts < ?`
+		args = append(args, hq.Before)
+	}
+	if hq.Latest != "" {
+		q += ` AND ts ` + hi + ` ?`
+		args = append(args, hq.Latest)
+	}
+	if hq.Oldest != "" {
+		q += ` AND ts ` + lo + ` ?`
+		args = append(args, hq.Oldest)
+	}
+	q, args = withLimit(q+` ORDER BY ts DESC`, args, hq.Limit)
 	return query(ctx, s.reader, "history page", q, scanMsg, args...)
+}
+
+// MembersOf returns member user ids (sorted) per conversation id.
+func (s *Store) MembersOf(ctx context.Context, conversationIDs []string) (map[string][]string, error) {
+	out := map[string][]string{}
+	if len(conversationIDs) == 0 {
+		return out, nil
+	}
+	args := make([]any, 0, len(conversationIDs))
+	for _, id := range conversationIDs {
+		args = append(args, id)
+	}
+	type row struct{ conv, user string }
+	rows, err := query(ctx, s.reader, "members",
+		`SELECT conversation_id, user_id FROM members WHERE conversation_id IN (`+placeholders(len(args))+`) ORDER BY conversation_id, user_id`,
+		func(r scanner, v *row) error { return r.Scan(&v.conv, &v.user) }, args...)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.conv] = append(out[r.conv], r.user)
+	}
+	return out, nil
 }
 
 // ThreadPage returns a thread's parent followed by its replies, oldest first.

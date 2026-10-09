@@ -15,12 +15,11 @@ import (
 	"localslack/internal/store"
 )
 
-// Domain types are the store's row types, re-exported so api/web never import store.
+// Team and User are the store's plain rows, re-exported so api/web never import store.
+// Conversation and Message are service-owned (see types.go).
 type (
-	Team         = store.Team
-	User         = store.User
-	Conversation = store.Conversation
-	Message      = store.Message
+	Team = store.Team
+	User = store.User
 )
 
 // Conversation kinds.

@@ -26,7 +26,6 @@ def test_users_list_has_members(client):
     assert all(m["id"].startswith("U") for m in members)
 
 
-@m1
 def test_create_channel_persists(client, unique):
     name = f"smoke-{unique}"
     created = client.conversations_create(name=name)["channel"]
@@ -35,7 +34,6 @@ def test_create_channel_persists(client, unique):
     assert name in {c["name"] for c in listed}
 
 
-@m1
 def test_create_duplicate_channel_is_name_taken(client, unique):
     name = f"dup-{unique}"
     client.conversations_create(name=name)
@@ -71,10 +69,27 @@ def test_thread_reply_persists(client, unique):
     assert [(m["ts"], m.get("reply_count")) for m in top_level] == [(parent, 1)]
 
 
+def test_conversations_list_paginates(client, unique):
+    for i in range(3):
+        client.conversations_create(name=f"pg-{unique}-{i}")
+    everything = [c["id"] for c in client.conversations_list(limit=1000)["channels"]]
+    walked, cursor = [], None
+    while True:
+        page = client.conversations_list(limit=2, cursor=cursor)
+        assert len(page["channels"]) <= 2
+        walked += [c["id"] for c in page["channels"]]
+        cursor = page["response_metadata"]["next_cursor"]
+        if not cursor:
+            break
+    assert walked == everything
+
+
 @m1
 def test_open_dm_and_message_persists(client, unique):
-    users = [u["id"] for u in client.users_list()["members"]]
-    dm = client.conversations_open(users=users[0])["channel"]["id"]
+    me = client.auth_test()["user_id"]
+    others = [u["id"] for u in client.users_list()["members"] if not u["is_bot"] and u["id"] != me]
+    assert others, "seed must contain a human other than the caller"
+    dm = client.conversations_open(users=others[0])["channel"]["id"]
     assert dm.startswith("D")
     client.chat_postMessage(channel=dm, text=f"dm {unique}")
     assert client.conversations_history(channel=dm)["messages"][0]["text"] == f"dm {unique}"

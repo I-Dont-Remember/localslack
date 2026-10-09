@@ -28,6 +28,17 @@ type Page[T any] struct {
 type PageOpts struct {
 	Cursor string
 	Limit  int
+	// Oldest/Latest bound history by ts (Slack semantics: exclusive unless Inclusive).
+	Oldest, Latest string
+	Inclusive      bool
+}
+
+func mapPage[T, U any](p Page[T], f func(T) U) Page[U] {
+	out := Page[U]{NextCursor: p.NextCursor}
+	for _, it := range p.Items {
+		out.Items = append(out.Items, f(it))
+	}
+	return out
 }
 
 func clampLimit(n int) int {

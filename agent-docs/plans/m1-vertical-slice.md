@@ -24,7 +24,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 2. [x] store + ids + seed (determinism test) + depguard
 3. [x] service layer (domain errors, ts, thread bump) -> arch-reviewer run; blockers fixed (random runtime id seed, `server.Build`, external test pkgs); see "Arch review follow-ups"
 4. [x] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
-5. [ ] conversations.list/create/history/replies/open (+ cursor pagination test)
+5. [x] conversations.list/create/history/replies/open (+ cursor pagination test)
 6. [ ] chat.postMessage (thread_ts bump, channel_not_found)
 7. [ ] `GET /_localslack/state/conversations`
 8. [ ] web UI (below)
@@ -32,8 +32,8 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 10. [ ] finish (below)
 
 ## Arch review follow-ups (after step 3; deferred items tagged with the step that must do them)
-- [ ] step 4: shared `service.Err*` -> Slack code table + test that every `Err*` is mapped; acting user stored in request ctx in one place; api uses DTO mappers (never marshal service types)
-- [ ] before step 5: service-owned `Conversation` (Peer, IsMember, NumMembers) and `Message` (computed thread info) instead of store aliases; `oldest`/`latest`/`inclusive` on history; one api mapper for thread_ts (`m.ThreadTS`, or `m.TS` if ReplyCount>0); add `reply_users`/`parent_user_id`
+- [x] step 4: shared `service.Err*` -> Slack code table + test that every `Err*` is mapped; acting user stored in request ctx in one place; api uses DTO mappers (never marshal service types)
+- [x] before step 5: service-owned `Conversation` (Peer, IsMember, NumMembers) and `Message` (computed thread info) instead of store aliases; `oldest`/`latest`/`inclusive` on history; one api mapper for thread_ts (`m.ThreadTS`, or `m.TS` if ReplyCount>0); add `reply_users`/`parent_user_id`
 - [ ] step 5: tests for full history walk, replies paging (parent only on page 1), exact-limit boundary, mutation between pages
 - [ ] step 6: archive seam (service/store method) so `ErrIsArchived` and `ExcludeArchived` are testable; race test CreateChannel/OpenDM; post concurrent with history reads
 - [ ] step 8: unpaged name-sorted `ListAll` for the sidebar

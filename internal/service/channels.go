@@ -22,7 +22,7 @@ func (s *Service) CreateChannel(ctx context.Context, creator User, name string) 
 	if err != nil {
 		return Conversation{}, err
 	}
-	c := Conversation{
+	c := store.Conversation{
 		ID: s.ids.Channel(), TeamID: team.ID, Name: name, Kind: KindChannel,
 		Creator: creator.ID, Created: s.now().Unix(),
 	}
@@ -35,7 +35,10 @@ func (s *Service) CreateChannel(ctx context.Context, creator User, name string) 
 	if errors.Is(err, store.ErrDuplicate) {
 		return Conversation{}, ErrNameTaken
 	}
-	return c, err
+	if err != nil {
+		return Conversation{}, err
+	}
+	return s.enrichOne(ctx, creator, c)
 }
 
 // ListOpts filters conversations.list. Types uses Slack names
@@ -67,7 +70,12 @@ func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
-	return paginate(cursorConversations, items, limit, func(c Conversation) string { return c.ID }), nil
+	page := paginate(cursorConversations, items, limit, func(c store.Conversation) string { return c.ID })
+	enriched, err := s.enrich(ctx, caller, page.Items)
+	if err != nil {
+		return Page[Conversation]{}, err
+	}
+	return Page[Conversation]{Items: enriched, NextCursor: page.NextCursor}, nil
 }
 
 func kindsFor(types []string) ([]string, error) {
@@ -109,7 +117,7 @@ func (s *Service) OpenDM(ctx context.Context, caller User, userIDs []string) (Co
 	if err != nil {
 		return Conversation{}, err
 	}
-	var out Conversation
+	var out store.Conversation
 	err = s.st.Write(ctx, func(tx *store.Tx) error {
 		for _, id := range members {
 			if _, err := tx.User(ctx, id); err != nil {
@@ -124,7 +132,7 @@ func (s *Service) OpenDM(ctx context.Context, caller User, userIDs []string) (Co
 			out, err = tx.Conversation(ctx, existing)
 			return err
 		}
-		out = Conversation{
+		out = store.Conversation{
 			ID: s.newDMID(kind), TeamID: team.ID, Kind: kind, Creator: caller.ID, Created: s.now().Unix(),
 		}
 		if err := tx.InsertConversation(ctx, out); err != nil {
@@ -137,7 +145,10 @@ func (s *Service) OpenDM(ctx context.Context, caller User, userIDs []string) (Co
 		}
 		return nil
 	})
-	return out, err
+	if err != nil {
+		return Conversation{}, err
+	}
+	return s.enrichOne(ctx, caller, out)
 }
 
 func (s *Service) newDMID(kind string) string {
