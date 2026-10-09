@@ -1,4 +1,4 @@
-.PHONY: run build test tidy clean dev fmt lint vet check review merge smoke conformance test-all
+.PHONY: build run dev tidy clean test conformance smoke test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -7,13 +7,13 @@ BIN_DIR       := ./bin
 BIN           := $(BIN_DIR)/$(APP)
 GOTESTFLAGS   ?= -race -count=1 -shuffle=on
 LDFLAGS       ?= -s -w
+UNIT_PKGS     := $$(go list ./... | grep -v /tests/)
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
 
-.PHONY: build
 build: $(BIN_DIR)
-	go build -ldflags "$(LDFLAGS) $(LDVERSION)" -o $(BIN) $(CMD_DIR)
+	go build -ldflags "$(LDFLAGS)" -o $(BIN) $(CMD_DIR)
 
 run:
 	go run $(CMD_DIR) start
@@ -28,10 +28,10 @@ clean:
 	rm -rf $(BIN_DIR)
 
 test:
-	go test $(GOTESTFLAGS) ./...
+	go test $(GOTESTFLAGS) $(UNIT_PKGS)
 
 conformance:
-	go test ./tests/conformance/...
+	go test $(GOTESTFLAGS) ./tests/conformance/...
 
 smoke: build
 	@./bin/localslack start -d; \
@@ -41,6 +41,14 @@ smoke: build
 	exit $$EXIT
 
 test-all: test conformance smoke
+
+# single "am I done" command
+verify: check test-all
+
+setup:
+	mise install
+	pre-commit install
+	uv sync --project tests/smoke
 
 fmt:
 	golangci-lint fmt ./...
