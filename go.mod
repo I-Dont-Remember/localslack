@@ -11,6 +11,7 @@ require (
 
 require (
 	github.com/google/go-cmp v0.7.0
+	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pressly/goose/v3 v3.26.0
 	modernc.org/sqlite v1.40.1
 )

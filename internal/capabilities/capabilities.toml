@@ -1,0 +1,327 @@
+# LocalSlack capability manifest: the ONE hand-edited inventory of what we support.
+#
+# Hand-written here: status, tier, scopes, deviations, plan, behaviors.
+# Derived (never write these by hand): per-method evidence level (best `source` of its
+# conformance fixtures), SDK-tested (scan of tests/ for client.<method>(), see derive.go),
+# client versions (tests/smoke/uv.lock). `make docs` regenerates docs/COMPATIBILITY.md.
+#
+# tier/scopes are transcribed from Slack's docs from memory and are UNVERIFIED until a
+# recorded fixture or a cited doc says otherwise. tier 0 = special or unset.
+#
+# Statuses: planned | in_progress | partial | implemented.
+#   partial = served, but a high-severity deviation means real apps will notice.
+#   in_progress requires `plan = "agent-docs/plans/<file>.md"`: claim work by setting it.
+# Rules checked by `go test ./internal/capabilities`: registry parity, valid enums, deviation
+# references, plan files exist. See agent-docs/capabilities.md.
+
+# ---------------------------------------------------------------- implemented methods
+
+[methods."auth.test"]
+status = "implemented"
+scopes = []
+deviations = ["fabricated-bot-id", "any-token-accepted"]
+
+[methods."users.list"]
+status = "implemented"
+tier = 2
+scopes = ["users:read"]
+deviations = ["users-list-unpaginated", "partial-user-fields"]
+
+[methods."conversations.list"]
+status = "implemented"
+tier = 2
+scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+deviations = ["no-private-channels", "partial-conversation-fields", "limit-clamping"]
+
+[methods."conversations.create"]
+status = "implemented"
+tier = 2
+scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+deviations = ["collapsed-errors", "no-private-channels"]
+
+[methods."conversations.open"]
+status = "implemented"
+tier = 3
+scopes = ["groups:write", "im:write", "mpim:write"]
+deviations = ["partial-conversation-fields"]
+
+[methods."conversations.history"]
+status = "implemented"
+tier = 3
+scopes = ["channels:history", "groups:history", "im:history", "mpim:history"]
+deviations = ["no-membership-check", "partial-message-fields", "limit-clamping", "cursor-format"]
+
+[methods."conversations.replies"]
+status = "implemented"
+tier = 3
+scopes = ["channels:history", "groups:history", "im:history", "mpim:history"]
+deviations = ["no-membership-check", "partial-message-fields", "limit-clamping", "cursor-format"]
+
+[methods."conversations.archive"]
+status = "implemented"
+tier = 2
+scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+deviations = ["collapsed-errors"]
+
+[methods."chat.postMessage"]
+status = "partial"
+tier = 0 # special: roughly 1 message/second/channel
+scopes = ["chat:write", "chat:write.public"]
+deviations = ["no-blocks", "name-targets-unresolved", "no-membership-check", "partial-message-fields", "message-length-unbounded"]
+
+# ---------------------------------------------------------------- planned methods
+# priority: bolt-core = a typical Bolt app hits these; common = frequent in scripts;
+# interactivity = needs Block Kit/interactivity support; socket-mode = M3.
+
+[methods."api.test"]
+status = "planned"
+priority = "bolt-core"
+
+[methods."conversations.info"]
+status = "planned"
+priority = "bolt-core"
+tier = 3
+scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+
+[methods."conversations.members"]
+status = "planned"
+priority = "bolt-core"
+tier = 4
+scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+
+[methods."users.info"]
+status = "planned"
+priority = "bolt-core"
+tier = 4
+scopes = ["users:read"]
+
+[methods."chat.update"]
+status = "planned"
+priority = "bolt-core"
+tier = 3
+scopes = ["chat:write"]
+
+[methods."chat.delete"]
+status = "planned"
+priority = "bolt-core"
+tier = 3
+scopes = ["chat:write"]
+
+[methods."chat.postEphemeral"]
+status = "planned"
+priority = "bolt-core"
+tier = 4
+scopes = ["chat:write"]
+
+[methods."reactions.add"]
+status = "planned"
+priority = "bolt-core"
+tier = 3
+scopes = ["reactions:write"]
+
+[methods."conversations.join"]
+status = "planned"
+priority = "common"
+tier = 3
+scopes = ["channels:join"]
+
+[methods."conversations.leave"]
+status = "planned"
+priority = "common"
+tier = 3
+scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+
+[methods."conversations.invite"]
+status = "planned"
+priority = "common"
+tier = 3
+scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+
+[methods."users.conversations"]
+status = "planned"
+priority = "common"
+tier = 3
+scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+
+[methods."team.info"]
+status = "planned"
+priority = "common"
+tier = 3
+scopes = ["team:read"]
+
+[methods."views.open"]
+status = "planned"
+priority = "interactivity"
+tier = 4
+
+[methods."views.publish"]
+status = "planned"
+priority = "interactivity"
+tier = 4
+
+[methods."apps.connections.open"]
+status = "planned"
+priority = "socket-mode"
+tier = 1
+
+# ---------------------------------------------------------------- behaviors and quirks
+# Non-endpoint capabilities. `evidence` is manual here (nothing to derive it from):
+# llm = unchecked model knowledge, docs = `ref` cites a source, recorded = `ref` is a fixture.
+
+[behaviors.get-methods-accept-post]
+status = "implemented"
+summary = "Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs."
+evidence = "docs"
+ref = "slack_sdk/web/base_client.py: _perform_urllib_http_request always builds Request(method=\"POST\")"
+
+[behaviors.form-and-json-bodies]
+status = "implemented"
+summary = "Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists."
+evidence = "docs"
+ref = "slack_sdk/web/base_client.py: JSON for chat.postMessage-style methods, urlencoded form for the rest"
+deviations = ["token-in-json-body"]
+
+[behaviors.api-errors-http-200]
+status = "implemented"
+summary = "API errors are HTTP 200 with ok:false and an error code, as Slack does."
+evidence = "llm"
+deviations = ["unknown-method-404", "collapsed-errors"]
+
+[behaviors.opaque-cursor-pagination]
+status = "implemented"
+summary = "Cursor pagination with response_metadata.next_cursor; cursors are opaque and bound to their endpoint."
+evidence = "llm"
+deviations = ["cursor-format", "limit-clamping"]
+
+[behaviors.message-ts]
+status = "implemented"
+summary = "Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts."
+evidence = "llm"
+
+[behaviors.slack-style-ids]
+status = "implemented"
+summary = "Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars)."
+evidence = "llm"
+deviations = ["fabricated-bot-id"]
+
+[behaviors.response-headers]
+status = "planned"
+summary = "Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type."
+deviations = ["response-headers-missing"]
+
+[behaviors.multipart-bodies]
+status = "planned"
+summary = "multipart/form-data requests (file uploads)."
+deviations = ["multipart-ignored"]
+
+[behaviors.membership-enforcement]
+status = "planned"
+summary = "not_in_channel / channel_not_found for non-members reading or posting in channels and DMs."
+deviations = ["no-membership-check"]
+
+[behaviors.private-channels]
+status = "planned"
+summary = "Private channels and groups."
+deviations = ["no-private-channels"]
+
+[behaviors.block-kit]
+status = "planned"
+summary = "Storing and returning blocks, attachments and message metadata."
+deviations = ["no-blocks"]
+
+[behaviors.rate-limiting]
+status = "planned"
+milestone = "M5"
+summary = "Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var)."
+
+[behaviors.oauth-scopes]
+status = "planned"
+milestone = "M4"
+summary = "Mock OAuth, per-method scope checks (missing_scope) and revoked/invalid token errors."
+deviations = ["any-token-accepted"]
+
+[behaviors.events-api-http]
+status = "planned"
+milestone = "M2"
+summary = "Events API delivery over HTTP with url_verification and X-Slack-Signature signing."
+
+[behaviors.socket-mode]
+status = "planned"
+milestone = "M3"
+summary = "Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel."
+
+# ---------------------------------------------------------------- known deviations
+# Referenced by id from methods and behaviors above. Keep summaries one sentence: they are
+# published verbatim in docs/COMPATIBILITY.md.
+
+[deviations.no-blocks]
+severity = "high"
+summary = "blocks, attachments and message metadata are ignored, and a blocks-only chat.postMessage returns no_text (Slack accepts it)."
+
+[deviations.any-token-accepted]
+severity = "medium"
+summary = "Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking."
+
+[deviations.no-membership-check]
+severity = "medium"
+summary = "Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership."
+
+[deviations.name-targets-unresolved]
+severity = "medium"
+summary = "The channel param must be an ID: \"#general\" and user IDs as DM targets return channel_not_found (Slack resolves both)."
+
+[deviations.partial-message-fields]
+severity = "medium"
+summary = "Messages omit bot_id, bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
+
+[deviations.no-private-channels]
+severity = "medium"
+summary = "Only public channels exist; types=private_channel returns nothing and is_private is never true for channels."
+
+[deviations.response-headers-missing]
+severity = "medium"
+summary = "Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset."
+
+[deviations.multipart-ignored]
+severity = "medium"
+summary = "multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text)."
+
+[deviations.unknown-method-404]
+severity = "low"
+summary = "Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method."
+
+[deviations.collapsed-errors]
+severity = "low"
+summary = "Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments."
+
+[deviations.partial-conversation-fields]
+severity = "low"
+summary = "Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members."
+
+[deviations.partial-user-fields]
+severity = "low"
+summary = "Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile."
+
+[deviations.users-list-unpaginated]
+severity = "low"
+summary = "users.list ignores limit and cursor and always returns every user with an empty next_cursor."
+
+[deviations.limit-clamping]
+severity = "low"
+summary = "Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method."
+
+[deviations.cursor-format]
+severity = "low"
+summary = "Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque."
+
+[deviations.token-in-json-body]
+severity = "low"
+summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
+
+[deviations.fabricated-bot-id]
+severity = "low"
+summary = "auth.test derives bot_id from the bot's user ID; bot IDs are not stored and never appear on messages or users."
+
+[deviations.message-length-unbounded]
+severity = "low"
+summary = "There is no maximum message length (Slack returns msg_too_long above roughly 40,000 characters)."
