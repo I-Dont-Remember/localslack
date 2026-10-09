@@ -27,7 +27,7 @@ func Load(getenv func(string) string) (Config, error) {
 		Seed:   getenv("LOCALSLACK_SEED"),
 	}
 	if cfg.Addr == "" {
-		cfg.Addr = ":3232"
+		cfg.Addr = "127.0.0.1:3232"
 	}
 	if cfg.DBPath == "" {
 		cfg.DBPath = filepath.Join(xdg.New(getenv).AppDataDir(), "localslack.db")

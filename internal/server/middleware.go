@@ -3,6 +3,7 @@ package server
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5/middleware"
@@ -36,7 +37,11 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			if status == 0 {
 				status = http.StatusOK
 			}
-			log.InfoContext(r.Context(), "request",
+			level := slog.LevelInfo
+			if strings.HasSuffix(r.URL.Path, "/messages") && r.Method == http.MethodGet {
+				level = slog.LevelDebug // UI polls every 2s per open tab
+			}
+			log.LogAttrs(r.Context(), level, "request",
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
 				slog.Int("status", status),

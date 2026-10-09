@@ -6,12 +6,16 @@ import (
 	"localslack/internal/service"
 )
 
+// errInvalidArguments marks unparseable request params/bodies (API-level, not a domain error).
+var errInvalidArguments = errors.New("invalid arguments")
+
 // ErrorCode maps a domain error to its Slack error code.
 func ErrorCode(err error) (string, bool) {
 	table := []struct {
 		err  error
 		code string
 	}{
+		{errInvalidArguments, "invalid_arguments"},
 		{service.ErrNotAuthed, "not_authed"},
 		{service.ErrInvalidAuth, "invalid_auth"},
 		{service.ErrNameTaken, "name_taken"},

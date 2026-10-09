@@ -2,6 +2,9 @@ bin/
 # place for the agent to play around
 tmp/
 
+ignored/
+misc/
+
 ## local sqlite
 *.db
 

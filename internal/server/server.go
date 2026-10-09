@@ -23,12 +23,16 @@ type Deps struct {
 	Log *slog.Logger
 	Svc *service.Service
 	Web *web.Web
+	// ListenAddr is the configured bind address; it drives the Host allowlist.
+	ListenAddr string
 }
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
 func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
-	r.Use(middleware.RequestID, echoRequestID, recoverer(d.Log), requestLogger(d.Log))
+	r.Use(middleware.RequestID, echoRequestID, recoverer(d.Log), requestLogger(d.Log), func(next http.Handler) http.Handler {
+		return guard(d.Log, d.ListenAddr, next)
+	})
 	h := handlers{log: d.Log, svc: d.Svc}
 	r.Get("/_localslack/health", h.health)
 	if d.Svc != nil {
@@ -59,8 +63,13 @@ func Run(ctx context.Context, log *slog.Logger, cfg config.Config) error {
 
 	addr := cfg.Addr
 	srv := &http.Server{
-		Addr:    addr,
-		Handler: app.Handler,
+		Addr:              addr,
+		Handler:           app.Handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	if !isLoopbackAddr(addr) {
+		log.WarnContext(ctx, "listening beyond loopback; any client that can reach this port can read and post as anyone", slog.String("addr", addr))
 	}
 
 	lc := net.ListenConfig{}

@@ -12,13 +12,30 @@ make run      # start server on :3232
 make verify   # check + unit + conformance + smoke (+ e2e) against an isolated live server
 ```
 
+## Try it
+
+```
+make run                      # serves on http://localhost:3232 (loopback only; seeded demo workspace, DB under XDG data dir)
+```
+
+- **Browser:** open http://localhost:3232. Pick channels, post, reply in threads, jump to people/channels with the quick-switcher, and switch "Acting as" to post as another user. The page polls every 2s, so messages sent from scripts show up live.
+- **Slack SDK:** point it at the emulator, e.g. Python:
+
+  ```python
+  from slack_sdk import WebClient
+  client = WebClient(token="xoxb-anything", base_url="http://localhost:3232/api/")
+  channel = client.conversations_create(name="demo")["channel"]["id"]
+  client.chat_postMessage(channel=channel, text="hello from the SDK")
+  ```
+
+  Tokens: `xoxb-<anything>` acts as the bot; `xoxp-<userID>` acts as that user (ids from `users.list`).
+- **Config (env):** `LOCALSLACK_ADDR` (default `127.0.0.1:3232`; auth is "any token works", so only expose with `0.0.0.0:3232` deliberately, e.g. in a container), `LOCALSLACK_DB_PATH`, `LOCALSLACK_SEED` (same seed, same demo data; a random one is logged otherwise), `LOCALSLACK_NO_SEED=1`.
+- **Inspect state:** `curl localhost:3232/_localslack/state/conversations`.
+- **Implemented methods:** `auth.test`, `users.list`, `conversations.list|create|open|history|replies|archive`, `chat.postMessage`. Anything else returns `404 not_implemented`.
+
 ## Key Notes
 
 - [`Slack APIs accepts any API method requests with POST methods`](https://github.com/slackapi/python-slack-sdk/blob/6fc2d5c082f70ca3e222a7644e6eb202f2140893/slack/web/base_client.py#L402), so at least the Python Slack client always sends requests as `POST` even if they are listed as `GET` in the docs, e.g. `users.list`.
-
-## Why do this? Couldn't this have been auto-generated faster somehow?
-
-Probably off of an openAPI spec and/or Claude Code, but I wanted a structured project so I can learn Go again. If it ends up useful somewhere, that's a happy bonus but not a requirement.
 
 ## Reference
 
@@ -32,11 +49,7 @@ Notes on how things work.
 
 ### Storage
 
-Keeping things in SQLite, but with minimal fields to start with to avoid having to make constant changes to schema - majority will live as json blob in a `string` field.
-
-- `repo` depends on both `core` (for our type definitions) and `sqlc` for generated code. Maps between DB Rows and Slack object structs.
-- Not using an ORM for now, but considering it for later.
-- Considering have `goose` or a very simple setup for basic migrations - doesn't seem like a ton of overhead if we only have one or two files, and if we end up wanting later it seems more difficult to try to fit it into an app that wasn't meant for it.
+SQLite via `modernc.org/sqlite` (no cgo, no ORM), migrations with `goose` (embedded). Layering: `store` (SQL only) -> `service` (rules, typed errors) -> `api` / `web` (translation only); depguard enforces that `api`/`web` never import `store` or each other. See `agent-docs/` for the agent-facing guides.
 
 ### Misc
 

@@ -37,7 +37,7 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 		_ = st.Close()
 		return nil, err
 	}
-	return &App{Handler: NewRouter(Deps{Log: log, Svc: svc, Web: ui}), Store: st, Service: svc}, nil
+	return &App{Handler: NewRouter(Deps{Log: log, Svc: svc, Web: ui, ListenAddr: cfg.Addr}), Store: st, Service: svc}, nil
 }
 
 // Close releases the store.

@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -152,10 +153,18 @@ func (w *Web) actAs(rw http.ResponseWriter, r *http.Request) {
 	http.Redirect(rw, r, safeNext(r.PostForm.Get("next")), http.StatusSeeOther)
 }
 
-// safeNext only allows same-site absolute paths, refusing open redirects.
+// safeNext only allows same-site absolute paths, refusing open redirects. Control
+// characters are rejected outright: browsers strip tabs/newlines from URLs, which
+// would turn "/\t/evil.example" into "//evil.example".
 func safeNext(next string) string {
-	if strings.HasPrefix(next, "/") && !strings.HasPrefix(next, "//") && !strings.Contains(next, "\\") {
-		return next
+	for _, c := range next {
+		if c < 0x20 || c == 0x7f || c == '\\' {
+			return "/"
+		}
 	}
-	return "/"
+	u, err := url.Parse(next)
+	if err != nil || u.Scheme != "" || u.Host != "" || !strings.HasPrefix(u.Path, "/") || strings.HasPrefix(u.Path, "//") {
+		return "/"
+	}
+	return next
 }

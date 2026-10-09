@@ -19,7 +19,7 @@ import (
 
 // StartCmd starts the LocalSlack server.
 type StartCmd struct {
-	Addr   string `help:"Listen address." default:":3232" env:"LOCALSLACK_ADDR"`
+	Addr   string `help:"Listen address (default 127.0.0.1:3232; use 0.0.0.0:3232 to expose, e.g. in containers)." env:"LOCALSLACK_ADDR"`
 	Detach bool   `short:"d" help:"Run server in the background."`
 }
 
@@ -34,7 +34,9 @@ func (c *StartCmd) Run() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	cfg.Addr = c.Addr // kong flag already folds in LOCALSLACK_ADDR
+	if c.Addr != "" { // flag (which also reads LOCALSLACK_ADDR) wins over the config default
+		cfg.Addr = c.Addr
+	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	return server.Run(ctx, log, cfg)
 }
@@ -56,7 +58,11 @@ func (c *StartCmd) startDetached() error {
 		return fmt.Errorf("open server log: %w", err)
 	}
 	defer func() { _ = logFile.Close() }()
-	cmd := exec.CommandContext(context.Background(), exe, "start", "--addr", c.Addr)
+	args := []string{"start"}
+	if c.Addr != "" {
+		args = append(args, "--addr", c.Addr)
+	}
+	cmd := exec.CommandContext(context.Background(), exe, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	if err := cmd.Start(); err != nil {
@@ -65,6 +71,12 @@ func (c *StartCmd) startDetached() error {
 	if err := os.WriteFile(xdg.PIDFile(), []byte(strconv.Itoa(cmd.Process.Pid)), 0o600); err != nil {
 		return fmt.Errorf("write PID file: %w", err)
 	}
-	fmt.Printf("LocalSlack started (PID %d)\n", cmd.Process.Pid)
+	addr := c.Addr
+	if addr == "" {
+		if cfg, err := config.Load(os.Getenv); err == nil {
+			addr = cfg.Addr
+		}
+	}
+	fmt.Printf("LocalSlack started (PID %d) at http://%s\n", cmd.Process.Pid, addr)
 	return nil
 }

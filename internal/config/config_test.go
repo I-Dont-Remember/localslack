@@ -20,12 +20,12 @@ func TestLoad(t *testing.T) {
 		{
 			name: "defaults",
 			env:  map[string]string{"HOME": "/h"},
-			want: config.Config{Addr: ":3232", DBPath: "/h/.local/share/localslack/localslack.db"},
+			want: config.Config{Addr: "127.0.0.1:3232", DBPath: "/h/.local/share/localslack/localslack.db"},
 		},
 		{
 			name: "xdg data home",
 			env:  map[string]string{"XDG_DATA_HOME": "/x"},
-			want: config.Config{Addr: ":3232", DBPath: "/x/localslack/localslack.db"},
+			want: config.Config{Addr: "127.0.0.1:3232", DBPath: "/x/localslack/localslack.db"},
 		},
 		{
 			name: "overrides",
@@ -36,6 +36,11 @@ func TestLoad(t *testing.T) {
 				"LOCALSLACK_NO_SEED": "1",
 			},
 			want: config.Config{Addr: "127.0.0.1:9", DBPath: "/tmp/a.db", Seed: "42", NoSeed: true},
+		},
+		{
+			name: "explicit all-interfaces bind is honored",
+			env:  map[string]string{"LOCALSLACK_ADDR": "0.0.0.0:3232", "HOME": "/h"},
+			want: config.Config{Addr: "0.0.0.0:3232", DBPath: "/h/.local/share/localslack/localslack.db"},
 		},
 		{
 			name:    "bad no-seed value",

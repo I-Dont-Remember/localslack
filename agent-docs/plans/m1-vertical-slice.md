@@ -29,7 +29,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 7. [x] `GET /_localslack/state/conversations`
 8. [x] web UI (below)
 9. [x] e2e (below)
-10. [ ] finish (below)
+10. [x] finish (below)
 
 ## Arch review follow-ups (after step 3; deferred items tagged with the step that must do them)
 - [x] step 4: shared `service.Err*` -> Slack code table + test that every `Err*` is mapped; acting user stored in request ctx in one place; api uses DTO mappers (never marshal service types)
@@ -38,6 +38,12 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - [x] step 6: archive seam (service/store method) so `ErrIsArchived` and `ExcludeArchived` are testable; race test CreateChannel/OpenDM; post concurrent with history reads
 - [x] step 8: unpaged name-sorted `ListAll` for the sidebar
 - [ ] later: decide on `data` JSON columns (use or drop); `Service.Reload` for reset; reject `:memory:` DB path; `synchronous=NORMAL`
+
+## Final arch review (2026-10-09): done vs deferred
+- [x] default bind 127.0.0.1 (config only), Host allowlist on loopback, cross-origin write refusal, 2MB body cap, ReadHeaderTimeout, `invalid_arguments`, `safeNext` hardening, e2e acting-as flake, poll logs at DEBUG, doc fixes
+- [ ] M2 prep: `Service.OnEvent` post-commit seam (Bolt/Socket Mode); `registry()` -> `map[string]spec{fn, tier}` for M5 rate limits; make `User` service-owned; move `/_localslack/*` into `internal/admin` with a callerless snapshot (and fix its N+1)
+- [ ] UI: show errors (htmx doesn't swap non-2xx), "load older" beyond 200 messages, `hx-vals` JSON built safely, `limit=abc` -> error, `msg_too_long`
+- [ ] decide `data` JSON columns (unused; cheapest to drop before anyone has a DB), `reset`/`Service.Reload`, reject `:memory:`, `synchronous=NORMAL`
 
 ## Details
 ### Storage (`internal/store`, `internal/ids`)
@@ -62,5 +68,5 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - add `playwright`+`pytest-playwright` to `tests/smoke/pyproject.toml`; `playwright install chromium` in `make setup`; `tests/e2e/` dir; `make e2e` via with-server.sh; add to `test-all`/`verify`
 - tests: seeded channels visible; UI post -> SDK history; SDK post -> UI; thread reply; DM via switcher; screenshots on fail to `tmp/`
 ### Finish
-- [ ] minimal GitHub Actions workflow running `make setup verify`
-- [ ] `make verify` green; `arch-reviewer`; STATUS/CHANGELOG/README "Try it"
+- [x] minimal GitHub Actions workflow running `make setup verify`
+- [x] `make verify` green; `arch-reviewer`; STATUS/CHANGELOG/README "Try it"

@@ -287,9 +287,11 @@ func TestActingAsCookie(t *testing.T) {
 	if status, _, _ := b.post("/ui/as", url.Values{"user": {"UNOPE"}}); status != http.StatusBadRequest {
 		t.Errorf("as unknown user = %d, want 400", status)
 	}
-	// Open redirects are refused.
-	if _, _, h := b.post("/ui/as", url.Values{"user": {w.human.ID}, "next": {"https://evil.example/"}}); h.Get("Location") != "/" {
-		t.Errorf("external next -> %q, want /", h.Get("Location"))
+	// Open redirects are refused, including control-character tricks browsers normalize away.
+	for _, next := range []string{"https://evil.example/", "//evil.example", "/\t/evil.example", "/\n/evil.example", "/\r/evil.example", "/\\evil.example", "javascript:alert(1)", ""} {
+		if _, _, h := b.post("/ui/as", url.Values{"user": {w.human.ID}, "next": {next}}); h.Get("Location") != "/" {
+			t.Errorf("next %q -> %q, want /", next, h.Get("Location"))
+		}
 	}
 }
 

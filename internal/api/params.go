@@ -24,14 +24,14 @@ func parseParams(r *http.Request) (url.Values, error) {
 	case strings.HasPrefix(ct, constants.ContentTypeJSON):
 		var m map[string]any
 		if err := json.NewDecoder(r.Body).Decode(&m); err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("decode json body: %w", err)
+			return nil, fmt.Errorf("decode json body: %w: %w", errInvalidArguments, err)
 		}
 		for k, v := range m {
 			vals.Set(k, stringify(v))
 		}
 	case strings.HasPrefix(ct, constants.ContentTypeForm):
 		if err := r.ParseForm(); err != nil {
-			return nil, fmt.Errorf("parse form: %w", err)
+			return nil, fmt.Errorf("parse form: %w: %w", errInvalidArguments, err)
 		}
 		for k, v := range r.PostForm {
 			vals[k] = v

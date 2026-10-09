@@ -154,3 +154,25 @@ func TestEveryServiceErrorHasASlackCode(t *testing.T) {
 		}
 	}
 }
+
+func TestMalformedAndOversizedBodiesAreSlackErrors(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	tests := []struct {
+		name string
+		body string
+	}{
+		{"bad json", `{"token": `},
+		{"oversized json", `{"text":"` + strings.Repeat("x", 3<<20) + `"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			status, body := do(t, http.MethodPost, app.URL+"/api/auth.test", "xoxb-test", constants.ContentTypeJSON, strings.NewReader(tt.body))
+			if status != http.StatusOK || body["ok"] != false || body["error"] != "invalid_arguments" {
+				t.Errorf("status %d body %v, want 200 ok:false invalid_arguments", status, body)
+			}
+		})
+	}
+}

@@ -31,7 +31,7 @@ def test_ui_post_visible_to_sdk(page: Page, client, unique):
 
     expect(page.get_by_test_id("messages").get_by_text(text)).to_be_visible()
     expect(page.get_by_test_id("composer-input")).to_have_value("")  # composer resets
-    history = client.conversations_history(channel=channel, limit=5)["messages"]
+    history = client.conversations_history(channel=channel, limit=20)["messages"]
     assert text in [m["text"] for m in history]
 
 
@@ -95,12 +95,17 @@ def test_acting_as_changes_author(page: Page, client, unique):
     options = select.locator("option")
     users = [(o.get_attribute("value"), o.text_content()) for o in options.all()]
     chosen = next(u for u in users if "(bot)" in u[1])  # differs from the default human
-    select.select_option(chosen[0])
-    page.wait_for_load_state()
+    with page.expect_navigation():  # onchange submits the form, which sets the cookie
+        select.select_option(chosen[0])
+    expect(page.get_by_test_id("acting-as")).to_have_value(chosen[0])
 
     text = f"as bot {unique}"
     page.get_by_test_id("composer-input").fill(text)
     page.get_by_test_id("send").click()
     expect(page.get_by_test_id("messages").get_by_text(text)).to_be_visible()
-    newest = client.conversations_history(channel=channel, limit=1)["messages"][0]
-    assert (newest["text"], newest["user"]) == (text, chosen[0])
+    mine = [
+        m
+        for m in client.conversations_history(channel=channel, limit=20)["messages"]
+        if m["text"] == text
+    ]
+    assert [m["user"] for m in mine] == [chosen[0]]
