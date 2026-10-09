@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -140,7 +141,7 @@ func TestConformance(t *testing.T) {
 			}
 			diffs = append(diffs, diffBody(fix.Response.Body, gotBody, fix.Response.Ignore)...)
 
-			report(t, fix, diffs)
+			report(t, fix, diffs, func(f capabilities.Fixture) error { return writeFixture(nf.Name, f) })
 		})
 	}
 }
@@ -155,14 +156,39 @@ func gapVerdict(recorded, observed []string) string {
 		return ""
 	}
 	return fmt.Sprintf("known_gap diffs changed.\nrecorded gap_diffs: %q\nobserved:           %q\n"+
-		"If this is progress, update gap_diffs (or set \"state\": \"passing\" when empty); if a regression, fix it.",
+		"If this is progress or a freshly recorded fixture, run `make conformance-update-gaps`; if a regression, fix it.",
 		a, b)
 }
 
-func report(t *testing.T, fix capabilities.Fixture, diffs []string) {
+// updateGaps (LOCALSLACK_UPDATE_GAPS=1, via `make conformance-update-gaps`) rewrites the
+// gap_diffs of known_gap fixtures to the observed differences, or flips the fixture to
+// passing when nothing differs. Passing fixtures are never touched, so a regression
+// cannot be absorbed by accident.
+func updateGaps() bool { return os.Getenv("LOCALSLACK_UPDATE_GAPS") != "" }
+
+func writeFixture(name string, f capabilities.Fixture) error {
+	data, err := capabilities.MarshalFixture(f)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join("fixtures", name+".json"), data, 0o600)
+}
+
+func report(t *testing.T, fix capabilities.Fixture, diffs []string, save func(capabilities.Fixture) error) {
 	t.Helper()
 	switch fix.State {
 	case stateKnownGap:
+		if updateGaps() {
+			slices.Sort(diffs)
+			fix.GapDiffs = diffs
+			if len(diffs) == 0 {
+				fix.State = statePassing
+			}
+			if err := save(fix); err != nil {
+				t.Fatalf("update fixture: %v", err)
+			}
+			t.Skipf("updated gap_diffs (%d differences)", len(diffs))
+		}
 		if msg := gapVerdict(fix.GapDiffs, diffs); msg != "" {
 			t.Error(msg)
 			return

@@ -135,3 +135,34 @@ func TestEveryShippedMethodHasAFixture(t *testing.T) {
 		}
 	}
 }
+
+func TestMarshalFixtureRoundTripsWithoutEscapingMatchers(t *testing.T) {
+	t.Parallel()
+
+	in := fixtureJSON(`"source":"recorded",`, recordedBlock)
+	f, err := capabilities.ParseFixture([]byte(in))
+	if err != nil {
+		t.Fatalf("ParseFixture: %v", err)
+	}
+	f.Response.Body = map[string]any{"ok": true, "ts": "<ts>", "user": "<id:U>"}
+	f.GapDiffs = []string{"$.x: got <string>, want <ts>"}
+	f.Recorded.Headers = map[string]string{"x-oauth-scopes": "chat:write"}
+
+	data, err := capabilities.MarshalFixture(f)
+	if err != nil {
+		t.Fatalf("MarshalFixture: %v", err)
+	}
+	if !strings.Contains(string(data), `"<ts>"`) || strings.Contains(string(data), "\\u003c") {
+		t.Errorf("matchers must be written literally, got:\n%s", data)
+	}
+	if !strings.HasSuffix(string(data), "}\n") || !strings.Contains(string(data), "\n  \"") {
+		t.Errorf("expected indented JSON with trailing newline, got:\n%s", data)
+	}
+	back, err := capabilities.ParseFixture(data)
+	if err != nil {
+		t.Fatalf("ParseFixture(round trip): %v", err)
+	}
+	if back.Recorded.Headers["x-oauth-scopes"] != "chat:write" || back.GapDiffs[0] != f.GapDiffs[0] {
+		t.Errorf("round trip lost data: %+v", back)
+	}
+}

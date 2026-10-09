@@ -47,7 +47,9 @@ type Recorded struct {
 	WorkspaceType string   `json:"workspace_type"` // free | pro | enterprise | sandbox
 	TokenType     string   `json:"token_type"`     // bot | user
 	Scopes        []string `json:"scopes,omitempty"`
-	Notes         string   `json:"notes,omitempty"`
+	// Headers holds the response headers worth keeping (x-oauth-scopes, retry-after, ...).
+	Headers map[string]string `json:"headers,omitempty"`
+	Notes   string            `json:"notes,omitempty"`
 }
 
 // Fixture is a replayable request/response pair with provenance.
@@ -87,6 +89,19 @@ func ParseFixture(data []byte) (Fixture, error) {
 		return Fixture{}, fmt.Errorf("fixture json: %w", err)
 	}
 	return f, nil
+}
+
+// MarshalFixture renders a fixture as indented JSON with a trailing newline,
+// leaving matchers like "<ts>" unescaped so files stay readable and diffable.
+func MarshalFixture(f Fixture) ([]byte, error) {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(f); err != nil {
+		return nil, fmt.Errorf("marshal fixture: %w", err)
+	}
+	return buf.Bytes(), nil
 }
 
 // LoadFixtures reads every *.json file in the root of fsys, sorted by name.

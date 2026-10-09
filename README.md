@@ -45,6 +45,8 @@ make run                      # serves on http://localhost:3232 (loopback only; 
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md), including how to record real Slack responses as conformance evidence.
+
 Notes on how things work.
 
 ### Storage

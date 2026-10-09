@@ -36,9 +36,17 @@ Each `fixtures/*.json` replays one request against an in-process LocalSlack and 
   List them with `make conformance-gaps` (`go test -v ./tests/conformance/ | grep -A8 'KNOWN GAP'`).
 
 ## Recording from real Slack
-Use a throwaway workspace and a token with the needed scopes. Never commit tokens or real data.
+Full contributor walkthrough: `CONTRIBUTING.md`. In short, with a token for a **throwaway** workspace:
 ```
-SLACK_TOKEN=xoxb-... uv run --project tests/smoke python tests/conformance/record.py conversations.list limit=2
+export SLACK_TOKEN=xoxb-... SLACK_WORKSPACE_TYPE=free
+uv run --project tests/smoke python tests/conformance/record.py --from tests/conformance/fixtures/<name>.json
+uv run --project tests/smoke python tests/conformance/record.py conversations.list limit=2   # ad hoc
+make conformance-update-gaps   # fill gap_diffs for the new known_gap fixture
+make redact-check              # must pass; also run by `make check`
+make docs                      # evidence levels in docs/COMPATIBILITY.md are derived from fixtures
 ```
-`record.py` sanitizes timestamps, IDs and free-form strings into matchers. Review the file by hand
-(arrays are matched by length, so trim them to the elements you care about), then commit.
+`record.py` sanitizes timestamps, IDs, URLs, emails, free-form text and epoch numbers into matchers, keeps
+a safe header subset (`x-oauth-scopes`, `x-accepted-oauth-scopes`, `retry-after`) and the request's own
+params (never the real token), and refuses to overwrite files. Review the output by hand: arrays are
+matched by length, so trim them to the elements you care about. `make tools-test` tests the tooling
+against a live LocalSlack.

@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps smoke e2e test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke e2e test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -39,6 +39,10 @@ test:
 conformance:
 	go test $(GOTESTFLAGS) ./tests/conformance/...
 
+# Rewrite gap_diffs of known_gap fixtures from the observed differences (e.g. after recording).
+conformance-update-gaps:
+	LOCALSLACK_UPDATE_GAPS=1 go test -count=1 ./tests/conformance/...
+
 conformance-gaps:
 	@go test -v -count=1 ./tests/conformance/... | grep -A12 'KNOWN GAP' || echo 'no known gaps'
 
@@ -50,6 +54,14 @@ docs:
 evidence-gaps:
 	@go run ./cmd/capctl gaps
 
+# Fail if any conformance fixture could leak tokens, emails, workspace URLs or real IDs.
+redact-check:
+	uv run --project tests/smoke python tests/conformance/redact_check.py
+
+# Tests for the recording/redaction tools (records against a live isolated LocalSlack).
+tools-test:
+	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/conformance/ -v
+
 smoke:
 	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v
 
@@ -58,7 +70,7 @@ e2e:
 	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/e2e/ -v \
 		--screenshot only-on-failure --output tmp/e2e-artifacts $(E2E_ARGS)
 
-test-all: test conformance smoke e2e
+test-all: test conformance tools-test smoke e2e
 
 # single "am I done" command
 verify: check test-all
@@ -90,6 +102,7 @@ check:
 	$(MAKE) vet
 	$(MAKE) lint
 	$(MAKE) lint-py
+	$(MAKE) redact-check
 
 review:
 	git diff main HEAD | difit
