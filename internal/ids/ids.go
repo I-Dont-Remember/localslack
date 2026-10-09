@@ -37,6 +37,9 @@ func (g *Generator) Channel() string { return g.next('C') }
 // DM returns a direct-message conversation id (D...).
 func (g *Generator) DM() string { return g.next('D') }
 
+// Group returns a group-DM (mpim) conversation id (G...).
+func (g *Generator) Group() string { return g.next('G') }
+
 func (g *Generator) next(prefix byte) string {
 	g.mu.Lock()
 	defer g.mu.Unlock()

@@ -19,6 +19,7 @@ func TestGenerator(t *testing.T) {
 		{"user", (*ids.Generator).User, 'U'},
 		{"channel", (*ids.Generator).Channel, 'C'},
 		{"dm", (*ids.Generator).DM, 'D'},
+		{"group", (*ids.Generator).Group, 'G'},
 	}
 	shape := regexp.MustCompile(`^[A-Z][A-Z0-9]{9,10}$`)
 	for _, tt := range tests {

@@ -50,3 +50,21 @@ func NewApp(t *testing.T) *App {
 	t.Cleanup(srv.Close)
 	return &App{URL: srv.URL, Config: cfg, Store: st}
 }
+
+// NewStore opens a seeded (pinned seed and clock) temp-file store, closed on cleanup.
+func NewStore(t *testing.T) *store.Store {
+	t.Helper()
+
+	cfg := config.Config{DBPath: filepath.Join(t.TempDir(), "localslack.db"), Seed: PinnedSeed}
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	st, err := server.OpenStore(t.Context(), log, cfg, PinnedNow())
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := st.Close(); err != nil {
+			t.Errorf("close store: %v", err)
+		}
+	})
+	return st
+}

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 
 	"modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -46,6 +47,60 @@ func (t *Tx) InsertConversation(ctx context.Context, c Conversation) error {
 // AddMember adds a user to a conversation.
 func (t *Tx) AddMember(ctx context.Context, conversationID, userID string) error {
 	return t.exec(ctx, "add member", `INSERT INTO members (conversation_id, user_id) VALUES (?, ?)`, conversationID, userID)
+}
+
+// User returns a user by id, seeing this txn's writes.
+func (t *Tx) User(ctx context.Context, id string) (User, error) { return userByID(ctx, t.tx, id) }
+
+// Conversation returns a conversation by id, seeing this txn's writes.
+func (t *Tx) Conversation(ctx context.Context, id string) (Conversation, error) {
+	return conversationByID(ctx, t.tx, id)
+}
+
+// Message returns a message by key, seeing this txn's writes.
+func (t *Tx) Message(ctx context.Context, channelID, ts string) (Message, error) {
+	return messageByTS(ctx, t.tx, channelID, ts)
+}
+
+// ConversationWithMembers returns the id of the conversation of the given kind whose
+// member set is exactly userIDs, or "" if none exists.
+func (t *Tx) ConversationWithMembers(ctx context.Context, kind string, userIDs []string) (string, error) {
+	set := slices.Clone(userIDs)
+	slices.Sort(set)
+	set = slices.Compact(set)
+	args := []any{kind, len(set)}
+	for _, id := range set {
+		args = append(args, id)
+	}
+	args = append(args, len(set))
+	var id string
+	err := t.tx.QueryRowContext(ctx, `
+		SELECT c.id FROM conversations c
+		WHERE c.kind = ?
+		  AND (SELECT count(*) FROM members m WHERE m.conversation_id = c.id) = ?
+		  AND (SELECT count(*) FROM members m WHERE m.conversation_id = c.id AND m.user_id IN (`+placeholders(len(set))+`)) = ?
+		ORDER BY c.id LIMIT 1`, args...).Scan(&id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", fmt.Errorf("find conversation by members: %w", err)
+	}
+	return id, nil
+}
+
+// BumpThread records a new reply on a thread parent; ErrNotFound if the parent is missing.
+func (t *Tx) BumpThread(ctx context.Context, channelID, parentTS, replyTS string) error {
+	res, err := t.tx.ExecContext(ctx,
+		`UPDATE messages SET reply_count = reply_count + 1, latest_reply = ? WHERE channel_id = ? AND ts = ?`,
+		replyTS, channelID, parentTS)
+	if err != nil {
+		return fmt.Errorf("bump thread: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("bump thread: parent %s: %w", parentTS, ErrNotFound)
+	}
+	return nil
 }
 
 // InsertMessage adds a message.
