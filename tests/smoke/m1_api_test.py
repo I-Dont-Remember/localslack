@@ -1,15 +1,19 @@
 """M1 vertical-slice API tests (write, then read back through a different endpoint).
 
-Strict xfail until M1 ships: they must FAIL now (red) and the xfail marker is removed
-per endpoint as it is implemented (green). XPASS fails the run, forcing marker removal.
+Strict xfail per test until its endpoint ships: must FAIL now (red) with an API/assertion
+error only (not a crash or typo); delete the `@m1` marker per test as endpoints land (green).
+XPASS fails the run, forcing marker removal.
 """
 
 import pytest
 from slack_sdk.errors import SlackApiError
 
-pytestmark = pytest.mark.xfail(strict=True, reason="M1: not implemented yet")
+m1 = pytest.mark.xfail(
+    strict=True, raises=(SlackApiError, AssertionError), reason="M1: not implemented yet"
+)
 
 
+@m1
 def test_auth_test(client):
     resp = client.auth_test()
     assert resp["ok"]
@@ -17,12 +21,14 @@ def test_auth_test(client):
     assert resp["team_id"].startswith("T")
 
 
+@m1
 def test_users_list_has_members(client):
     members = client.users_list()["members"]
     assert members
     assert all(m["id"].startswith("U") for m in members)
 
 
+@m1
 def test_create_channel_persists(client, unique):
     name = f"smoke-{unique}"
     created = client.conversations_create(name=name)["channel"]
@@ -31,6 +37,7 @@ def test_create_channel_persists(client, unique):
     assert name in {c["name"] for c in listed}
 
 
+@m1
 def test_create_duplicate_channel_is_name_taken(client, unique):
     name = f"dup-{unique}"
     client.conversations_create(name=name)
@@ -39,6 +46,7 @@ def test_create_duplicate_channel_is_name_taken(client, unique):
     assert exc_info.value.response["error"] == "name_taken"
 
 
+@m1
 def test_post_message_persists(client, unique):
     channel = client.conversations_create(name=f"msg-{unique}")["channel"]["id"]
     posted = client.chat_postMessage(channel=channel, text=f"hello {unique}")
@@ -46,12 +54,14 @@ def test_post_message_persists(client, unique):
     assert [(m["ts"], m["text"]) for m in history] == [(posted["ts"], f"hello {unique}")]
 
 
+@m1
 def test_post_to_missing_channel(client):
     with pytest.raises(SlackApiError) as exc_info:
         client.chat_postMessage(channel="C00000000", text="x")
     assert exc_info.value.response["error"] == "channel_not_found"
 
 
+@m1
 def test_thread_reply_persists(client, unique):
     channel = client.conversations_create(name=f"thr-{unique}")["channel"]["id"]
     parent = client.chat_postMessage(channel=channel, text="parent")["ts"]
@@ -63,6 +73,7 @@ def test_thread_reply_persists(client, unique):
     assert [(m["ts"], m.get("reply_count")) for m in top_level] == [(parent, 1)]
 
 
+@m1
 def test_open_dm_and_message_persists(client, unique):
     users = [u["id"] for u in client.users_list()["members"]]
     dm = client.conversations_open(users=users[0])["channel"]["id"]
