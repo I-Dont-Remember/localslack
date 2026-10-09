@@ -1,3 +1,5 @@
+> **Status (2026-10-09):** historical. Tier 1/2 items were resolved or re-planned in M0.5; remaining work lives in `plans/m1-vertical-slice.md` and `docs/DESIGN_DOC.md` milestones. Do not treat as a todo list.
+
 # Testing Infrastructure Architecture Review
 _Generated: 2026-03-26_
 

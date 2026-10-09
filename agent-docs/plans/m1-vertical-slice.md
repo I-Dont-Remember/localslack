@@ -1,6 +1,13 @@
 # M1 vertical slice (branch `milestone/1-vertical-slice`)
 
-Playable end to end: SDK + htmx UI over SQLite. Ask user before stacking on unmerged 0.5 branch.
+Playable end to end: SDK + htmx UI over SQLite.
+
+**Why:** the owner works on this rarely; they want something concrete to play with early (run `localslack start`, open the browser, use the Slack SDK against it) to stay motivated, then bolt on features. Thin but complete beats broad but half-done.
+
+**Decided with the owner (2026-10-09) - don't re-ask:** endpoints = core 6 + DMs + threads (list below); UI = `html/template` + vendored htmx, no build step; browser e2e = Playwright (Python); Bolt/Socket Mode/OpenAPI/rate-limit tests are deferred to M2/M3/M6/M5. Per root CLAUDE.md, still use AskUserQuestion for genuinely new ambiguities.
+
+**Starting state:** `main` has M0.5 merged; only `/_localslack/health` + 404 `not_implemented` fallthrough exist. No storage/Slack endpoints/UI. `make verify` is green with the 8 `@m1` tests in `tests/smoke/m1_api_test.py` xfailed - they are your acceptance tests.
+
 Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked stores) + conformance fixture + smoke write-then-read-back. Remove that test's `@m1` xfail marker in `tests/smoke/m1_api_test.py` when it goes green.
 
 ## Architecture decisions (from arch review 2026-10-09)

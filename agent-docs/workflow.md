@@ -4,6 +4,21 @@
 
 Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first unchecked task. Tick plan boxes in the commit that completes them.
 
+## Commands
+
+| Command | Purpose |
+|---|---|
+| `make setup` | one-time: mise tools, pre-commit hooks, uv env |
+| `make check` | gofmt/gofumpt diff, vet, golangci-lint, ast-grep rules, ruff |
+| `make test` | Go unit tests (`-race -shuffle=on`, excludes `tests/`) |
+| `make conformance` / `make conformance-gaps` | fixture replay / list known gaps vs real Slack |
+| `make smoke` | Python SDK tests against a live isolated server |
+| `make verify` | everything above; the "am I done" command |
+| `scripts/with-server.sh <cmd>` | run any command against an isolated live server (`$LOCALSLACK_URL`) |
+| `make run` / `make dev` | run server (:3232) / hot reload with air |
+
+Gotchas: the repo root has untracked unrelated dotfiles (`.bashrc`, `.idea`, ...) - never `git add -A` at root; add specific paths. Never commit `.claude/settings.local.json`. Playground dir: `./tmp/` (gitignored; ast-grep and git ignore it, but golangci-lint does not - delete stray `.go` files there).
+
 ## 1. Validate initial state
 
 Before any changes, confirm the repo is healthy:
