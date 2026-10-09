@@ -7,4 +7,5 @@ Layering (M1): `store` (SQL only) -> `service` (rules, typed domain errors) -> `
 - `server`: router (`Deps`), `Run`, middleware.
 - `storetest`: `NewApp(t)` isolated app (temp DB, pinned seed) for tests.
 - `xdg`, `constants`: paths and shared constants.
-- Planned (see `agent-docs/plans/m1-vertical-slice.md`): `store`, `ids`, `seed`, `service`, `api`, `web`.
+- `store` (SQL only, writer+reader pools), `ids`, `seed` (deterministic demo data).
+- Planned (see `agent-docs/plans/m1-vertical-slice.md`): `service`, `api`, `web`.

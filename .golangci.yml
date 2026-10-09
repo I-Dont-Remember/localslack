@@ -18,7 +18,24 @@ linters:
     - bodyclose
     - thelper
     - paralleltest
+    - depguard
   settings:
+    depguard:
+      rules:
+        api:
+          files: ["**/internal/api/**"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: api talks to service, never store
+            - pkg: localslack/internal/web
+              desc: api and web must not import each other
+        web:
+          files: ["**/internal/web/**"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: web talks to service, never store
+            - pkg: localslack/internal/api
+              desc: api and web must not import each other
     revive:
       rules:
         - name: blank-imports

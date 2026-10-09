@@ -33,6 +33,16 @@ func NewRouter(d Deps) http.Handler {
 
 // Run starts the HTTP server on addr and blocks until ctx is cancelled or a fatal error occurs.
 func Run(ctx context.Context, log *slog.Logger, cfg config.Config) error {
+	st, err := OpenStore(ctx, log, cfg, time.Now())
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if cerr := st.Close(); cerr != nil {
+			log.ErrorContext(ctx, "close store", slog.Any("err", cerr))
+		}
+	}()
+
 	addr := cfg.Addr
 	srv := &http.Server{
 		Addr:    addr,

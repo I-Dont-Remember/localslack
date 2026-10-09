@@ -27,6 +27,10 @@ func TestNewApp(t *testing.T) {
 		t.Errorf("DBPath ext = %q, want .db", got)
 	}
 
+	if empty, err := a.Store.IsEmpty(t.Context()); err != nil || empty {
+		t.Errorf("Store.IsEmpty = %v, %v; want false, nil (seeded)", empty, err)
+	}
+
 	req, err := http.NewRequestWithContext(t.Context(), http.MethodGet, a.URL+"/_localslack/health", nil)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
