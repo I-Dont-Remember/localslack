@@ -1,0 +1,1 @@
+{"state":"passing","note":"unimplemented methods return not_implemented (LocalSlack behavior)","request":{"method":"POST","path":"/api/does.notExist","token":"xoxb-test"},"response":{"status":404,"body":{"ok":false,"error":"not_implemented"}}}

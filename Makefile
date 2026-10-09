@@ -1,4 +1,4 @@
-.PHONY: lint-py build run dev tidy clean test conformance smoke test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: lint-py build run dev tidy clean test conformance conformance-gaps smoke test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -32,6 +32,9 @@ test:
 
 conformance:
 	go test $(GOTESTFLAGS) ./tests/conformance/...
+
+conformance-gaps:
+	@go test -v -count=1 ./tests/conformance/... | grep -A12 'KNOWN GAP' || echo 'no known gaps'
 
 smoke:
 	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v

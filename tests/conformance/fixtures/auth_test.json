@@ -1,0 +1,1 @@
+{"state":"known_gap","note":"M1: auth.test (shape from Slack docs)","request":{"method":"POST","path":"/api/auth.test","token":"xoxb-test"},"response":{"status":200,"body":{"ok":true,"url":"<string>","team":"<string>","user":"<string>","team_id":"<id:T>","user_id":"<id:U>","bot_id":"<string>","is_enterprise_install":false}}}
