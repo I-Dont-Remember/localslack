@@ -304,7 +304,7 @@ Per-method tiers (see Rate-limiting), on/off via env var, rate-limit smoke check
 
 ### Milestone 6: breadth + polish
 
-More endpoints (`chat.update/delete`, `users.info`, `conversations.info`, ...), search, OpenAPI conformance validator, `reset` CLI, UI polish.
+Long-tail endpoints (the bolt-core ones moved up: see `agent-docs/ROADMAP.md`), search, OpenAPI conformance validator, `reset` CLI, UI polish.
 
 ### Milestones TBD
 
