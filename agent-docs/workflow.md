@@ -22,6 +22,8 @@ git status
 
 Note any uncommitted changes. Don't clobber in-progress work.
 
+**Sandbox note:** if `uv` fails with a read-only cache error, set `UV_CACHE_DIR=$TMPDIR/uv` for that command. Commits run pre-commit (cache outside the sandbox allowlist), so `git commit` needs an unsandboxed run/approval.
+
 ## 2. Make changes
 
 - Before creating a feature branch, check the current branch. If it is **not** `main`, use `AskUserQuestion` to ask whether to proceed (stacking on the existing branch) or stop so they can merge the current branch first.
