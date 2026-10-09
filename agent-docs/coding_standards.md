@@ -72,3 +72,10 @@ Follow the conventions and patterns documented at https://go.dev/doc/effective_g
 
 - Analyze code for runtime errors or panics
 - Analyze code for potential performance issues, e.g. unneccessary allocations or inefficient algorithms
+
+## Custom lint rules (ast-grep)
+
+Repo-specific bad patterns live in `rules/*.yml` (run by `make lint`, pre-commit). Each rule has a test in `rule-tests/`.
+- Add a rule when you catch a recurring mistake. Run `ast-grep test --update-all` to refresh snapshots, then review them.
+- Gotcha: a bare `pkg.Func($$$)` pattern parses as a type conversion in Go. Use `pattern: {context: 'func _() { pkg.Func($$$) }', selector: call_expression}`, and wrap test snippets in `func f() { ... }`.
+- ast-grep skips gitignored paths (e.g. `tmp/`).

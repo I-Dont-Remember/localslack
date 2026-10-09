@@ -1,0 +1,13 @@
+id: no-global-slog
+language: go
+severity: error
+message: Use an injected *slog.Logger (and the *Context methods), not the global slog functions.
+note: See agent-docs/coding_standards.md (Logging).
+rule:
+  # context+selector: bare `slog.X(...)` parses as a type conversion, not a call
+  pattern:
+    context: 'func _() { slog.$FN($$$) }'
+    selector: call_expression
+constraints:
+  FN:
+    regex: ^(Debug|Info|Warn|Error|Log)(Context)?$

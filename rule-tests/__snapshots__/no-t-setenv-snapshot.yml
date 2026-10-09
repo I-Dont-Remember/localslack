@@ -1,0 +1,8 @@
+id: no-t-setenv
+snapshots:
+  func TestX(t *testing.T) { t.Setenv("A", "b") }:
+    labels:
+    - source: t.Setenv("A", "b")
+      style: primary
+      start: 27
+      end: 45

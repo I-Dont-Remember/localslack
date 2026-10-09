@@ -1,0 +1,6 @@
+id: no-hardcoded-content-type
+valid:
+  - 'w.Header().Set("Content-Type", constants.ContentTypeJSON)'
+invalid:
+  - 'w.Header().Set("Content-Type", "application/json")'
+  - 'x := "application/x-www-form-urlencoded"'

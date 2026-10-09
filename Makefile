@@ -55,6 +55,8 @@ fmt:
 
 lint:
 	golangci-lint run ./...
+	ast-grep test
+	ast-grep scan
 
 lint-py:
 	uv run --project tests/smoke ruff check tests

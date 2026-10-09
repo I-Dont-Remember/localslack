@@ -1,0 +1,14 @@
+id: no-hardcoded-content-type
+snapshots:
+  w.Header().Set("Content-Type", "application/json"):
+    labels:
+    - source: '"application/json"'
+      style: primary
+      start: 31
+      end: 49
+  x := "application/x-www-form-urlencoded":
+    labels:
+    - source: '"application/x-www-form-urlencoded"'
+      style: primary
+      start: 5
+      end: 40

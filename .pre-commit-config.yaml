@@ -16,6 +16,13 @@ repos:
         types: [go]
         pass_filenames: false
 
+      - id: ast-grep
+        name: ast-grep rules
+        entry: bash -c 'ast-grep test && ast-grep scan'
+        language: system
+        files: '(\.go|\.yml)$'
+        pass_filenames: false
+
       - id: go-vet
         name: go vet
         entry: go vet ./...

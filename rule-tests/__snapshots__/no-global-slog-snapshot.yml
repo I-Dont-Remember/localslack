@@ -1,0 +1,14 @@
+id: no-global-slog
+snapshots:
+  func f() { slog.ErrorContext(ctx, "x", "error", err) }:
+    labels:
+    - source: slog.ErrorContext(ctx, "x", "error", err)
+      style: primary
+      start: 11
+      end: 52
+  func f() { slog.Info("x") }:
+    labels:
+    - source: slog.Info("x")
+      style: primary
+      start: 11
+      end: 25

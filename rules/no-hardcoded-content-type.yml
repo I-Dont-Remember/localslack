@@ -1,0 +1,13 @@
+id: no-hardcoded-content-type
+language: go
+severity: error
+message: Use constants.ContentTypeJSON / ContentTypeForm instead of hardcoded content-type strings.
+rule:
+  any:
+    - pattern: '"application/json"'
+    - pattern: '"application/x-www-form-urlencoded"'
+files:
+  - "**/*.go"
+ignores:
+  - "**/*_test.go"
+  - internal/constants/**

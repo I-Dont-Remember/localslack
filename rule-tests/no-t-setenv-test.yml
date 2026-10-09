@@ -1,0 +1,5 @@
+id: no-t-setenv
+valid:
+  - 'func TestX(t *testing.T) { t.Parallel() }'
+invalid:
+  - 'func TestX(t *testing.T) { t.Setenv("A", "b") }'
