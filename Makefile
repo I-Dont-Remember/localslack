@@ -33,12 +33,8 @@ test:
 conformance:
 	go test $(GOTESTFLAGS) ./tests/conformance/...
 
-smoke: build
-	@./bin/localslack start -d; \
-	sleep 1; \
-	uv run --project tests/smoke pytest tests/smoke/ -v; EXIT=$$?; \
-	./bin/localslack stop; \
-	exit $$EXIT
+smoke:
+	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v
 
 test-all: test conformance smoke
 
