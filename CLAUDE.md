@@ -14,6 +14,7 @@ See `agent-docs/STATUS.md` for current milestone and progress.
 - `agent-docs/endpoint_guide.md` describes the workflow for implementing new Slack API endpoints.
 - `agent-docs/workflow.md` is the required process for all repo changes — read it before starting work.
 - `docs/` is for both humans & agents.
+  - `docs/ALTERNATIVES.md` compares competing tools and says when to use them instead; check it when ranking work.
   - `docs/DESIGN_DOC.md` has the  initial plans which will get us the core of the application built out, including relevant milestones & technical choices.
 - you can use `./tmp/` as a playground since I have it `gitignored`. Examples of use: if you need to write small scripts or things to test assumptions and see how bite-size pieces function, or drop some temporary log files, etc.
 
