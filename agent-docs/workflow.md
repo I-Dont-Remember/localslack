@@ -12,7 +12,10 @@ Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first uncheck
 | `make check` | gofmt/gofumpt diff, vet, golangci-lint, ast-grep rules, ruff |
 | `make test` | Go unit tests (`-race -shuffle=on`, excludes `tests/`) |
 | `make conformance` / `make conformance-gaps` | fixture replay / list known gaps vs real Slack |
-| `make smoke` | Python SDK tests against a live isolated server |
+| `make conformance-update-gaps` | rewrite `gap_diffs` of `known_gap` fixtures from observed differences (after recording) |
+| `make smoke` | Python SDK + Bolt tests against a live isolated server (incl. red tests for known deviations) |
+| `make tools-test` / `make redact-check` | tests for the recording tools / fail if a fixture could leak tokens, emails, IDs |
+| `make docs` / `make evidence-gaps` | regenerate `docs/COMPATIBILITY.md` from the capability manifest / list methods lacking a real recording |
 | `make e2e` | Playwright browser tests (UI + SDK) against a live isolated server; failure screenshots in `tmp/e2e-artifacts` |
 | `make verify` | everything above; the "am I done" command |
 | `scripts/with-server.sh <cmd>` | run any command against an isolated live server (`$LOCALSLACK_URL`) |
@@ -45,6 +48,7 @@ Note any uncommitted changes. Don't clobber in-progress work.
 - Before creating a feature branch, check the current branch. If it is **not** `main`, use `AskUserQuestion` to ask whether to proceed (stacking on the existing branch) or stop so they can merge the current branch first.
 - Work in a feature branch: `git checkout -b <short-description>`
 - Follow TDD: write a failing test first, then implement.
+- Check `internal/capabilities/capabilities.toml` before starting feature work and keep it current in the same commits (`agent-docs/capabilities.md`); `make test` fails if it drifts from the code, and `make docs` regenerates `docs/COMPATIBILITY.md`.
 - After each logical chunk of changes, re-run `make check && make test` to stay green.
 
 ## 3. Verify functionality
