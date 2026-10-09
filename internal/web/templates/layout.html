@@ -1,0 +1,90 @@
+{{define "page"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalSlack</title>
+<script src="/ui/static/htmx.min.js"></script>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1d1c1d; --side:#3f0e40; --sidefg:#e8d8e8; --accent:#1264a3; --line:#ddd; --muted:#616061; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1a1d21; --fg:#d1d2d3; --side:#19171d; --line:#383b40; --muted:#9a9b9e; --accent:#4aa3e0; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); display:flex; height:100vh; }
+  aside { width:250px; background:var(--side); color:var(--sidefg); padding:12px; overflow:auto; flex-shrink:0; }
+  aside h1 { font-size:18px; margin:0 0 8px; }
+  aside h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; margin:16px 0 4px; opacity:.7; }
+  aside ul { list-style:none; margin:0; padding:0; }
+  aside a { color:inherit; text-decoration:none; display:block; padding:2px 6px; border-radius:4px; }
+  aside a.active { background:#1164a3; color:#fff; }
+  aside a:hover { background:rgba(255,255,255,.12); }
+  aside input, aside select, aside button { width:100%; margin:2px 0; padding:4px 6px; font:inherit; }
+  main { flex:1; display:flex; flex-direction:column; min-width:0; }
+  header.bar { padding:10px 16px; border-bottom:1px solid var(--line); font-weight:700; }
+  .scroll { flex:1; overflow:auto; padding:8px 16px; }
+  .msg { padding:6px 0; }
+  .msg .who { font-weight:700; margin-right:6px; }
+  .msg .time, .msg .meta, .muted { color:var(--muted); font-size:12px; }
+  .msg .text { white-space:pre-wrap; word-wrap:break-word; }
+  .msg a { color:var(--accent); font-size:13px; }
+  form.composer { display:flex; gap:6px; padding:10px 16px; border-top:1px solid var(--line); }
+  form.composer input[type=text] { flex:1; padding:8px; font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; }
+  form.composer button { padding:8px 14px; font:inherit; }
+  section.thread { width:340px; border-left:1px solid var(--line); display:flex; flex-direction:column; flex-shrink:0; }
+</style>
+</head>
+<body>
+<aside>
+  <h1>LocalSlack</h1>
+  <form method="post" action="/ui/as">
+    <label class="muted" for="acting-as">Acting as</label>
+    <select id="acting-as" name="user" data-testid="acting-as" onchange="this.form.submit()">
+      {{range .Users}}<option value="{{.ID}}"{{if eq .ID $.Actor.ID}} selected{{end}}>{{.Name}}{{if .IsBot}} (bot){{end}}</option>{{end}}
+    </select>
+    <input type="hidden" name="next" value="{{.Path}}">
+    <noscript><button type="submit">Switch</button></noscript>
+  </form>
+  <input type="search" name="q" placeholder="Jump to… (channel or person)" autocomplete="off" data-testid="switcher-input"
+         hx-get="/ui/switch" hx-trigger="input changed delay:150ms, search" hx-target="#switcher-results">
+  <ul id="switcher-results" data-testid="switcher-results"></ul>
+  <h2>Channels</h2>
+  <ul data-testid="channel-list">
+    {{range .Channels}}<li><a data-testid="channel-link" class="{{if .Active}}active{{end}}" href="/ui/c/{{.ID}}">#{{.Title}}</a></li>{{end}}
+  </ul>
+  <h2>Direct messages</h2>
+  <ul data-testid="dm-list">
+    {{range .DMs}}<li><a data-testid="dm-link" class="{{if .Active}}active{{end}}" href="/ui/c/{{.ID}}">{{.Title}}</a></li>{{end}}
+  </ul>
+</aside>
+<main>
+  <header class="bar" data-testid="channel-title">{{.Title}}</header>
+  <div class="scroll">
+    <div id="messages" data-testid="messages" hx-get="/ui/c/{{.ChannelID}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Messages}}</div>
+  </div>
+  <form class="composer" hx-post="/ui/c/{{.ChannelID}}/post" hx-target="#messages" hx-swap="innerHTML"
+        hx-on::after-request="if (event.detail.successful) this.reset()">
+    <input type="text" name="text" placeholder="Message {{.Title}}" autocomplete="off" data-testid="composer-input">
+    <button type="submit" data-testid="send">Send</button>
+  </form>
+</main>
+{{if .Thread}}<section class="thread" id="thread-pane" data-testid="thread-pane">
+  <header class="bar">Thread <a href="/ui/c/{{.ChannelID}}" class="muted">close</a></header>
+  <div class="scroll">
+    <div id="thread-messages" data-testid="thread-messages" hx-get="/ui/c/{{.ChannelID}}/t/{{.Thread.RootTS}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Thread.Messages}}</div>
+  </div>
+  <form class="composer" hx-post="/ui/c/{{.ChannelID}}/t/{{.Thread.RootTS}}/post" hx-target="#thread-messages" hx-swap="innerHTML"
+        hx-on::after-request="if (event.detail.successful) this.reset()">
+    <input type="text" name="text" placeholder="Reply…" autocomplete="off" data-testid="reply-input">
+    <button type="submit" data-testid="reply-send">Reply</button>
+  </form>
+</section>{{end}}
+</body>
+</html>
+{{end}}
+
+{{define "messages"}}{{range .}}<div class="msg" data-testid="message" data-ts="{{.TS}}">
+  <span class="who">{{.User}}</span><span class="time">{{.Time}}</span>
+  <div class="text">{{.Text}}</div>
+  {{if .InThread}}{{else if .ReplyCount}}<a data-testid="thread-link" href="/ui/c/{{.ChannelID}}/t/{{.TS}}">{{.RepliesLabel}}</a>{{else}}<a data-testid="thread-link" class="muted" href="/ui/c/{{.ChannelID}}/t/{{.TS}}">Reply</a>{{end}}
+</div>{{else}}<p class="muted">No messages yet.</p>{{end}}{{end}}
+
+{{define "switcher"}}{{range .}}<li data-testid="switcher-result">{{if .Href}}<a href="{{.Href}}">{{.Label}}</a>{{else}}<button type="button" hx-post="/ui/dm" hx-vals='{"user": "{{.UserID}}"}'>{{.Label}}</button>{{end}}</li>{{end}}{{end}}

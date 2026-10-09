@@ -190,3 +190,22 @@ func notFoundOr(err, domain error) error {
 	}
 	return err
 }
+
+// ListAll returns every conversation of the given Slack types visible to caller
+// (all pages), ordered by id. For UIs that need the whole list.
+func (s *Service) ListAll(ctx context.Context, caller User, types []string, excludeArchived bool) ([]Conversation, error) {
+	var all []Conversation
+	cursor := ""
+	for {
+		page, err := s.ListConversations(ctx, caller, ListOpts{
+			Types: types, ExcludeArchived: excludeArchived, Cursor: cursor, Limit: maxLimit,
+		})
+		if err != nil {
+			return nil, err
+		}
+		all = append(all, page.Items...)
+		if cursor = page.NextCursor; cursor == "" {
+			return all, nil
+		}
+	}
+}

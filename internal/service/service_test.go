@@ -657,3 +657,31 @@ func TestConcurrentCreateAndPostAndRead(t *testing.T) {
 		t.Errorf("concurrent OpenDM made %d ims, %v; want exactly 1", len(ims.Items), err)
 	}
 }
+
+func TestListAll(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, other := usersOf(t, svc)
+	for i := range 3 {
+		if _, err := svc.CreateChannel(t.Context(), caller, "all-"+strconv.Itoa(i)); err != nil {
+			t.Fatalf("create: %v", err)
+		}
+	}
+	if _, err := svc.OpenDM(t.Context(), caller, []string{other.ID}); err != nil {
+		t.Fatalf("open dm: %v", err)
+	}
+
+	big, err := svc.ListConversations(t.Context(), caller, service.ListOpts{Limit: 1000})
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	got, err := svc.ListAll(t.Context(), caller, []string{"public_channel"}, false)
+	if err != nil || len(got) != len(big.Items) {
+		t.Errorf("ListAll channels = %d, %v; want %d", len(got), err, len(big.Items))
+	}
+	dms, err := svc.ListAll(t.Context(), caller, []string{"im", "mpim"}, false)
+	if err != nil || len(dms) != 1 || dms[0].Peer != other.ID {
+		t.Errorf("ListAll dms = %+v, %v; want one im with peer %s", dms, err, other.ID)
+	}
+}

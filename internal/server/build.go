@@ -9,6 +9,7 @@ import (
 	"localslack/internal/config"
 	"localslack/internal/service"
 	"localslack/internal/store"
+	"localslack/internal/web"
 )
 
 // App is a fully wired LocalSlack: store, the one service over it, and the router.
@@ -31,7 +32,12 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 		_ = st.Close()
 		return nil, err
 	}
-	return &App{Handler: NewRouter(Deps{Log: log, Svc: svc}), Store: st, Service: svc}, nil
+	ui, err := web.New(svc, log)
+	if err != nil {
+		_ = st.Close()
+		return nil, err
+	}
+	return &App{Handler: NewRouter(Deps{Log: log, Svc: svc, Web: ui}), Store: st, Service: svc}, nil
 }
 
 // Close releases the store.

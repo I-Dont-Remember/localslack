@@ -14,6 +14,7 @@ import (
 	"localslack/internal/api"
 	"localslack/internal/config"
 	"localslack/internal/service"
+	"localslack/internal/web"
 )
 
 // Deps are the collaborators the router needs. Service-backed routes are
@@ -21,6 +22,7 @@ import (
 type Deps struct {
 	Log *slog.Logger
 	Svc *service.Service
+	Web *web.Web
 }
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
@@ -32,6 +34,11 @@ func NewRouter(d Deps) http.Handler {
 	if d.Svc != nil {
 		r.Get("/_localslack/state/conversations", h.stateConversations)
 		api.Mount(r, d.Svc, d.Log, h.notImplemented)
+	}
+	if d.Web != nil {
+		if err := d.Web.Mount(r); err != nil {
+			d.Log.Error("mount web ui", slog.Any("error", err))
+		}
 	}
 	r.NotFound(h.notImplemented)
 	r.MethodNotAllowed(h.methodNotAllowed)

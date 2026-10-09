@@ -27,7 +27,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 5. [x] conversations.list/create/history/replies/open (+ cursor pagination test)
 6. [x] chat.postMessage (thread_ts bump, channel_not_found)
 7. [x] `GET /_localslack/state/conversations`
-8. [ ] web UI (below)
+8. [x] web UI (below)
 9. [ ] e2e (below)
 10. [ ] finish (below)
 
@@ -36,7 +36,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - [x] before step 5: service-owned `Conversation` (Peer, IsMember, NumMembers) and `Message` (computed thread info) instead of store aliases; `oldest`/`latest`/`inclusive` on history; one api mapper for thread_ts (`m.ThreadTS`, or `m.TS` if ReplyCount>0); add `reply_users`/`parent_user_id`
 - [x] step 5: tests for full history walk, replies paging (parent only on page 1), exact-limit boundary, mutation between pages
 - [x] step 6: archive seam (service/store method) so `ErrIsArchived` and `ExcludeArchived` are testable; race test CreateChannel/OpenDM; post concurrent with history reads
-- [ ] step 8: unpaged name-sorted `ListAll` for the sidebar
+- [x] step 8: unpaged name-sorted `ListAll` for the sidebar
 - [ ] later: decide on `data` JSON columns (use or drop); `Service.Reload` for reset; reject `:memory:` DB path; `synchronous=NORMAL`
 
 ## Details
