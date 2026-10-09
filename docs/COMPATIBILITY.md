@@ -15,7 +15,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `llm` | Written from model knowledge and never checked. Treat as a best guess. |
 | `none` | No conformance fixture exists. |
 
-Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. "SDK-tested" means a real Slack SDK client calls the method in `tests/smoke` or `tests/e2e`.
+"Red test" in the deviations table means an executable strict-xfail test in `tests/smoke/known_deviations_test.py` encodes the real Slack behavior. Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. "SDK-tested" means a real Slack SDK client calls the method in `tests/smoke` or `tests/e2e`.
 
 ## Methods
 
@@ -23,7 +23,7 @@ Tier and scopes are transcribed from Slack's docs and are unverified until a rec
 |---|---|---|---|---|---|---|
 | `auth.test` | implemented | llm | — | — | yes | `fabricated-bot-id`, `any-token-accepted` |
 | `chat.postMessage` | partial | llm | — | `chat:write`, `chat:write.public` | yes | `no-blocks`, `name-targets-unresolved`, `no-membership-check`, `partial-message-fields`, `message-length-unbounded` |
-| `conversations.archive` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | — | `collapsed-errors` |
+| `conversations.archive` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors` |
 | `conversations.create` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors`, `no-private-channels` |
 | `conversations.history` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
 | `conversations.list` | implemented | llm | 2 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `no-private-channels`, `partial-conversation-fields`, `limit-clamping` |
@@ -74,26 +74,26 @@ Tier and scopes are transcribed from Slack's docs and are unverified until a rec
 
 ## Known deviations from real Slack
 
-| Deviation | Severity | What differs | Affects |
-|---|---|---|---|
-| `no-blocks` | high | blocks, attachments and message metadata are ignored, and a blocks-only chat.postMessage returns no_text (Slack accepts it). | `block-kit`, `chat.postMessage` |
-| `any-token-accepted` | medium | Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking. | `auth.test`, `oauth-scopes` |
-| `multipart-ignored` | medium | multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text). | `multipart-bodies` |
-| `name-targets-unresolved` | medium | The channel param must be an ID: "#general" and user IDs as DM targets return channel_not_found (Slack resolves both). | `chat.postMessage` |
-| `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.postMessage`, `conversations.history`, `conversations.replies`, `membership-enforcement` |
-| `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` |
-| `partial-message-fields` | medium | Messages omit bot_id, bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users. | `chat.postMessage`, `conversations.history`, `conversations.replies` |
-| `response-headers-missing` | medium | Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset. | `response-headers` |
-| `collapsed-errors` | low | Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments. | `api-errors-http-200`, `conversations.archive`, `conversations.create` |
-| `cursor-format` | low | Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque. | `conversations.history`, `conversations.replies`, `opaque-cursor-pagination` |
-| `fabricated-bot-id` | low | auth.test derives bot_id from the bot's user ID; bot IDs are not stored and never appear on messages or users. | `auth.test`, `slack-style-ids` |
-| `limit-clamping` | low | Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method. | `conversations.history`, `conversations.list`, `conversations.replies`, `opaque-cursor-pagination` |
-| `message-length-unbounded` | low | There is no maximum message length (Slack returns msg_too_long above roughly 40,000 characters). | `chat.postMessage` |
-| `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.list`, `conversations.open` |
-| `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.list` |
-| `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` |
-| `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` |
-| `users-list-unpaginated` | low | users.list ignores limit and cursor and always returns every user with an empty next_cursor. | `users.list` |
+| Deviation | Severity | What differs | Affects | Red test |
+|---|---|---|---|---|
+| `no-blocks` | high | blocks, attachments and message metadata are ignored, and a blocks-only chat.postMessage returns no_text (Slack accepts it). | `block-kit`, `chat.postMessage` | yes |
+| `any-token-accepted` | medium | Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking. | `auth.test`, `oauth-scopes` | — |
+| `multipart-ignored` | medium | multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text). | `multipart-bodies` | yes |
+| `name-targets-unresolved` | medium | The channel param must be an ID: "#general" and user IDs as DM targets return channel_not_found (Slack resolves both). | `chat.postMessage` | yes |
+| `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.postMessage`, `conversations.history`, `conversations.replies`, `membership-enforcement` | yes |
+| `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` | yes |
+| `partial-message-fields` | medium | Messages omit bot_id, bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users. | `chat.postMessage`, `conversations.history`, `conversations.replies` | yes |
+| `response-headers-missing` | medium | Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset. | `response-headers` | yes |
+| `collapsed-errors` | low | Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments. | `api-errors-http-200`, `conversations.archive`, `conversations.create` | yes |
+| `cursor-format` | low | Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque. | `conversations.history`, `conversations.replies`, `opaque-cursor-pagination` | — |
+| `fabricated-bot-id` | low | auth.test derives bot_id from the bot's user ID; bot IDs are not stored and never appear on messages or users. | `auth.test`, `slack-style-ids` | — |
+| `limit-clamping` | low | Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method. | `conversations.history`, `conversations.list`, `conversations.replies`, `opaque-cursor-pagination` | — |
+| `message-length-unbounded` | low | There is no maximum message length (Slack returns msg_too_long above roughly 40,000 characters). | `chat.postMessage` | yes |
+| `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.list`, `conversations.open` | — |
+| `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.list` | — |
+| `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` | yes |
+| `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` | yes |
+| `users-list-unpaginated` | low | users.list ignores limit and cursor and always returns every user with an empty next_cursor. | `users.list` | yes |
 
 ## Clients verified
 
@@ -102,5 +102,5 @@ Versions pinned by `tests/smoke/uv.lock`, i.e. what the smoke suite really runs.
 | Client | Version |
 |---|---|
 | slack-sdk | 3.41.0 |
-| slack-bolt | not yet |
-| aiohttp | not yet |
+| slack-bolt | 1.30.0 |
+| aiohttp | 3.14.4 |

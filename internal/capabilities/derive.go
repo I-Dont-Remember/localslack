@@ -59,15 +59,8 @@ func EvidenceByMethod(fixtures []NamedFixture) map[string]Evidence {
 // sdkTestDirs are scanned for real Slack SDK calls.
 var sdkTestDirs = []string{"tests/smoke", "tests/e2e"} //nolint:gochecknoglobals // immutable
 
-// SDKTests finds which test files call each method through a Slack SDK client.
-// The SDK names a method by replacing "." with "_" (chat.postMessage ->
-// client.chat_postMessage(...)), so this needs no hand-kept list.
-func SDKTests(repo fs.FS, methods []string) (map[string][]string, error) {
-	patterns := make(map[string]*regexp.Regexp, len(methods))
-	for _, m := range methods {
-		patterns[m] = regexp.MustCompile(`\.` + regexp.QuoteMeta(strings.ReplaceAll(m, ".", "_")) + `\(`)
-	}
-	out := map[string][]string{}
+// scanTests walks the Python test dirs and calls visit for every .py file.
+func scanTests(repo fs.FS, visit func(path string, src []byte)) error {
 	for _, dir := range sdkTestDirs {
 		err := fs.WalkDir(repo, dir, func(p string, d fs.DirEntry, err error) error {
 			switch {
@@ -84,19 +77,62 @@ func SDKTests(repo fs.FS, methods []string) (map[string][]string, error) {
 			if err != nil {
 				return err
 			}
-			for m, re := range patterns {
-				if re.Match(src) {
-					out[m] = append(out[m], p)
-				}
-			}
+			visit(p, src)
 			return nil
 		})
 		if err != nil {
-			return nil, fmt.Errorf("scan %s: %w", dir, err)
+			return fmt.Errorf("scan %s: %w", dir, err)
 		}
+	}
+	return nil
+}
+
+// SDKTests finds which test files call each method through a Slack SDK client.
+// The SDK names a method by replacing "." with "_" (chat.postMessage ->
+// client.chat_postMessage(...)), so this needs no hand-kept list.
+func SDKTests(repo fs.FS, methods []string) (map[string][]string, error) {
+	patterns := make(map[string]*regexp.Regexp, len(methods))
+	for _, m := range methods {
+		patterns[m] = regexp.MustCompile(`\.` + regexp.QuoteMeta(strings.ReplaceAll(m, ".", "_")) + `\(`)
+	}
+	out := map[string][]string{}
+	err := scanTests(repo, func(p string, src []byte) {
+		for m, re := range patterns {
+			if re.Match(src) {
+				out[m] = append(out[m], p)
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
 	}
 	for m := range out {
 		slices.Sort(out[m])
+	}
+	return out, nil
+}
+
+var deviationMarker = regexp.MustCompile(`(?m)^\s*@deviation\(["']([a-z0-9-]+)["']\)`) //nolint:gochecknoglobals // immutable
+
+// DeviationTests finds red tests tagged @deviation("<id>"): the executable record of a known
+// deviation. Returns deviation id -> test files, sorted.
+func DeviationTests(repo fs.FS) (map[string][]string, error) {
+	out := map[string][]string{}
+	err := scanTests(repo, func(p string, src []byte) {
+		seen := map[string]bool{}
+		for _, m := range deviationMarker.FindAllSubmatch(src, -1) {
+			id := string(m[1])
+			if !seen[id] {
+				seen[id] = true
+				out[id] = append(out[id], p)
+			}
+		}
+	})
+	if err != nil {
+		return nil, err
+	}
+	for id := range out {
+		slices.Sort(out[id])
 	}
 	return out, nil
 }
@@ -132,6 +168,7 @@ type Report struct {
 	Manifest Manifest
 	Evidence map[string]Evidence // per method
 	SDK      map[string][]string // per method: test files calling it
+	DevTests map[string][]string // per deviation: red tests tagged @deviation(id)
 	Clients  []Client
 }
 
@@ -154,13 +191,17 @@ func BuildReport(repo fs.FS) (Report, error) {
 	if err != nil {
 		return Report{}, err
 	}
+	devTests, err := DeviationTests(repo)
+	if err != nil {
+		return Report{}, err
+	}
 	var clients []Client
 	if lock, err := fs.ReadFile(repo, "tests/smoke/uv.lock"); err == nil {
 		if clients, err = ClientVersions(lock, "slack-sdk", "slack-bolt", "aiohttp"); err != nil {
 			return Report{}, err
 		}
 	}
-	return Report{Manifest: m, Evidence: EvidenceByMethod(fixtures), SDK: sdk, Clients: clients}, nil
+	return Report{Manifest: m, Evidence: EvidenceByMethod(fixtures), SDK: sdk, DevTests: devTests, Clients: clients}, nil
 }
 
 // Gaps lists shipped methods whose evidence is below "recorded", weakest first:

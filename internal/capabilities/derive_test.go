@@ -1,6 +1,7 @@
 package capabilities_test
 
 import (
+	"os"
 	"slices"
 	"testing"
 	"testing/fstest"
@@ -101,5 +102,48 @@ func TestEvidenceOrdering(t *testing.T) {
 	levels := []capabilities.Evidence{capabilities.EvidenceNone, capabilities.EvidenceLLM, capabilities.EvidenceDocs, capabilities.EvidenceRecorded}
 	if !slices.IsSortedFunc(levels, func(a, b capabilities.Evidence) int { return capabilities.Rank(a) - capabilities.Rank(b) }) {
 		t.Error("Rank must order none < llm < docs < recorded")
+	}
+}
+
+func TestDeviationTests(t *testing.T) {
+	t.Parallel()
+
+	repo := fstest.MapFS{
+		"tests/smoke/a_test.py":  {Data: []byte("@deviation(\"no-blocks\")\ndef test_a(): ...\n\n@deviation('other-gap')\ndef test_b(): ...\n")},
+		"tests/smoke/b_test.py":  {Data: []byte("@deviation(\"no-blocks\")\ndef test_c(): ...\n# deviation(\"commented\") is not a marker\n")},
+		"tests/smoke/.venv/x.py": {Data: []byte("@deviation(\"venv\")\n")},
+	}
+	got, err := capabilities.DeviationTests(repo)
+	if err != nil {
+		t.Fatalf("DeviationTests: %v", err)
+	}
+	want := map[string][]string{
+		"no-blocks": {"tests/smoke/a_test.py", "tests/smoke/b_test.py"},
+		"other-gap": {"tests/smoke/a_test.py"},
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("DeviationTests mismatch (-want +got):\n%s", diff)
+	}
+}
+
+// A red test tagged with a deviation id that is not in the manifest is a typo or a stale test.
+func TestRepoDeviationTestsReferenceKnownDeviations(t *testing.T) {
+	t.Parallel()
+
+	m, err := capabilities.Load()
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	tagged, err := capabilities.DeviationTests(os.DirFS("../.."))
+	if err != nil {
+		t.Fatalf("DeviationTests: %v", err)
+	}
+	for id, files := range tagged {
+		if _, ok := m.Deviations[id]; !ok {
+			t.Errorf("@deviation(%q) in %v is not defined under [deviations.%s] in capabilities.toml", id, files, id)
+		}
+	}
+	if len(tagged) == 0 {
+		t.Error("no @deviation(...) tests found; the red-test scan is probably broken")
 	}
 }

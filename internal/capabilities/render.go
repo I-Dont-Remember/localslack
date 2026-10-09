@@ -23,13 +23,14 @@ func Render(r Report) string {
 	b.WriteString("| `docs` | Checked against a cited source (Slack docs or SDK source). |\n")
 	b.WriteString("| `llm` | Written from model knowledge and never checked. Treat as a best guess. |\n")
 	b.WriteString("| `none` | No conformance fixture exists. |\n\n")
+	b.WriteString("\"Red test\" in the deviations table means an executable strict-xfail test in `tests/smoke/known_deviations_test.py` encodes the real Slack behavior. ")
 	b.WriteString("Tier and scopes are transcribed from Slack's docs and are unverified until a recording says otherwise. ")
 	b.WriteString("\"SDK-tested\" means a real Slack SDK client calls the method in `tests/smoke` or `tests/e2e`.\n\n")
 
 	renderShipped(&b, r)
 	renderPlanned(&b, m)
 	renderBehaviors(&b, m)
-	renderDeviations(&b, m)
+	renderDeviations(&b, r)
 	renderClients(&b, r)
 	return b.String()
 }
@@ -105,9 +106,10 @@ func renderBehaviors(b *strings.Builder, m Manifest) {
 	b.WriteString("\n")
 }
 
-func renderDeviations(b *strings.Builder, m Manifest) {
+func renderDeviations(b *strings.Builder, r Report) {
+	m := r.Manifest
 	b.WriteString("## Known deviations from real Slack\n\n")
-	b.WriteString("| Deviation | Severity | What differs | Affects |\n|---|---|---|---|\n")
+	b.WriteString("| Deviation | Severity | What differs | Affects | Red test |\n|---|---|---|---|---|\n")
 	affects := map[string][]string{}
 	for name, meth := range m.Methods {
 		for _, d := range meth.Deviations {
@@ -125,7 +127,11 @@ func renderDeviations(b *strings.Builder, m Manifest) {
 	for _, name := range names {
 		d := m.Deviations[name]
 		slices.Sort(affects[name])
-		fmt.Fprintf(b, "| `%s` | %s | %s | %s |\n", name, d.Severity, cell(d.Summary), codes(affects[name]))
+		red := "—"
+		if len(r.DevTests[name]) > 0 {
+			red = "yes"
+		}
+		fmt.Fprintf(b, "| `%s` | %s | %s | %s | %s |\n", name, d.Severity, cell(d.Summary), codes(affects[name]), red)
 	}
 	b.WriteString("\n")
 }

@@ -3,11 +3,13 @@ name = "localslack-smoke"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "slack-sdk",
+    "slack-sdk==3.41.0",
     "pytest",
     "httpx",
     "playwright>=1.63.0",
     "pytest-playwright>=0.10.0",
+    "slack-bolt>=1.30.0",
+    "aiohttp>=3.14.4",
 ]
 
 [dependency-groups]
@@ -22,3 +24,4 @@ select = ["E", "F", "I", "B", "UP"]
 [tool.pytest.ini_options]
 python_files = ["*_test.py"]
 xfail_strict = true
+filterwarnings = ["ignore:The top-level `text` argument:UserWarning"]
