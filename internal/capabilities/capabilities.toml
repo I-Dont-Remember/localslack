@@ -239,7 +239,7 @@ summary = "Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-
 [behaviors.oauth-scopes]
 status = "planned"
 milestone = "M4"
-summary = "Mock OAuth, per-method scope checks (missing_scope) and revoked/invalid token errors."
+summary = "Per-method scope checks (missing_scope) with a permissive default; full OAuth flow emulation is intentionally low priority."
 deviations = ["any-token-accepted"]
 
 [behaviors.events-api-http]
@@ -251,6 +251,14 @@ summary = "Events API delivery over HTTP with url_verification and X-Slack-Signa
 status = "planned"
 milestone = "M3"
 summary = "Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel."
+
+[behaviors.inspection-api]
+status = "planned"
+summary = "LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose."
+
+[behaviors.scenario-seeding]
+status = "planned"
+summary = "Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate."
 
 # ---------------------------------------------------------------- known deviations
 # Referenced by id from methods and behaviors above. Keep summaries one sentence: they are

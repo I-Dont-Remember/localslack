@@ -63,14 +63,16 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
+| `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
 | `membership-enforcement` | planned | — | — | not_in_channel / channel_not_found for non-members reading or posting in channels and DMs. | `no-membership-check` |
 | `message-ts` | implemented | — | llm | Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts. | — |
 | `multipart-bodies` | planned | — | — | multipart/form-data requests (file uploads). | `multipart-ignored` |
-| `oauth-scopes` | planned | M4 | — | Mock OAuth, per-method scope checks (missing_scope) and revoked/invalid token errors. | `any-token-accepted` |
+| `oauth-scopes` | planned | M4 | — | Per-method scope checks (missing_scope) with a permissive default; full OAuth flow emulation is intentionally low priority. | `any-token-accepted` |
 | `opaque-cursor-pagination` | implemented | — | llm | Cursor pagination with response_metadata.next_cursor; cursors are opaque and bound to their endpoint. | `cursor-format`, `limit-clamping` |
 | `private-channels` | planned | — | — | Private channels and groups. | `no-private-channels` |
 | `rate-limiting` | planned | M5 | — | Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var). | — |
 | `response-headers` | planned | — | — | Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type. | `response-headers-missing` |
+| `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | `fabricated-bot-id` |
 | `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
 

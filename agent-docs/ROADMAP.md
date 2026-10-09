@@ -22,12 +22,14 @@ in `plans/` (and an `arch-reviewer` pass) *before* code; do not start an L item 
    M2 delivery. The default local-dev mode for Bolt, so high value right after M2.
 
 ## Tier 2: trust and fidelity (what separates us from a hand-written mock)
-5. **Test-inspection API + reset (L):** `/_localslack/` endpoints to snapshot/reset state, seed
-   scenarios, and assert calls made (DESIGN_DOC appendix). The main reason to use us in CI.
+5. **Test-inspection API + reset (L):** `/_localslack/` endpoints to snapshot/reset state and assert
+   calls made, covering what Slack's own APIs can't (DESIGN_DOC appendix). The main reason to use us in CI.
 6. **Rate limiting (M, M5):** per-method tiers (already in the manifest), `429` + `Retry-After`, opt-in
-   via env. Lets users test their backoff code, which mocks never do.
-7. **Scopes and token errors (L, M4):** `missing_scope`, `invalid_auth`, `token_revoked`, mock OAuth
-   with a god-mode token. Reads `scopes` from the embedded manifest. Needs scopes verified first.
+   via env. Scripts forget about limits and get bitten; mocks never test backoff code.
+7. **Scenario seeding (L; design question open):** declarative, reproducible workspace setups
+   ("50 channels, 400 users, busy threads") via CLI flag / config / inspection API, built on the seed
+   generator, so users don't write setup boilerplate. Shape not decided: plan it together with item 5
+   (reset + seed + snapshot are one feature family). Sizes must stay fast to generate.
 8. **Error/header fidelity (S-M, each):** `not_in_channel` + membership checks, `x-slack-req-id` and
    other headers, `unknown_method` as 200, split `invalid_name_*` errors. Each flips a red test in
    `tests/smoke/known_deviations_test.py`; fixing deviations is cheap, well-scoped agent work.
@@ -36,12 +38,18 @@ in `plans/` (and an `arch-reviewer` pass) *before* code; do not start an L item 
 ## Tier 3: common but secondary
 - Channel membership flows: `conversations.join/leave/invite/kick`, `setTopic/setPurpose`,
   `users.conversations`, `team.info`, `reactions.remove/get`, `pins.*`, `chat.getPermalink`.
+- Scopes (M4, deliberately last of the trust items): `missing_scope` checks driven by the manifest's
+  `scopes`, with a permissive default. Skip mock OAuth flows and exhaustive token-error emulation:
+  auth failures stop developers immediately, so faithful emulation adds complexity for little testing
+  value. Only build what is cheap.
 - Interactivity (L): `views.open/update/publish`, `block_actions`, slash commands, `response_url`.
   Needs blocks (2) and events (3) first.
 - Files (M-L): `files.getUploadURLExternal` flow, multipart bodies.
 - Private channels (`is_private`, group membership); real `users.profile.*`; `users.lookupByEmail`.
 - UI polish: render blocks, reactions, edit/delete, ephemeral messages.
 - OpenAPI conformance validator (M6): extra evidence signal, not urgent.
+- Claude Skill for LocalSlack users (S, later): a concise skill that knows the inspection/seed/reset
+  APIs and internals. Write it once those APIs have stabilized.
 
 ## Tier 4: low payoff (only on demand)
 `admin.*`, Enterprise Grid, `usergroups.*`, `bookmarks.*`, `dnd.*`, `search.*`, `workflows.*`, `calls.*`,
