@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: lint-py build run dev tidy clean test conformance conformance-gaps smoke e2e test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps smoke e2e test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -41,6 +41,14 @@ conformance:
 
 conformance-gaps:
 	@go test -v -count=1 ./tests/conformance/... | grep -A12 'KNOWN GAP' || echo 'no known gaps'
+
+# Regenerate docs/COMPATIBILITY.md from the capabilities manifest (a test fails if it is stale).
+docs:
+	go run ./cmd/capctl docs
+
+# Shipped methods that still need a real-Slack recording (weakest evidence first).
+evidence-gaps:
+	@go run ./cmd/capctl gaps
 
 smoke:
 	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v
