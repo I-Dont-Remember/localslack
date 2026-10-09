@@ -38,6 +38,9 @@ func (c *StartCmd) startDetached() error {
 	if err != nil {
 		return fmt.Errorf("locate executable: %w", err)
 	}
+	if pid, err := readPIDFile(xdg.PIDFile()); err == nil && processAlive(pid) {
+		return fmt.Errorf("already running (PID %d); run `localslack stop` first", pid)
+	}
 	stateDir := xdg.AppStateDir()
 	if err := os.MkdirAll(stateDir, 0o700); err != nil {
 		return fmt.Errorf("create state dir: %w", err)
