@@ -1,0 +1,79 @@
+{
+  "state": "passing",
+  "source": "llm",
+  "note": "shape from memory of the Slack docs (subset: real messages carry more fields; extras we emit are ignored)",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-replies"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "root"
+      },
+      "capture": {
+        "root": "ts"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "reply",
+        "thread_ts": "{{root}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.replies",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "ts": "{{root}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "has_more": false,
+      "messages": [
+        {
+          "type": "message",
+          "user": "<id:U>",
+          "text": "root",
+          "ts": "<ts>",
+          "thread_ts": "<ts>",
+          "reply_count": 1,
+          "latest_reply": "<ts>"
+        },
+        {
+          "type": "message",
+          "user": "<id:U>",
+          "text": "reply",
+          "ts": "<ts>",
+          "thread_ts": "<ts>",
+          "parent_user_id": "<id:U>"
+        }
+      ]
+    },
+    "ignore": [
+      "pin_count",
+      "response_metadata"
+    ]
+  }
+}

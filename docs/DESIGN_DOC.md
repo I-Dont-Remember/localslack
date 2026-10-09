@@ -137,6 +137,8 @@ rate_limits:
     auth.test: 5
 ```
 
+> The per-method tier is data now: `tier` (and `scopes`) per method in `internal/capabilities/capabilities.toml`, which M4/M5 read rather than keeping a second table. The numbers above are from Slack's docs and unverified until recorded.
+
 ### Events API Design
 
 An internal in-memory event-driven architecture that emulates the Slack Events API. This is where LocalSlack app registers an event subscription and the LocalSlack service sends out event notifications through either HTTP or Socket Mode. It should allow us to register events when a user takes an action without blocking the response to their request.
@@ -206,9 +208,11 @@ We want to have layers of automated testing to ensure agents have the tools they
 - Python 3.12 managed with `uv` (`tests/smoke/pyproject.toml`) installs the `slack-sdk` & Slack Bolt dependencies. Do not place this at the top level of the repo.
 - A passing smoke test should prove:
   - We can connect a basic script with Slack SDK webclient, it should be show the APIs for `auth.test`, `converstions.create`, `chat.postMessage`, and `conversations.list` are functioning.
-  - we can connect a basic Bolt app
-  - We can connect a basic Socket Mode app
-  - (eventually) does a basic check of one of the rate-limiting tiers
+  - a basic Bolt app boots against LocalSlack and replies through it (done: `tests/smoke/bolt_test.py`); receiving real events over HTTP is proven in M2
+  - a basic Socket Mode app connects and receives events (M3)
+  - (M5) a basic check of one of the rate-limiting tiers
+  - the Slack SDK's own behaviors that apps rely on (pagination iterators, async client, error types) work: `tests/smoke/sdk_golden_path_test.py`, `async_client_test.py`
+  - what real Slack does that we do not yet is encoded as strict-xfail "red tests" tagged with a deviation id (`tests/smoke/known_deviations_test.py`)
 
 ### Anti-drift / API Parity: conformance test suite
 
@@ -221,6 +225,10 @@ For now, there are 3 pieces - recorded snapshots, real SDK apps, and the openAPI
 These will be real API requests against a Slack instance which can be serialized to JSON & replayed against this emulator.
 
 Much like LocalStack does for AWS, we will assume that this will be a work in progress, and will initially only have a small number of real Slack API responses for the simplest endpoints. We will sanitize the real API responses to make our conformance testing easier, e.g. we don't want it to fail because a date field had different days, that is still correct.
+
+#### conformance: provenance and the capability manifest
+
+Every fixture declares where its expected response came from: `recorded` (a sanitized real Slack response, with date/workspace type/scopes), `docs` (checked against a cited source), `llm` (written from model knowledge, unverified), or `local` (LocalSlack-only behavior). A method's evidence level is the best source among its fixtures, derived rather than hand-written. `internal/capabilities/capabilities.toml` is the single test-enforced inventory of methods, non-endpoint behaviors (rate limiting, scopes, Socket Mode, POST-for-GET, ...) and known deviations; `docs/COMPATIBILITY.md` is generated from it so users can see exactly how far to trust each piece. Recordings are expected from the owner and community contributors (`CONTRIBUTING.md`), gated by an automated redaction check.
 
 ### conformance: real SDK apps
 
@@ -270,7 +278,7 @@ A playable full system, thin but end to end. Rescoped 2026-10-09 so there is som
 
 - SQLite storage + random seed data
 - Fake auth: `xoxb-` token -> bot user, `xoxp-<userID>` -> that user
-- Endpoints: `auth.test`, `users.list`, `conversations.list/create/history/replies/open`, `chat.postMessage` (incl. `thread_ts`)
+- Endpoints: `auth.test`, `users.list`, `conversations.list/create/history/replies/open/archive`, `chat.postMessage` (incl. `thread_ts`). The live inventory is `docs/COMPATIBILITY.md` (generated); do not maintain lists here.
 - htmx UI: channel/DM sidebar, quick-switcher, channel view, composer, thread pane, "acting as" user switcher
 - SDK smoke tests with persistence checks; Playwright E2E tests
 
@@ -296,7 +304,7 @@ Per-method tiers (see Rate-limiting), on/off via env var, rate-limit smoke check
 
 ### Milestone 6: breadth + polish
 
-More endpoints (`chat.update/delete`, `users.info`, `conversations.info`, ...), search, OpenAPI conformance validator, `reset` CLI, UI polish.
+Long-tail endpoints (the bolt-core ones moved up: see `agent-docs/ROADMAP.md`), search, OpenAPI conformance validator, `reset` CLI, UI polish.
 
 ### Milestones TBD
 

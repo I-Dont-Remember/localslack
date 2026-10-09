@@ -1,1 +1,33 @@
-{"state":"passing","note":"Slack: duplicate channel name is HTTP 200 ok:false name_taken","request":{"method":"POST","path":"/api/conversations.create","token":"xoxb-test","params":{"name":"{{name}}"}},"setup":[{"method":"POST","path":"/api/conversations.create","token":"xoxb-test","params":{"name":"fx-dup"},"capture":{"name":"channel.name"}}],"response":{"status":200,"body":{"ok":false,"error":"name_taken"}}}
+{
+  "state": "passing",
+  "note": "Slack: duplicate channel name is HTTP 200 ok:false name_taken",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.create",
+    "token": "xoxb-test",
+    "params": {
+      "name": "{{name}}"
+    }
+  },
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-dup"
+      },
+      "capture": {
+        "name": "channel.name"
+      }
+    }
+  ],
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "name_taken"
+    }
+  }
+}

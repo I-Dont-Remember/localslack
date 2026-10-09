@@ -1,1 +1,17 @@
-{"state":"passing","note":"Slack: conversations.open without users or channel","request":{"method":"POST","path":"/api/conversations.open","token":"xoxb-test"},"response":{"status":200,"body":{"ok":false,"error":"users_list_not_supplied"}}}
+{
+  "state": "passing",
+  "note": "Slack: conversations.open without users or channel",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.open",
+    "token": "xoxb-test"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "users_list_not_supplied"
+    }
+  }
+}

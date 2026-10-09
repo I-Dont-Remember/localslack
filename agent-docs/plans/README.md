@@ -13,4 +13,5 @@ One file per milestone, checkbox tasks. Source of truth for resuming work after 
 
 ## Plans
 - `m0.5-hardening.md` — tooling + test harness hardening (DONE, merged)
-- `m1-vertical-slice.md` — SQLite + core Slack endpoints + htmx UI + e2e
+- `m1-vertical-slice.md` — SQLite + core Slack endpoints + htmx UI + e2e (DONE, merged)
+- `capabilities-tracking.md` — capability manifest, evidence provenance, real-client (SDK/Bolt) coverage (DONE)

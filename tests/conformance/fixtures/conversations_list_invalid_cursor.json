@@ -1,0 +1,20 @@
+{
+  "state": "passing",
+  "source": "llm",
+  "note": "Slack: a malformed cursor is HTTP 200 ok:false invalid_cursor",
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.list",
+    "token": "xoxb-test",
+    "params": {
+      "cursor": "not-a-cursor"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "invalid_cursor"
+    }
+  }
+}

@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -38,6 +39,17 @@ func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.H
 	a.methods = a.registry()
 	r.Get("/api/{method}", a.serve)
 	r.Post("/api/{method}", a.serve)
+}
+
+// MethodNames lists the Slack methods this server implements (the registry keys),
+// sorted. The capabilities manifest is tested against it so the two cannot drift.
+func MethodNames() []string {
+	names := make([]string, 0)
+	for name := range (&API{}).registry() { // method values are bound, never invoked
+		names = append(names, name)
+	}
+	slices.Sort(names)
+	return names
 }
 
 func (a *API) registry() map[string]method {

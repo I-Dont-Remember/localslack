@@ -1,1 +1,21 @@
-{"state":"passing","note":"Slack: unknown channel is HTTP 200 ok:false channel_not_found","request":{"method":"POST","path":"/api/chat.postMessage","token":"xoxb-test","params":{"channel":"C00000000","text":"x"}},"response":{"status":200,"body":{"ok":false,"error":"channel_not_found"}}}
+{
+  "state": "passing",
+  "note": "Slack: unknown channel is HTTP 200 ok:false channel_not_found",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/chat.postMessage",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "C00000000",
+      "text": "x"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "channel_not_found"
+    }
+  }
+}

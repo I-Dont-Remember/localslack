@@ -6,7 +6,7 @@ Playable end to end: SDK + htmx UI over SQLite.
 
 **Decided with the owner (2026-10-09) - don't re-ask:** endpoints = core 6 + DMs + threads (list below); UI = `html/template` + vendored htmx, no build step; browser e2e = Playwright (Python); Bolt/Socket Mode/OpenAPI/rate-limit tests are deferred to M2/M3/M6/M5. Per root CLAUDE.md, still use AskUserQuestion for genuinely new ambiguities.
 
-**Starting state:** `main` has M0.5 merged; only `/_localslack/health` + 404 `not_implemented` fallthrough exist. No storage/Slack endpoints/UI. `make verify` is green with the 8 `@m1` tests in `tests/smoke/m1_api_test.py` xfailed - they are your acceptance tests.
+**Starting state (historical, as of M1 kickoff):** `main` has M0.5 merged; only `/_localslack/health` + 404 `not_implemented` fallthrough exist. No storage/Slack endpoints/UI. `make verify` is green with the 8 `@m1` tests in `tests/smoke/m1_api_test.py` xfailed - they are your acceptance tests.
 
 Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked stores) + conformance fixture + smoke write-then-read-back. Remove that test's `@m1` xfail marker in `tests/smoke/m1_api_test.py` when it goes green.
 
@@ -55,7 +55,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - `scripts/with-server.sh` exports a fixed `LOCALSLACK_SEED`; fail if binary stale/SKIP_BUILD misuse
 ### API (`internal/api`, `/api/{method}`, GET+POST)
 - param parsing (form/JSON/query); token middleware (`xoxb-` -> bot, `xoxp-<userID>` -> user, missing -> `not_authed`, unknown -> `invalid_auth`)
-- methods: auth.test, users.list, conversations.list (types, exclude_archived), create (name_taken, invalid_name), history (newest first), replies, open (users -> im/mpim), chat.postMessage; opaque cursor pagination
+- methods: auth.test, users.list, conversations.list (types, exclude_archived), create (name_taken, invalid_name), history (newest first), replies, open (users -> im/mpim), archive, chat.postMessage; opaque cursor pagination. (The live inventory is `docs/COMPATIBILITY.md`.)
 ### Conformance upgrades needed for M1
 - one app per fixture (`storetest.NewApp`), pinned seed; optional fixture `setup` requests with `{{captures}}`; document in RECORDING.md
 - `known_gap` ratchet: record expected diff set (`gap_diffs`); fail if it changes (so partly-right -> broken is caught)

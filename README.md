@@ -2,6 +2,8 @@
 
 A Slack API emulator for use in CI/CD or local development to avoid cluttering up a real workspace, or to allow quickly creating arbitrary scenarios to run scripts against repeatably. Inspired by [LocalStack](https://github.com/localstack/localstack)'s AWS emulation.
 
+**Scope:** starting a deliberately small slice of Slack's API (what Bolt and SDK apps commonly use). To see which capabilities/endpoints are verified vs best guess, review [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+
 ## Quickstart
 
 Install tools with [mise](https://mise.jdx.dev), then:
@@ -31,7 +33,7 @@ make run                      # serves on http://localhost:3232 (loopback only; 
   Tokens: `xoxb-<anything>` acts as the bot; `xoxp-<userID>` acts as that user (ids from `users.list`).
 - **Config (env):** `LOCALSLACK_ADDR` (default `127.0.0.1:3232`; auth is "any token works", so only expose with `0.0.0.0:3232` deliberately, e.g. in a container), `LOCALSLACK_DB_PATH`, `LOCALSLACK_SEED` (same seed, same demo data; a random one is logged otherwise), `LOCALSLACK_NO_SEED=1`.
 - **Inspect state:** `curl localhost:3232/_localslack/state/conversations`.
-- **Implemented methods:** `auth.test`, `users.list`, `conversations.list|create|open|history|replies|archive`, `chat.postMessage`. Anything else returns `404 not_implemented`.
+- **What's supported:** see [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), generated from the capability manifest: every implemented and planned method, how well each is verified against real Slack, behaviors like rate limiting and scopes, and known deviations. Unimplemented methods return `404 not_implemented`.
 
 ## Key Notes
 
@@ -44,6 +46,8 @@ make run                      # serves on http://localhost:3232 (loopback only; 
 ---
 
 ## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md), including how to record real Slack responses as conformance evidence.
 
 Notes on how things work.
 
