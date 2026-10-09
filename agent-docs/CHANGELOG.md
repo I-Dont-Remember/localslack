@@ -1,6 +1,6 @@
 # Changelog
 
-## Milestone 0.5 — Testing infrastructure
+## Milestone 0.5 — Testing infrastructure (in progress; see plans/m0.5-hardening.md)
 Unit tests (not_implemented handler), conformance framework (fixture-driven Go tests), smoke tests (Python + slack-sdk against real binary).
 
 ## Milestone 0.1 — Scaffolding

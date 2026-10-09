@@ -1,5 +1,9 @@
 # Agent Workflow
 
+## 0. Resuming work
+
+Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first unchecked task. Tick plan boxes in the commit that completes them.
+
 ## 1. Validate initial state
 
 Before any changes, confirm the repo is healthy:
