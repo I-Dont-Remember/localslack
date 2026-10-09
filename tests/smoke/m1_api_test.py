@@ -13,7 +13,6 @@ m1 = pytest.mark.xfail(
 )
 
 
-@m1
 def test_auth_test(client):
     resp = client.auth_test()
     assert resp["ok"]
@@ -21,7 +20,6 @@ def test_auth_test(client):
     assert resp["team_id"].startswith("T")
 
 
-@m1
 def test_users_list_has_members(client):
     members = client.users_list()["members"]
     assert members

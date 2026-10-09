@@ -18,3 +18,11 @@ var (
 	ErrInvalidTypes    = errors.New("invalid types")
 	ErrIsArchived      = errors.New("channel is archived")
 )
+
+// AllErrors lists every domain error so adapters can verify they map each one.
+func AllErrors() []error {
+	return []error{
+		ErrNotAuthed, ErrInvalidAuth, ErrNameTaken, ErrInvalidName, ErrChannelNotFound, ErrUserNotFound,
+		ErrThreadNotFound, ErrNoText, ErrNoUsers, ErrTooManyUsers, ErrInvalidCursor, ErrInvalidTypes, ErrIsArchived,
+	}
+}

@@ -1,0 +1,1 @@
+{"state":"passing","note":"Slack: missing token is HTTP 200 ok:false not_authed","request":{"method":"POST","path":"/api/auth.test"},"response":{"status":200,"body":{"ok":false,"error":"not_authed"}}}

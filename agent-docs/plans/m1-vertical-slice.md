@@ -23,7 +23,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 1. [x] config + DI skeleton + `storetest.NewApp(t)` (temp DB, pinned seed, router)
 2. [x] store + ids + seed (determinism test) + depguard
 3. [x] service layer (domain errors, ts, thread bump) -> arch-reviewer run; blockers fixed (random runtime id seed, `server.Build`, external test pkgs); see "Arch review follow-ups"
-4. [ ] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
+4. [x] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing
 5. [ ] conversations.list/create/history/replies/open (+ cursor pagination test)
 6. [ ] chat.postMessage (thread_ts bump, channel_not_found)
 7. [ ] `GET /_localslack/state/conversations`

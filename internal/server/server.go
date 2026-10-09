@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"localslack/internal/api"
 	"localslack/internal/config"
 	"localslack/internal/service"
 )
@@ -28,6 +29,9 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(middleware.RequestID, echoRequestID, recoverer(d.Log), requestLogger(d.Log))
 	h := handlers{log: d.Log}
 	r.Get("/_localslack/health", h.health)
+	if d.Svc != nil {
+		api.Mount(r, d.Svc, d.Log, h.notImplemented)
+	}
 	r.NotFound(h.notImplemented)
 	r.MethodNotAllowed(h.methodNotAllowed)
 	return r

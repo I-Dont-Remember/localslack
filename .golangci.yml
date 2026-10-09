@@ -23,14 +23,14 @@ linters:
     depguard:
       rules:
         api:
-          files: ["**/internal/api/**"]
+          files: ["**/internal/api/**", "!$test"]
           deny:
             - pkg: localslack/internal/store
               desc: api talks to service, never store
             - pkg: localslack/internal/web
               desc: api and web must not import each other
         web:
-          files: ["**/internal/web/**"]
+          files: ["**/internal/web/**", "!$test"]
           deny:
             - pkg: localslack/internal/store
               desc: web talks to service, never store
