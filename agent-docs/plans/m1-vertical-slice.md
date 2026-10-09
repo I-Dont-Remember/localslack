@@ -20,7 +20,7 @@ Per endpoint: handler test (real temp-file SQLite via `storetest`, no mocked sto
 - Lint policy: `gochecknoglobals` exclusion for `//go:embed`/goose FS; templates parsed at startup returning errors (no `template.Must`/panic); `QueryContext`/`ExecContext` only.
 
 ## Commit order (arch-reviewer mid-run after 3 exists)
-1. [ ] config + DI skeleton + `storetest.NewApp(t)` (temp DB, pinned seed, router)
+1. [x] config + DI skeleton + `storetest.NewApp(t)` (temp DB, pinned seed, router)
 2. [ ] store + ids + seed (determinism test) + depguard
 3. [ ] service layer (domain errors, ts, thread bump) -> **run arch-reviewer here**
 4. [ ] token middleware + auth.test + users.list (+ negative auth: missing token, invalid_auth, unknown xoxp) -> flip `auth_test.json` to passing

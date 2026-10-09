@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"localslack/internal/config"
 	"localslack/internal/server"
 	"localslack/internal/xdg"
 )
@@ -29,8 +30,13 @@ func (c *StartCmd) Run() error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	cfg, err := config.Load(os.Getenv)
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	cfg.Addr = c.Addr // kong flag already folds in LOCALSLACK_ADDR
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-	return server.Run(ctx, log, c.Addr)
+	return server.Run(ctx, log, cfg)
 }
 
 func (c *StartCmd) startDetached() error {

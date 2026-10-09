@@ -8,3 +8,5 @@ require (
 	github.com/alecthomas/kong v1.14.0
 	github.com/go-chi/chi/v5 v5.2.5
 )
+
+require github.com/google/go-cmp v0.7.0

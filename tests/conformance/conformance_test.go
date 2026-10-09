@@ -5,16 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
-	"net/http/httptest"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"localslack/internal/server"
+	"localslack/internal/storetest"
 )
 
 const (
@@ -78,9 +76,6 @@ func TestConformance(t *testing.T) {
 		t.Fatal("no fixture files found")
 	}
 
-	srv := httptest.NewServer(server.NewRouter(slog.New(slog.NewTextHandler(io.Discard, nil))))
-	t.Cleanup(srv.Close)
-
 	for _, path := range paths {
 		name := strings.TrimSuffix(filepath.Base(path), ".json")
 		t.Run(name, func(t *testing.T) {
@@ -95,7 +90,8 @@ func TestConformance(t *testing.T) {
 				t.Fatalf("parse fixture: %v", err)
 			}
 
-			req, err := fix.newRequest(t.Context(), srv.URL)
+			app := storetest.NewApp(t) // one isolated app per fixture
+			req, err := fix.newRequest(t.Context(), app.URL)
 			if err != nil {
 				t.Fatalf("build request: %v", err)
 			}
