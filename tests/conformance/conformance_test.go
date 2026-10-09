@@ -8,12 +8,12 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
 	"testing"
 
+	"localslack/internal/capabilities"
 	"localslack/internal/constants"
 	"localslack/internal/storetest"
 )
@@ -23,39 +23,12 @@ const (
 	stateKnownGap = "known_gap"
 )
 
-type fixtureRequest struct {
-	Method string            `json:"method"`
-	Path   string            `json:"path"`
-	Token  string            `json:"token"`
-	Params map[string]string `json:"params"`
-}
-
-// setupStep is a request run before the fixture's own; Capture maps a name to a
-// dotted path in the response body, usable as {{name}} in later paths and params.
-type setupStep struct {
-	fixtureRequest
-	Capture map[string]string `json:"capture"`
-}
-
-type fixtureResponse struct {
-	Status int            `json:"status"`
-	Body   map[string]any `json:"body"`
-	Ignore []string       `json:"ignore"`
-}
-
 // fixture state "known_gap" documents real-Slack behavior we do not match yet.
 // gap_diffs records the exact set of differences; the test fails if that set
 // changes in either direction, so progress and regressions are both noticed.
-type fixture struct {
-	State    string          `json:"state"`
-	Note     string          `json:"note"`
-	GapDiffs []string        `json:"gap_diffs"`
-	Setup    []setupStep     `json:"setup"`
-	Request  fixtureRequest  `json:"request"`
-	Response fixtureResponse `json:"response"`
-}
-
-func (r fixtureRequest) newRequest(ctx context.Context, baseURL string, caps map[string]string) (*http.Request, error) {
+// The schema (including provenance) lives in internal/capabilities so the
+// manifest tooling and this runner share one definition.
+func newRequest(ctx context.Context, baseURL string, r capabilities.FixtureRequest, caps map[string]string) (*http.Request, error) {
 	var body io.Reader
 	if len(r.Params) > 0 {
 		form := url.Values{}
@@ -105,9 +78,9 @@ func capturePath(body map[string]any, path string) (string, bool) {
 	return "", false
 }
 
-func send(t *testing.T, baseURL string, r fixtureRequest, caps map[string]string) (int, map[string]any) {
+func send(t *testing.T, baseURL string, r capabilities.FixtureRequest, caps map[string]string) (int, map[string]any) {
 	t.Helper()
-	req, err := r.newRequest(t.Context(), baseURL, caps)
+	req, err := newRequest(t.Context(), baseURL, r, caps)
 	if err != nil {
 		t.Fatalf("build request: %v", err)
 	}
@@ -130,32 +103,27 @@ func send(t *testing.T, baseURL string, r fixtureRequest, caps map[string]string
 func TestConformance(t *testing.T) {
 	t.Parallel()
 
-	paths, err := filepath.Glob("fixtures/*.json")
+	fixtures, err := capabilities.LoadFixtures(os.DirFS("fixtures"))
 	if err != nil {
-		t.Fatalf("glob fixtures: %v", err)
+		t.Fatalf("load fixtures: %v", err)
 	}
-	if len(paths) == 0 {
+	if len(fixtures) == 0 {
 		t.Fatal("no fixture files found")
 	}
 
-	for _, path := range paths {
-		name := strings.TrimSuffix(filepath.Base(path), ".json")
-		t.Run(name, func(t *testing.T) {
+	for _, nf := range fixtures {
+		t.Run(nf.Name, func(t *testing.T) {
 			t.Parallel()
 
-			data, err := os.ReadFile(path)
-			if err != nil {
-				t.Fatalf("read fixture: %v", err)
-			}
-			var fix fixture
-			if err := json.Unmarshal(data, &fix); err != nil {
-				t.Fatalf("parse fixture: %v", err)
+			fix := nf.Fixture
+			if problems := capabilities.ValidateFixture(fix); len(problems) != 0 {
+				t.Fatalf("invalid fixture: %s", strings.Join(problems, "; "))
 			}
 
 			app := storetest.NewApp(t) // one isolated app per fixture
 			caps := map[string]string{}
 			for i, step := range fix.Setup {
-				_, body := send(t, app.URL, step.fixtureRequest, caps)
+				_, body := send(t, app.URL, step.FixtureRequest, caps)
 				for name, p := range step.Capture {
 					v, ok := capturePath(body, p)
 					if !ok {
@@ -191,7 +159,7 @@ func gapVerdict(recorded, observed []string) string {
 		a, b)
 }
 
-func report(t *testing.T, fix fixture, diffs []string) {
+func report(t *testing.T, fix capabilities.Fixture, diffs []string) {
 	t.Helper()
 	switch fix.State {
 	case stateKnownGap:

@@ -7,6 +7,10 @@ Each `fixtures/*.json` replays one request against an in-process LocalSlack and 
 {
   "state": "passing | known_gap",
   "note": "free text",
+  "source": "llm | docs | recorded | local",
+  "ref": "citation, required when source is docs",
+  "recorded": {"date": "2026-10-09", "tool": "record.py", "workspace_type": "free",
+               "token_type": "bot", "scopes": ["chat:write"]},
   "gap_diffs": ["exact diff strings, known_gap only"],
   "setup": [{"method": "POST", "path": "/api/conversations.create", "token": "xoxb-test",
              "params": {"name": "x"}, "capture": {"name": "channel.name"}}],
@@ -14,6 +18,13 @@ Each `fixtures/*.json` replays one request against an in-process LocalSlack and 
   "response": {"status": 200, "body": {...}, "ignore": ["key", "anywhere"]}
 }
 ```
+- `source` is required and says how much to trust the expected response (unknown fields are rejected):
+  - `llm`: written from model knowledge, never checked. The honest default for anything hand-written.
+  - `docs`: checked against a source cited in `ref` (a docs URL or SDK source path).
+  - `recorded`: a sanitized real Slack response; the `recorded` block (date, tool, workspace type,
+    token type, scopes) is required, and only allowed, for this source.
+  - `local`: LocalSlack-only behavior (e.g. `not_implemented`, health) with no Slack equivalent.
+  A method's evidence level in `docs/COMPATIBILITY.md` is the best `source` among its fixtures.
 - `params` are sent form-encoded; `token` as `Authorization: Bearer`.
 - Body matching is strict (no extra/missing keys) except `ignore` keys. String values may be matchers:
   `<string>` non-empty, `<ts>` Slack timestamp, `<id:C>` ID with that prefix letter, `<any>` anything.

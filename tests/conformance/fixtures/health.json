@@ -1,1 +1,13 @@
-{"request":{"method":"GET","path":"/_localslack/health"},"response":{"status":200,"body":{"ok":true}}}
+{
+  "source": "local",
+  "request": {
+    "method": "GET",
+    "path": "/_localslack/health"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

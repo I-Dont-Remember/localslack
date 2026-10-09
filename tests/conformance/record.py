@@ -4,10 +4,12 @@ Usage (needs a token for a throwaway workspace; never commit tokens):
     SLACK_TOKEN=xoxb-... uv run --project tests/smoke python tests/conformance/record.py \
         auth.test [key=value ...]
 
-Writes tests/conformance/fixtures/<method>.json with state "known_gap".
+Also set SLACK_WORKSPACE_TYPE (free|pro|enterprise|sandbox); it is recorded as provenance.
+Writes tests/conformance/fixtures/<method>.json with state "known_gap" and source "recorded".
 Review the output, then flip state to "passing" once LocalSlack matches.
 """
 
+import datetime
 import json
 import os
 import re
@@ -50,7 +52,12 @@ def sanitize(value, key=""):
 
 
 def main() -> int:
-    if len(sys.argv) < 2 or not (token := os.environ.get("SLACK_TOKEN")):
+    workspace_type = os.environ.get("SLACK_WORKSPACE_TYPE", "")
+    if (
+        len(sys.argv) < 2
+        or not (token := os.environ.get("SLACK_TOKEN"))
+        or not workspace_type
+    ):
         print(__doc__, file=sys.stderr)
         return 2
     method = sys.argv[1]
@@ -63,6 +70,18 @@ def main() -> int:
     fixture = {
         "state": "known_gap",
         "note": f"recorded from real Slack: {method}",
+        "source": "recorded",
+        "recorded": {
+            "date": datetime.date.today().isoformat(),
+            "tool": "record.py",
+            "workspace_type": workspace_type,
+            "token_type": "user" if token.startswith("xoxp-") else "bot",
+            "scopes": [
+                scope.strip()
+                for scope in resp.headers.get("x-oauth-scopes", "").split(",")
+                if scope.strip()
+            ],
+        },
         "request": {
             "method": "POST",
             "path": f"/api/{method}",

@@ -1,0 +1,26 @@
+{
+  "state": "passing",
+  "source": "llm",
+  "note": "shape from memory of the Slack docs; channel list depends on the seed so it is ignored",
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.list",
+    "token": "xoxb-test",
+    "params": {
+      "types": "public_channel",
+      "limit": "1000"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "response_metadata": {
+        "next_cursor": ""
+      }
+    },
+    "ignore": [
+      "channels"
+    ]
+  }
+}

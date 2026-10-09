@@ -1,0 +1,22 @@
+{
+  "state": "passing",
+  "source": "llm",
+  "note": "shape from memory of the Slack docs; member list contents depend on the seed so it is ignored (subset: Slack also returns cache_ts)",
+  "request": {
+    "method": "POST",
+    "path": "/api/users.list",
+    "token": "xoxb-test"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "response_metadata": {
+        "next_cursor": ""
+      }
+    },
+    "ignore": [
+      "members"
+    ]
+  }
+}
