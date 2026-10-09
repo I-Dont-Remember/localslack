@@ -3,6 +3,7 @@
 A Slack API emulator for CI/CD and local development, in the spirit of LocalStack.
 
 Finalized to begin work: 03/22/2026
+Rescoped: 10/09/2026 — UI + core endpoints pulled forward into M1 to get a playable slice early; later milestones renumbered.
 
 ---
 
@@ -55,7 +56,7 @@ Use `slog` for structured logging.
 
 I want to keep this simple, but also give ourselves the ability to handle more complex scenarios in the future. I'd prefer to not have to maintain a build step for a React SPA unless it really makes the tool significantly better.
 
-I leave it up to the front-end agent to pick a lightweight library such as alpine.js or similar for keeping the app simple but providing for useful web app experiences.
+Decision (2026-10-09): `html/template` + vendored htmx, embedded with `go:embed`. No build step.
 
 ### Storage: tiered
 
@@ -98,7 +99,7 @@ TODO: eventually we will find a way for users to define custom seed data/scenari
 
 Webserver will be packaged with the CLI tool and use `go-chi` library.
 
-We will include a new namespace in the API prefixed with `localslack/`. It should include a health endpoint. This namespace will allow us to add features in the future that help users interacting with LocalSlack, especially in cases where the Slack API might make validating a change difficult.
+We will include a new namespace in the API prefixed with `_localslack/`. It should include a health endpoint. This namespace will allow us to add features in the future that help users interacting with LocalSlack, especially in cases where the Slack API might make validating a change difficult.
 
 Example: Slack does not offer an API endpoint to search channels by name - we can offer this as a utility so it's easier in a case where someone is validating changes to many channel names at once.
 
@@ -202,7 +203,7 @@ We want to have layers of automated testing to ensure agents have the tools they
 ### Smoke tests
 
 - Smoke tests must be run against a live LocalSlack instance, there should be no unit tests involved.
-- You'll likely need Python 3.12 and to use Pipenv to install the `slack-sdk` & Slack Bolt dependencies. Do not place this at the top level of the repo.
+- Python 3.12 managed with `uv` (`tests/smoke/pyproject.toml`) installs the `slack-sdk` & Slack Bolt dependencies. Do not place this at the top level of the repo.
 - A passing smoke test should prove:
   - We can connect a basic script with Slack SDK webclient, it should be show the APIs for `auth.test`, `converstions.create`, `chat.postMessage`, and `conversations.list` are functioning.
   - we can connect a basic Bolt app
@@ -255,37 +256,47 @@ initial repo quality of life setup for a best-practices Golang CLI & web server 
 
 This should set us up with the basic building blocks future milestones will build on top of. Putting together the basic CLI and server with the few commands we already know we'll need (including running the server in the background as an option `-d` like Docker does for containers, and a way to kill that background process). Also other remaining scaffolding for a best practices Golang repo so I can have a "hello world" CLI & server with unit tests passing.
 
-### Milestone 0.5: testing infrastructure in place
+### Milestone 0.5: testing infrastructure in place (trimmed 2026-10-09)
 
-Testing setup for LocalSlack (conformance testing, end-2-end testing, smoke tests, etc.)
+Tooling + test harnesses so agents catch basic errors automatically and can test the app end to end with one command (`make verify`): linters, pre-commit, ast-grep rules, isolated live-server script, conformance fixture framework (matchers, known-gap reporting), smoke test harness with strict-xfail tests for M1 endpoints (project-level red-green).
 
-I want us to treat this like a project level red-green TDD almost. I want to lay the groundwork for a well architected stack of tools for testing & validation. We should have things in place for conformance test suite, smoke tests, unit test infrastructure (not all of them written of course, but the architecture should be in place so they can easily be added with future features).
+Smoke tests must prove persistence, not just plausible responses: write, then read back.
 
-Not everything will pass at the first milestone, that is expected, we aren't going to 1-shot the entire API with all features at once, but with these in place we can have confidence we are improving over time.
+Deferred to the milestone that ships the feature: Bolt smoke (M2), Socket Mode smoke (M3), rate-limit smoke (M5), OpenAPI validator (M6). Plan: `agent-docs/plans/m0.5-hardening.md`.
 
-The smoke tests should be written so it give us confidence not only that API responses appear to be coming back correct, but that things are actually being persisted as well. It would be easy for an endpoint to send back a fake hardcoded response that looks right but doesn't actually store a new channel, message, etc.
+### Milestone 1: vertical slice (API + UI)
 
-### Milestone 1: passing basic tests for simple common actions through HTTP
+A playable full system, thin but end to end. Rescoped 2026-10-09 so there is something concrete to play with early (UI moved up from the old M5).
 
-At this point, we should have a CLI which starts a server that a Slack Bolt app can connect to through both HTTP API and successfully complete some simple smoke tests of basic endpoints. Auth can be faked out for now. The storage layer should be built out enough that CRUD actions against entities actually happen, and endpoints are lying with hardcoded responses.
+- SQLite storage + random seed data
+- Fake auth: `xoxb-` token -> bot user, `xoxp-<userID>` -> that user
+- Endpoints: `auth.test`, `users.list`, `conversations.list/create/history/replies/open`, `chat.postMessage` (incl. `thread_ts`)
+- htmx UI: channel/DM sidebar, quick-switcher, channel view, composer, thread pane, "acting as" user switcher
+- SDK smoke tests with persistence checks; Playwright E2E tests
 
-### Milestone 2: socket mode
+Plan: `agent-docs/plans/m1-vertical-slice.md`.
 
-Basically the same as Milestone 1, but the app connects through Socket Mode.
+### Milestone 2: Events API (HTTP) + Bolt app
 
-### Milestone 3: mock OAuth & scopes
+Track events and deliver to subscribed HTTP endpoints; Bolt app smoke test.
 
-Build the mocked out version of the OAuth experience that apps go through, and it should enable us to support emulation of scope errors so they can find out while testing against LocalSlack before they try against real Slack. Endpoints should have the right scopes tied to them, and block tokens without the right scopes.
+### Milestone 3: Socket Mode
 
-Inspired by Stripe's 424242... credit card for testing, let's also have a special "God Mode" token identity which has permission to do everything. This way users of LocalSlack don't have to add app registration steps to every script or app they want to test, only the ones where they care to test the oauth setup/scopes/auth permissions.
+Same as M2 delivery, through Socket Mode; Socket Mode smoke test.
 
-### Milestone 4: Events API (outbound webhooks)
+### Milestone 4: mock OAuth & scopes
 
-Building the capability to track events happening inside the system and then send notifications to subscribed endpoints/socket mode connections.
+Build the mocked out version of the OAuth experience that apps go through, and support emulation of scope errors so they find out while testing against LocalSlack. Endpoints have the right scopes tied to them and block tokens without them.
 
-### Milestone 5: simple UI for most common actions in Slack
+Inspired by Stripe's 424242... credit card for testing, a special "God Mode" token identity has permission to do everything. Users don't have to add app registration steps to every script, only where they care to test oauth/scopes/auth.
 
-If we end up with a UI that allows a user to do the most common actions in Slack, then that's a good enough milestone until we find out deeper use cases. Users should be able to view a channel sidebar, search for a conversation to start/open (any type of channel or DM), and send messages in them (including threads). That's 90% of my day as a real user of Slack, and it handles our use case of LocalSlack for users being able to trigger specific events & feel comfortable that their code is working through visual inspection of the fake Slack workspace state.
+### Milestone 5: rate limiting
+
+Per-method tiers (see Rate-limiting), on/off via env var, rate-limit smoke check.
+
+### Milestone 6: breadth + polish
+
+More endpoints (`chat.update/delete`, `users.info`, `conversations.info`, ...), search, OpenAPI conformance validator, `reset` CLI, UI polish.
 
 ### Milestones TBD
 

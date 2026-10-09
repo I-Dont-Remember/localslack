@@ -4,20 +4,12 @@ A Slack API emulator for use in CI/CD or local development to avoid cluttering u
 
 ## Quickstart
 
-First, install any necessary packages for Go project.
-
-Second, install the `smoke_tests/` Pipenv requirements. I've been using Python3.8 because I've been needing an old version of Pipenv on my machine, but you can use others.
-
-Recommended to install `air` with `mise use -g air`.
+Install tools with [mise](https://mise.jdx.dev), then:
 
 ```
-make run
-```
-
-In a separate terminal, run a smoke test:
-
-```
-pipenv run ./run-smoke.sh
+make setup    # mise install, pre-commit hooks, uv env
+make run      # start server on :3232
+make verify   # check + unit + conformance + smoke (+ e2e) against an isolated live server
 ```
 
 ## Key Notes

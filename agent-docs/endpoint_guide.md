@@ -15,9 +15,9 @@ Process for adding a new Slack API endpoint.
    - Use `slog` for structured logging
    - Return Slack-shaped JSON (`"ok": true/false`)
 
-5. **Add repository layer if needed** — persistence via SQLite (`modernc.org/sqlite`, no ORM). Add to `internal/repository/`.
+5. **Add repository layer if needed** — persistence via SQLite (`modernc.org/sqlite`, no ORM). Add to `internal/store/` (M1).
 
-6. **Tag with rate-limit tier** — attach tier middleware so the rate limiter enforces it.
+6. **Tag with rate-limit tier (M5+)** — attach tier middleware so the rate limiter enforces it.
 
 7. **Run `make check && make test`** — must pass before committing.
 
@@ -26,6 +26,6 @@ Process for adding a new Slack API endpoint.
 ## Rules
 
 - All responses: JSON with `"ok": true` on success, `"ok": false, "error": "<code>"` on failure.
-- Unimplemented endpoints: return `{"ok": false, "error": "not_implemented"}` — never 404.
+- Unimplemented endpoints: return `{"ok": false, "error": "not_implemented"}` — HTTP 404 with that body (matches `notImplementedHandler`).
 - Always accept POST: the Slack Python SDK sends POST even to GET-only endpoints.
 - Rate-limit tiers: Default=60/min, Tier1=1, Tier2=20, Tier3=50, Tier4=100/min.
