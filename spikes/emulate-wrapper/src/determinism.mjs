@@ -4,6 +4,7 @@ import crypto from 'node:crypto';
 import module from 'node:module';
 
 const RealDate = Date;
+export const realNow = () => RealDate.now();
 const realRandomBytes = crypto.randomBytes;
 
 function hashSeed(seed) {
@@ -64,7 +65,16 @@ function uuidFrom(b) {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
 }
 
+export const START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
+let installed = false;
+/** For bundlers whose builtin named imports ignore patches (Bun): crypto-shim.mjs calls these. */
+export const isSeeded = () => state.stream !== null;
+export const seededRandomBytes = (n) => state.stream(n);
+export const seededUUID = () => uuidFrom(state.stream(16));
+
 export function installDeterminism({ seed, startMs = null, stepMs = 0 }) {
+  if (installed) { seedRandom(seed); setClock(startMs, stepMs); return; }
+  installed = true;
   seedRandom(seed);
   setClock(startMs, stepMs);
   crypto.randomBytes = (n, cb) => {

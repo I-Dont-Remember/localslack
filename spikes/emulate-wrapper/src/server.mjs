@@ -7,6 +7,7 @@ const host = process.env.HOST ?? '127.0.0.1';
 const port = Number(process.env.PORT ?? 3232);
 const baseUrl = `http://${host}:${port}`;
 const w = await createWrapper({
+  modules: globalThis.__LOCALSLACK_MODULES ?? null,
   baseUrl,
   seed: process.env.LOCALSLACK_SEED || null,
   unknownMethod: process.env.UNKNOWN_METHOD ?? 'go',

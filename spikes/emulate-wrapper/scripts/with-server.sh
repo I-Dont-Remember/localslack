@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run a command against the emulate-wrapper on a free port. Exports LOCALSLACK_URL.
-# Usage: scripts/with-server.sh <cmd...>   Env: LOCALSLACK_SEED, UNKNOWN_METHOD
+# Usage: scripts/with-server.sh <cmd...>   Env: LOCALSLACK_SEED, UNKNOWN_METHOD, LOCALSLACK_CMD (server command; default node src/server.mjs)
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 [ $# -gt 0 ] || { echo "usage: $0 <cmd...>" >&2; exit 2; }
@@ -9,7 +9,7 @@ export PORT="$port" HOST=127.0.0.1 LOCALSLACK_URL="http://127.0.0.1:$port" NO_PR
 unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy  # SDK async client ignores NO_PROXY
 export LOCALSLACK_SEED="${LOCALSLACK_SEED:-with-server-seed}"
 log="$(mktemp)"
-node "$here/src/server.mjs" >"$log" 2>&1 &
+${LOCALSLACK_CMD:-node "$here/src/server.mjs"} >"$log" 2>&1 &
 pid=$!
 trap 'kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true; rm -f "$log"' EXIT
 for _ in $(seq 1 50); do

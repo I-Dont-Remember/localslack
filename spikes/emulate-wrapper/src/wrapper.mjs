@@ -1,20 +1,20 @@
 // LocalSlack-on-emulate wrapper: fetch-level layer over @emulators/core + @emulators/slack.
 import { createHmac, randomBytes } from 'node:crypto';
-import { advanceClock, installDeterminism, seedRandom, setClock } from './determinism.mjs';
+import { START_MS as DETERMINISTIC_START_MS, advanceClock, installDeterminism, realNow, seedRandom, setClock } from './determinism.mjs';
 import { BOT_NAME, seedConfig } from './seed.mjs';
 
-const DETERMINISTIC_START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
-const realNow = Date.now.bind(Date); // captured before determinism patches Date
 const json = (obj, status = 200) => Response.json(obj, { status });
 const slackErr = (error, status = 200) => json({ ok: false, error }, status);
 const GENERIC_SCOPES = ['chat:write', 'channels:read', 'channels:history', 'groups:read', 'groups:history',
   'im:read', 'im:history', 'im:write', 'users:read', 'reactions:write', 'reactions:read', 'channels:manage'];
 
-export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go', realClockSignatures = true }) {
+export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go', realClockSignatures = true, modules = null }) {
   const deterministic = seed !== null;
   if (deterministic) installDeterminism({ seed, startMs: DETERMINISTIC_START_MS, stepMs: 0 });
-  const core = await import('@emulators/core');
-  const slackUrl = import.meta.resolve('@emulators/slack');
+  // `modules` lets a bundler entry (bun --compile) pass statically imported packages; otherwise import dynamically
+  // after the determinism patch, with a cache-busting query so reset gets a fresh slack module (resets tsCounter).
+  const core = modules?.core ?? (await import('@emulators/core'));
+  const slackUrl = modules ? null : import.meta.resolve('@emulators/slack');
 
   const w = {
     calls: [], seq: 0, gen: 0, retries: [], config: { bad_signature: false, stale_signature: false },
@@ -24,7 +24,8 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
 
   async function build() {
     // Fresh module instance per generation: resets slack's module-private tsCounter.
-    const slack = await import(w.gen === 0 ? slackUrl : `${slackUrl}?gen=${w.gen}`);
+    globalThis.__resetTsCounter?.(); // only present in the Bun build (patched source)
+    const slack = modules?.slack ?? (await import(w.gen === 0 ? slackUrl : `${slackUrl}?gen=${w.gen}`));
     const inner = core.createServer(slack.slackPlugin, { baseUrl, tokens: {} });
     if (slack.slackPlugin.seed) slack.slackPlugin.seed(inner.store, baseUrl);
     slack.seedFromConfig(inner.store, baseUrl, seedConfig);
