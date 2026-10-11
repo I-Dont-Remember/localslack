@@ -6,6 +6,7 @@ here="$(cd "$(dirname "$0")/.." && pwd)"
 [ $# -gt 0 ] || { echo "usage: $0 <cmd...>" >&2; exit 2; }
 port="$(python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])')"
 export PORT="$port" HOST=127.0.0.1 LOCALSLACK_URL="http://127.0.0.1:$port" NO_PROXY="127.0.0.1,localhost" no_proxy="127.0.0.1,localhost"
+unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy ALL_PROXY all_proxy  # SDK async client ignores NO_PROXY
 export LOCALSLACK_SEED="${LOCALSLACK_SEED:-with-server-seed}"
 log="$(mktemp)"
 node "$here/src/server.mjs" >"$log" 2>&1 &

@@ -185,6 +185,30 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
     return null;
   }
 
+  // State-aware validation emulate lacks. Needs the store, so it cannot live in a pure HTTP proxy.
+  async function params(req) {
+    const text = await req.clone().text();
+    if ((req.headers.get('content-type') ?? '').includes('json')) { try { return JSON.parse(text); } catch { return {}; } }
+    return Object.fromEntries(new URLSearchParams(text));
+  }
+  async function validate(req, url) {
+    if (req.method !== 'POST') return null;
+    const path = url.pathname;
+    if (path === '/api/conversations.list') {
+      const p = await params(req);
+      const ok = new Set(['public_channel', 'private_channel', 'mpim', 'im']);
+      if (p.types && !p.types.split(',').every((t) => ok.has(t))) return slackErr('invalid_types');
+      if (p.cursor && !w.ss().channels.findOneBy('channel_id', p.cursor)) return slackErr('invalid_cursor');
+    }
+    if (path === '/api/chat.postMessage') {
+      const p = await params(req);
+      if (p.thread_ts && p.channel && !w.ss().messages.all().some((m) => m.ts === p.thread_ts && m.channel_id === p.channel)) {
+        if (w.ss().channels.findOneBy('channel_id', p.channel)) return slackErr('thread_not_found');
+      }
+    }
+    return null;
+  }
+
   function shim(res, req, url, seq) {
     const h = new Headers(res.headers);
     for (const k of [...h.keys()]) if (k.startsWith('x-ratelimit-')) h.delete(k);
@@ -198,14 +222,30 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
     return new Response(res.body, { status: res.status, headers: h });
   }
 
-  w.fetch = async (req) => {
-    const url = new URL(req.url);
+  // Real Slack accepts method args in the query string; slack_sdk's async client sends them that way
+  // with an empty body, and GETs (emulate registers POST only for most methods): fold into a urlencoded POST.
+  async function foldQueryIntoBody(req, url) {
+    if (!url.pathname.startsWith('/api/') || !['GET', 'POST'].includes(req.method)) return req;
+    if (req.method === 'POST' && !url.search) return req;
+    const ct = req.headers.get('content-type') ?? '';
+    if (req.method === 'POST' && ct && !ct.startsWith('application/x-www-form-urlencoded')) return req;
+    const existing = req.method === 'POST' ? await req.text() : '';
+    const merged = [existing, url.search.slice(1)].filter(Boolean).join('&');
+    const headers = new Headers(req.headers);
+    headers.delete('content-length');
+    headers.set('content-type', 'application/x-www-form-urlencoded');
+    return new Request(url.origin + url.pathname, { method: 'POST', headers, body: merged });
+  }
+
+  w.fetch = async (req0) => {
+    const url = new URL(req0.url);
+    const req = await foldQueryIntoBody(req0, url);
     const internalRes = await internal(req, url);
     if (internalRes) return internalRes;
     const seq = ++w.seq;
     let body = '';
     if (req.method === 'POST') body = (await req.clone().text()).replace(/(token=)[^&]+/g, '$1***').slice(0, 120);
-    let res = (await slackSpecific(req, url)) ?? (url.pathname.startsWith('/api/') ? authShim(req) : null);
+    let res = (await slackSpecific(req, url)) ?? (url.pathname.startsWith('/api/') ? authShim(req) ?? (await validate(req, url)) : null);
     if (!res) {
       res = await w.inner.app.fetch(req);
       if (url.pathname.startsWith('/api/') && res.status === 404) {
