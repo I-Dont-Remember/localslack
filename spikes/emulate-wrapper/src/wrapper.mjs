@@ -3,6 +3,8 @@ import { createHmac, randomBytes } from 'node:crypto';
 import { START_MS as DETERMINISTIC_START_MS, advanceClock, installDeterminism, realNow, seedRandom, setClock } from './determinism.mjs';
 import { BOT_NAME, seedConfig } from './seed.mjs';
 
+const BOOL_PARAMS = new Set(['is_private', 'exclude_archived', 'include_locale', 'include_num_members', 'reply_broadcast',
+  'unfurl_links', 'unfurl_media', 'mrkdwn', 'as_user', 'inclusive', 'include_all_metadata', 'include_disabled', 'link_names']);
 const json = (obj, status = 200) => Response.json(obj, { status });
 const slackErr = (error, status = 200) => json({ ok: false, error }, status);
 const GENERIC_SCOPES = ['chat:write', 'channels:read', 'channels:history', 'groups:read', 'groups:history',
@@ -240,15 +242,21 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
   // with an empty body, and GETs (emulate registers POST only for most methods): fold into a urlencoded POST.
   async function foldQueryIntoBody(req, url) {
     if (!url.pathname.startsWith('/api/') || !['GET', 'POST'].includes(req.method)) return req;
-    if (req.method === 'POST' && !url.search) return req;
     const ct = req.headers.get('content-type') ?? '';
     if (req.method === 'POST' && ct && !ct.startsWith('application/x-www-form-urlencoded')) return req;
-    const existing = req.method === 'POST' ? await req.text() : '';
-    const merged = [existing, url.search.slice(1)].filter(Boolean).join('&');
+    const form = new URLSearchParams(req.method === 'POST' ? await req.text() : '');
+    for (const [k, v] of new URLSearchParams(url.search)) form.append(k, v);
+    // slack_sdk (Python) serializes booleans as "1"/"0" (or "True"/"False"); emulate's conversations.create only
+    // understands "true". Normalize known boolean params only ("1" is also a legitimate limit/ts value).
+    for (const [k, v] of [...form]) {
+      if (!BOOL_PARAMS.has(k)) continue;
+      if (v === '1' || v === 'True') form.set(k, 'true');
+      else if (v === '0' || v === 'False') form.set(k, 'false');
+    }
     const headers = new Headers(req.headers);
     headers.delete('content-length');
     headers.set('content-type', 'application/x-www-form-urlencoded');
-    return new Request(url.origin + url.pathname, { method: 'POST', headers, body: merged });
+    return new Request(url.origin + url.pathname, { method: 'POST', headers, body: form.toString() });
   }
 
   w.fetch = async (req0) => {

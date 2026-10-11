@@ -1,6 +1,7 @@
-8 failed, 40 passed, 1 skipped, 8 xfailed in 0.72s
+9 failed, 40 passed, 1 skipped, 7 xfailed in 0.76s
 FAILED tests/smoke/known_deviations_test.py::test_blocks_only_message_is_accepted
 FAILED tests/smoke/known_deviations_test.py::test_blocks_round_trip_through_history
+FAILED tests/smoke/known_deviations_test.py::test_create_private_channel
 FAILED tests/smoke/known_deviations_test.py::test_post_to_user_id_opens_a_dm
 FAILED tests/smoke/known_deviations_test.py::test_responses_carry_slack_headers
 FAILED tests/smoke/known_deviations_test.py::test_token_in_json_body_is_not_accepted
@@ -48,7 +49,6 @@ PASSED tests/smoke/sdk_golden_path_test.py::test_users_list_iterator_yields_memb
 PASSED tests/smoke/smoke_test.py::test_health
 PASSED tests/smoke/smoke_test.py::test_unknown_method_returns_not_implemented
 SKIPPED [1] tests/smoke/persistence_test.py:14: run via scripts/with-server.sh (LOCALSLACK_BIN not set)
-XFAIL tests/smoke/known_deviations_test.py::test_create_private_channel
 XFAIL tests/smoke/known_deviations_test.py::test_empty_channel_name_has_its_own_error
 XFAIL tests/smoke/known_deviations_test.py::test_messages_carry_bot_fields
 XFAIL tests/smoke/known_deviations_test.py::test_multipart_form_post_is_understood
