@@ -16,7 +16,7 @@ Rescoped: 10/09/2026 — UI + core endpoints pulled forward into M1 to get a pla
 - Allow custom & repeatable scenario testing
   - With a Dev workspace, the state is often messy and hard to control. Allow users to craft specific scenarios they can run their code against, and make it repeatable so they can try again if there attempts have errors.
 - It should be as simple as possible to run for users, ideally a single binary
-- We should have coverage of the vast majority of Slack API endpoints
+- Cover the Slack API surface that Bolt/SDK apps actually use, and make the test loop superb (seed, run, trigger events, inspect, reset). Breadth beyond that is on demand.
 - Users should be able to use the Slack SDK and Slack Bolt with LocalSlack
   - They should not have to change anything in their code to use LocalSlack except for the base URL
 - Deliver this in milestones, so we don't get trapped with a 1/2 done tool
@@ -25,6 +25,7 @@ Rescoped: 10/09/2026 — UI + core endpoints pulled forward into M1 to get a pla
 
 - Full Slack feature parity
 - We do not want a perfect UI replica, or to cover every fancy feature Slack releases
+  - UI exists to inspect state and trigger events (a testing instrument), not to be a polished chat client
 - Hosting a service
   - this is meant to be run only locally or in CI/CD, not a cloud offering.
 - Advanced observability: Prometheus or OpenTelemetry are overkill for this emulator.
@@ -108,9 +109,9 @@ Example: Slack does not offer an API endpoint to search channels by name - we ca
 
 ### Rate-limiting
 
-This can be disabled through an environment variable, but is on by default.
+Decision (2026-10-09, from `ignored/` user research): **deterministic fault injection comes first**; realistic tier limiting is opt-in and later. Time-based limits are flaky in CI and only show that a limit was hit. Faults are triggered on demand via `_localslack/` ("the 3rd `chat.postMessage` returns 429, `Retry-After: 2`"), also covering 5xx, timeouts and Slack error codes.
 
-We want to emuluate Slack's rate limiting tiers which are done per method, with a few unique outliers outside the tier. Users will not be allowed to configure the rate-limit tiers, only if it's on or off. The goal is for LocalSlack emulation to be able to rate-limit your API calls at the same point you would experience with the real Slack (when in doubt, we will be more aggressive, since it's better if we err on the side of caution for our users and they end up pleasantly surprised). We won't wory about adding the "burst" capacity Slack often provides, just regular rate limiting will suffice.
+Opt-in (env var, **off by default**) realistic limiting: emulate Slack's per-method tiers, with a few outliers outside the tier. Tiers are not user-configurable. When in doubt, be more aggressive than Slack. No "burst" capacity.
 
 A rough example of Slack response with rate-limiting:
 ```
@@ -298,9 +299,9 @@ Build the mocked out version of the OAuth experience that apps go through, and s
 
 Inspired by Stripe's 424242... credit card for testing, a special "God Mode" token identity has permission to do everything. Users don't have to add app registration steps to every script, only where they care to test oauth/scopes/auth.
 
-### Milestone 5: rate limiting
+### Milestone 5: fault injection + rate limiting
 
-Per-method tiers (see Rate-limiting), on/off via env var, rate-limit smoke check.
+Fault injection API first, then opt-in per-method tiers (see Rate-limiting); smoke check for each.
 
 ### Milestone 6: breadth + polish
 
@@ -314,7 +315,9 @@ There is more that will need to be done, but the first few milestones get us a l
 
 ## Alternatives Considered
 
-None! I wanted this to exist. Tired of cluttering up a "Dev" Slack workspace with a bunch of random messages and channels which can then make it harder to test future scenarios.
+I wanted this to exist: tired of cluttering up a "Dev" Slack workspace with random messages and channels which make it harder to test future scenarios.
+
+Other tools exist (notably vercel-labs/emulate, a broader Node-based Slack emulator). See `docs/ALTERNATIVES.md` for the comparison and when to use them instead. We do not compete on method breadth; we compete on the test loop: single Go binary, Socket Mode, fault injection, event-delivery controls, reproducible scenarios, and evidence-graded fidelity.
 
 ---
 
@@ -322,9 +325,9 @@ None! I wanted this to exist. Tired of cluttering up a "Dev" Slack workspace wit
 
 A parking lot for questions that don't fit above yet.
 
-- Do we want to include a "Chaos API" that helps users test their code for when Slack is having system issues?
-- what if we exposed some sort of call capture API? See [Appendix](#appendix)
-- what if instead of just the random seed concept, we also enabled a state snapshot? See [Appendix](#appendix)
+- ~~Chaos API~~ Decided yes: deterministic fault injection (see Rate-limiting).
+- ~~Call capture API~~ Decided yes: call log + reset ship first (ROADMAP item 5). See [Appendix](#appendix)
+- State snapshot/diff: still open, planned together with scenario seeding. See [Appendix](#appendix)
 - Versioning: does LocalSlack need to version its API to track Slack API versions?
 - UI - should we handle Block Kit / Interactivity (button clicks, modals, etc.)
 - Is there a better way to handle conformance testing suite than we currently are? Something that is simpler & easier to maintain, or with higher confidence?
