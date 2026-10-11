@@ -2,7 +2,7 @@
 
 A Slack API emulator for use in CI/CD or local development to avoid cluttering up a real workspace, or to allow quickly creating arbitrary scenarios to run scripts against repeatably. Inspired by [LocalStack](https://github.com/localstack/localstack)'s AWS emulation.
 
-**Scope:** starting a deliberately small slice of Slack's API (what Bolt and SDK apps commonly use). To see which capabilities/endpoints are verified vs best guess, review [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
+**Scope:** a deliberately small slice of Slack's API (what Bolt and SDK apps commonly use). For broad method coverage use [vercel-labs/emulate](https://github.com/vercel-labs/emulate); LocalSlack focuses on the test loop (events, Socket Mode, call log, reset, faults). See [docs/ALTERNATIVES.md](docs/ALTERNATIVES.md). To see which capabilities/endpoints are verified vs best guess, review [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md).
 
 ## Quickstart
 

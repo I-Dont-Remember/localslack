@@ -7,49 +7,54 @@ otherwise. Claim before starting (see `capabilities.md`).
 **Sizes:** S = one method, follow `endpoint_guide.md`. M = a few files, one agent. L = needs a written plan
 in `plans/` (and an `arch-reviewer` pass) *before* code; do not start an L item from this file alone.
 
-**Positioning:** a test environment for Slack integrations, not a Slack clone. We don't compete with
-`emulate` on method breadth; we compete on the test loop. Items tagged `(gap)` close a competitor gap
-(`docs/ALTERNATIVES.md`; re-check it when re-ranking).
+**Positioning:** a test environment for Slack integrations, not a Slack clone. We know `emulate` is broader
+and moves fast; we are not matching its method count. LocalSlack explores the gaps it leaves (the test
+loop) and is a deliberate exercise in building such a service. Where we need breadth, `emulate` is the
+reference (`docs/ALTERNATIVES.md`). Items tagged `(gap)` close a
+competitor gap; re-check ALTERNATIVES when re-ranking.
 
-## Tier 1: makes real apps work (biggest payoff)
-1. **Bolt-core methods (S each, independent, do in any order):** `conversations.info`,
-   `users.info`, `chat.update`, `chat.delete`, `chat.postEphemeral`, `reactions.add`,
-   `conversations.members`, `api.test`. Nearly every Bolt/SDK app calls these; today they 404.
-   Table stakes, not a differentiator.
-2. **Blocks/attachments round-trip (M):** store and return `blocks`, `attachments`, `metadata`;
-   accept blocks-only `chat.postMessage` (deviations `no-blocks`; red test exists). Most real bot
-   messages use blocks. Render basic blocks in the UI later (tier 3).
-3. **Events API over HTTP (L, M2):** subscription config, `url_verification`, signed delivery
+## Tier 1: the test loop (what emulate lacks)
+1. **Events API over HTTP (L, M2) `(gap)`:** subscription config, `url_verification`, signed delivery
    (`X-Slack-Signature`), 3s ack/retry, `message`/`app_mention`/`reaction_added` events fired by both
    API and UI actions. Turns LocalSlack from a response stub into a workspace an app *reacts to*.
-   Plan must also cover test controls `(gap)`: `POST /_localslack/events` to inject an event,
+   Plan must also cover test controls: `POST /_localslack/events` to inject an event,
    duplicate/retry delivery with `X-Slack-Retry-Num`, bad/stale signature toggle, delivery trace in the
-   inspection API. Also a real Bolt delivery smoke test.
-4. **Socket Mode (L, M3) `(gap)`:** `apps.connections.open`, `xapp-` tokens, WebSocket envelope + ack.
+   inspection API. Also a real Bolt delivery smoke test. Needs the enabling work in items 5-6 for a
+   realistic Bolt app. Note: emulate has signed payloads but no CLI subscriber registration; upstream
+   issues #293/#294/#263 are closing parts of this, so keep our edge in the controls.
+2. **Socket Mode (L, M3) `(gap)`:** `apps.connections.open`, `xapp-` tokens, WebSocket envelope + ack.
    Reuses M2 delivery. The default local-dev mode for Bolt; `emulate` lacks it.
-
-## Tier 2: trust and fidelity (what separates us from a hand-written mock)
-5. **Call log + reset (M) `(gap)`:** middleware recording every API call;
+3. **Call log + reset (M) `(gap)`:** middleware recording every API call;
    `GET /_localslack/calls?method=&channel=`, `POST /_localslack/reset`. Cheap and the core CI loop;
-   can run in parallel with tier 1. (Snapshot/diff is item 10.)
-6. **Deterministic fault injection (M) `(gap)`:** `POST /_localslack/faults` {method, nth/every,
+   independent of items 1-2, can run in parallel. (Snapshot/diff is item 10.)
+4. **Deterministic fault injection (M) `(gap)`:** `POST /_localslack/faults` {method, nth/every,
    status or Slack error, `Retry-After`, once}. Covers 429, 5xx, timeouts, `ratelimited`. Replaces
    time-based rate limiting as the first rate-limit feature (design doc: Rate-limiting).
+
+## Tier 2: enabling work and fidelity
+5. **Bolt-core methods (S each, independent):** `conversations.info`, `users.info`, `chat.update`,
+   `chat.delete`, `chat.postEphemeral`, `reactions.add`, `conversations.members`, `api.test`. Nearly
+   every Bolt/SDK app calls these; today they 404. Table stakes that `emulate` already covers: do them as
+   the loop (items 1-2) needs them, not as a headline.
+6. **Blocks/attachments round-trip (M):** store and return `blocks`, `attachments`, `metadata`;
+   accept blocks-only `chat.postMessage` (deviation `no-blocks`; red test exists; `emulate` passes it).
+   Render basic blocks in the UI later (tier 3).
 7. **Access edge cases (M):** private channels (`is_private`, group membership), archived, bot not a
    member, `not_in_channel` + membership checks. Cases happy-path fixtures never cover.
 8. **Error/header fidelity (S-M, each):** `x-slack-req-id` and other headers, `unknown_method` as 200,
    split `invalid_name_*` errors. Each flips a red test in `tests/smoke/known_deviations_test.py`;
-   cheap, well-scoped agent work.
+   cheap, well-scoped agent work. (`emulate` shares these deviations.)
 9. **Scenario seeding (L; plan with item 10):** three modes. (a) Explicit fixture first: exact user/
    channel IDs, memberships, messages (JSON/TOML; validate duplicate/malformed IDs; synthetic profiles
    only). (b) Generated scale ("50 channels, 400 users, busy threads") on the seed generator; fast, and
-   exposes `users-list-unpaginated`. (c) Behavioral = item 6. Via CLI flag / config / inspection API.
+   exposes `users-list-unpaginated`. (c) Behavioral = item 4. Via CLI flag / config / inspection API.
+   `emulate` has random per-run IDs; reproducibility is our edge.
 10. **State snapshot/diff (L):** with item 9, one feature family with reset.
 11. **First real recordings (owner):** `make evidence-gaps`, core methods first. Biggest trust win per hour.
 
 ## Tier 3: common but secondary
 - Interactivity `(gap)` (L): `views.open/update/publish`, `block_actions`, slash commands, `response_url`.
-  `emulate` lacks interaction/slash simulation. Needs blocks (2) and events (3); do right after M3.
+  `emulate` lacks interaction/slash simulation. Needs blocks (6) and events (1); do right after M3. Upstream issue #289 is building this, so check before starting.
 - Channel membership flows: `conversations.join/leave/invite/kick`, `setTopic/setPurpose`,
   `users.conversations`, `team.info`, `reactions.remove/get`, `pins.*`, `chat.getPermalink`.
 - Scopes (M4): `missing_scope` checks driven by the manifest's `scopes`, permissive default (`emulate`

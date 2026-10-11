@@ -16,7 +16,7 @@ Rescoped: 10/09/2026 — UI + core endpoints pulled forward into M1 to get a pla
 - Allow custom & repeatable scenario testing
   - With a Dev workspace, the state is often messy and hard to control. Allow users to craft specific scenarios they can run their code against, and make it repeatable so they can try again if there attempts have errors.
 - It should be as simple as possible to run for users, ideally a single binary
-- Cover the Slack API surface that Bolt/SDK apps actually use, and make the test loop superb (seed, run, trigger events, inspect, reset). Breadth beyond that is on demand.
+- Cover the Slack API surface that Bolt/SDK apps actually use, and make the test loop superb (seed, run, trigger events, inspect, reset). Breadth beyond that is on demand; emulate is the reference for it.
 - Users should be able to use the Slack SDK and Slack Bolt with LocalSlack
   - They should not have to change anything in their code to use LocalSlack except for the base URL
 - Deliver this in milestones, so we don't get trapped with a 1/2 done tool
@@ -317,7 +317,7 @@ There is more that will need to be done, but the first few milestones get us a l
 
 I wanted this to exist: tired of cluttering up a "Dev" Slack workspace with random messages and channels which make it harder to test future scenarios.
 
-Other tools exist (notably vercel-labs/emulate, a broader Node-based Slack emulator). See `docs/ALTERNATIVES.md` for the comparison and when to use them instead. We do not compete on method breadth; we compete on the test loop: single Go binary, Socket Mode, fault injection, event-delivery controls, reproducible scenarios, and evidence-graded fidelity.
+Other tools exist (notably vercel-labs/emulate, a broader and fast-moving Node-based Slack emulator). See `docs/ALTERNATIVES.md` for the hands-on comparison and when to use them instead. We know it covers far more methods and we are not chasing that. LocalSlack is built to explore the gaps it leaves, the test loop (Socket Mode, fault injection, event-delivery controls, call log and reset, reproducible scenarios, evidence-graded fidelity), and as a deliberate exercise in building a service like this. Where breadth is what you need, use emulate.
 
 ---
 
@@ -326,7 +326,7 @@ Other tools exist (notably vercel-labs/emulate, a broader Node-based Slack emula
 A parking lot for questions that don't fit above yet.
 
 - ~~Chaos API~~ Decided yes: deterministic fault injection (see Rate-limiting).
-- ~~Call capture API~~ Decided yes: call log + reset ship first (ROADMAP item 5). See [Appendix](#appendix)
+- ~~Call capture API~~ Decided yes: call log + reset ship first (ROADMAP item 3). See [Appendix](#appendix)
 - State snapshot/diff: still open, planned together with scenario seeding. See [Appendix](#appendix)
 - Versioning: does LocalSlack need to version its API to track Slack API versions?
 - UI - should we handle Block Kit / Interactivity (button clicks, modals, etc.)
