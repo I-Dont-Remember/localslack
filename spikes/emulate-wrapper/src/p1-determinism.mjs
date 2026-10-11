@@ -4,7 +4,7 @@ import { createWrapper } from './wrapper.mjs';
 
 const seed = process.argv[2] ?? 'seed-a';
 const baseUrl = 'http://127.0.0.1:1';
-const w = await createWrapper({ baseUrl, seed });
+const w = await createWrapper({ baseUrl, seed, realClockSignatures: false });
 
 const received = [];
 const recv = http.createServer(async (req, res) => {

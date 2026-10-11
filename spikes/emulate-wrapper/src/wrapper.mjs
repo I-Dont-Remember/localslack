@@ -1,22 +1,24 @@
 // LocalSlack-on-emulate wrapper: fetch-level layer over @emulators/core + @emulators/slack.
-import { randomBytes } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { advanceClock, installDeterminism, seedRandom, setClock } from './determinism.mjs';
 import { BOT_NAME, seedConfig } from './seed.mjs';
 
 const DETERMINISTIC_START_MS = Date.UTC(2026, 0, 1, 12, 0, 0);
+const realNow = Date.now.bind(Date); // captured before determinism patches Date
 const json = (obj, status = 200) => Response.json(obj, { status });
 const slackErr = (error, status = 200) => json({ ok: false, error }, status);
 const GENERIC_SCOPES = ['chat:write', 'channels:read', 'channels:history', 'groups:read', 'groups:history',
   'im:read', 'im:history', 'im:write', 'users:read', 'reactions:write', 'reactions:read', 'channels:manage'];
 
-export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go' }) {
+export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go', realClockSignatures = true }) {
   const deterministic = seed !== null;
   if (deterministic) installDeterminism({ seed, startMs: DETERMINISTIC_START_MS, stepMs: 0 });
   const core = await import('@emulators/core');
   const slackUrl = import.meta.resolve('@emulators/slack');
 
   const w = {
-    calls: [], seq: 0, gen: 0, retries: [], config: { bad_signature: false },
+    calls: [], seq: 0, gen: 0, retries: [], config: { bad_signature: false, stale_signature: false },
+    realClockSignatures,
     sockets: new Set(), pending: new Map(), sinkId: null, inner: null,
   };
 
@@ -33,7 +35,17 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
     const orig = inner.webhooks.headerFactory;
     inner.webhooks.setHeaderFactory((ctx) => {
       const h = orig(ctx);
-      if (w.config.bad_signature && h['X-Slack-Signature']) h['X-Slack-Signature'] = `v0=${'0'.repeat(64)}`;
+      const secret = inner.store.getData('slack.signing_secret');
+      if (secret && h['X-Slack-Signature']) {
+        // The virtual clock (deterministic mode) is far from wall time; receivers reject timestamps >5 min old,
+        // so sign with real time unless asked to stay byte-stable (P1) or to send a stale one on purpose.
+        let ts = h['X-Slack-Request-Timestamp'];
+        if (w.realClockSignatures) ts = String(Math.floor(realNow() / 1000));
+        if (w.config.stale_signature) ts = String(Number(ts) - 600);
+        h['X-Slack-Request-Timestamp'] = ts;
+        h['X-Slack-Signature'] = `v0=${createHmac('sha256', secret).update(`v0:${ts}:${ctx.body}`).digest('hex')}`;
+        if (w.config.bad_signature) h['X-Slack-Signature'] = `v0=${'0'.repeat(64)}`;
+      }
       return h;
     });
     w.inner = inner;
@@ -125,6 +137,7 @@ export async function createWrapper({ baseUrl, seed = null, unknownMethod = 'go'
     const m = req.method;
     if (p === '/_localslack/health') return json({ ok: true });
     if (p === '/_localslack/calls') return json(w.calls);
+    if (p === '/_localslack/socket') return json({ connections: w.sockets.size, acks: w.acks ?? 0, ack_log: w.ackLog ?? [], pending: [...w.pending].map(([id, v]) => ({ envelope_id: id, attempt: v.attempt, unacked: !!v.unacked })) });
     if (p === '/_localslack/deliveries') return json(deliveriesView());
     if (p === '/_localslack/config') {
       if (m === 'POST') Object.assign(w.config, await req.json());
