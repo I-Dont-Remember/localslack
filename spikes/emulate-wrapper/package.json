@@ -1,0 +1,12 @@
+{
+  "name": "localslack-emulate-wrapper-spike",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "dependencies": {
+    "@emulators/core": "0.12.1",
+    "@emulators/slack": "0.12.1",
+    "ws": "8.18.3",
+    "@slack/bolt": "4.4.0"
+  }
+}
