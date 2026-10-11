@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 
+import fake_tokens
 import pytest
 import record
 import redact_check
@@ -60,8 +61,8 @@ def test_redact_check_accepts_clean(doc):
 @pytest.mark.parametrize(
     ("doc", "needle"),
     [
-        ({"t": "xox" + "b-1234567890123-abcdefghijklmnop"}, "token"),
-        ({"t": "xa" + "pp-1-A0123456789-123456-abcdef"}, "token"),
+        ({"t": fake_tokens.BOT}, "token"),
+        ({"t": fake_tokens.APP}, "token"),
         ({"e": "alice@example.com"}, "email"),
         ({"u": "https://acme.slack.com/archives/C1"}, "slack url"),
         ({"i": "U012ABCDEFG"}, "id"),
@@ -75,6 +76,11 @@ def test_redact_check_flags_leaks(doc, needle):
     problems = redact_check.find_problems(doc)
     assert problems, f"expected a problem for {doc}"
     assert any(needle in p for p in problems), problems
+
+
+@pytest.mark.parametrize("tok", [fake_tokens.BOT, fake_tokens.APP])
+def test_fake_tokens_look_real(tok):
+    assert redact_check.TOKEN.fullmatch(tok)
 
 
 def test_repo_fixtures_are_clean():

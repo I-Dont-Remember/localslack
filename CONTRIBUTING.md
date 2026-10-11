@@ -45,3 +45,5 @@ safe to publish, leave it out.
 Follow `agent-docs/endpoint_guide.md`. The capability manifest
 (`internal/capabilities/capabilities.toml`, see `agent-docs/capabilities.md`) is test-enforced: a method
 in the code but not the manifest, or vice versa, fails `make test`.
+
+Realistic fake Slack tokens (`xoxb-...`, `xapp-...`) must come from `tests/conformance/fake_tokens.py`, never literals: GitHub push protection rejects them.
