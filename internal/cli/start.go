@@ -30,6 +30,9 @@ type StartCmd struct {
 	CallLogSize      int           `help:"Call log capacity (default 10000)." env:"LOCALSLACK_CALL_LOG_SIZE"`
 	DeliveryLogSize  int           `help:"Delivery log capacity (default 2000)." env:"LOCALSLACK_DELIVERY_LOG_SIZE"`
 	StrictTokens     bool          `help:"Reject bot tokens that belong to no registered app." env:"LOCALSLACK_STRICT_TOKENS"`
+	DeliverTo        string        `help:"Default event delivery base URL for every app, e.g. http://localhost:3000 (per-app deliver_to wins)." env:"LOCALSLACK_DELIVER_TO"`
+
+	AllowRemoteRequestURLs bool `name:"allow-remote-request-urls" help:"Allow delivering events to non-loopback manifest request URLs." env:"LOCALSLACK_ALLOW_REMOTE_REQUEST_URLS"`
 }
 
 // apply overlays the flags that were set (which also read their env vars) onto cfg.
@@ -60,6 +63,10 @@ func (c *StartCmd) apply(cfg *config.Config) error {
 		cfg.DeliveryLogSize = c.DeliveryLogSize
 	}
 	cfg.StrictTokens = cfg.StrictTokens || c.StrictTokens
+	if c.DeliverTo != "" {
+		cfg.DeliverTo = c.DeliverTo
+	}
+	cfg.AllowRemoteRequestURLs = cfg.AllowRemoteRequestURLs || c.AllowRemoteRequestURLs
 	return nil
 }
 
@@ -90,6 +97,12 @@ func (c *StartCmd) detachedArgs() []string {
 	}
 	if c.StrictTokens {
 		args = append(args, "--strict-tokens")
+	}
+	if c.DeliverTo != "" {
+		add("--deliver-to", c.DeliverTo)
+	}
+	if c.AllowRemoteRequestURLs {
+		args = append(args, "--allow-remote-request-urls")
 	}
 	return args
 }

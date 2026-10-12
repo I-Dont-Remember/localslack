@@ -32,6 +32,10 @@ type Config struct {
 	CallLogSize, DeliveryLogSize int
 	// StrictTokens rejects xoxb- tokens that belong to no registered app.
 	StrictTokens bool
+	// DeliverTo is the default event delivery base URL for every app (per-app overrides win).
+	DeliverTo string
+	// AllowRemoteRequestURLs permits delivery to non-loopback manifest request URLs.
+	AllowRemoteRequestURLs bool
 }
 
 // Defaults for the test-loop settings.
@@ -91,6 +95,12 @@ func loadTestLoop(getenv func(string) string, cfg *Config) error {
 	if v := getenv("LOCALSLACK_STRICT_TOKENS"); v != "" {
 		if cfg.StrictTokens, err = strconv.ParseBool(v); err != nil {
 			return fmt.Errorf("LOCALSLACK_STRICT_TOKENS: %w", err)
+		}
+	}
+	cfg.DeliverTo = getenv("LOCALSLACK_DELIVER_TO")
+	if v := getenv("LOCALSLACK_ALLOW_REMOTE_REQUEST_URLS"); v != "" {
+		if cfg.AllowRemoteRequestURLs, err = strconv.ParseBool(v); err != nil {
+			return fmt.Errorf("LOCALSLACK_ALLOW_REMOTE_REQUEST_URLS: %w", err)
 		}
 	}
 	return nil

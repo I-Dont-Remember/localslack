@@ -28,11 +28,13 @@ func TestStartCmdApply(t *testing.T) {
 			StartCmd{
 				Addr: "0.0.0.0:1", AppManifest: []string{"a.json"}, EventTimeout: time.Second, EventRetryDelays: "0s,100ms",
 				Scenario: "s.json", CallLogSize: 7, DeliveryLogSize: 8, StrictTokens: true,
+				DeliverTo: "http://localhost:3000", AllowRemoteRequestURLs: true,
 			},
 			config.Config{
 				Addr: "0.0.0.0:1", AppManifest: []string{"a.json"}, EventTimeout: time.Second,
 				EventRetryDelays: []time.Duration{0, 100 * time.Millisecond}, Scenario: "s.json",
 				CallLogSize: 7, DeliveryLogSize: 8, StrictTokens: true,
+				DeliverTo: "http://localhost:3000", AllowRemoteRequestURLs: true,
 			},
 			false,
 		},
@@ -69,11 +71,13 @@ func TestStartCmdDetachedArgs(t *testing.T) {
 			StartCmd{
 				Detach: true, Addr: "a:1", AppManifest: []string{"x.json", "y.yaml"}, EventTimeout: 500 * time.Millisecond,
 				EventRetryDelays: "0s,1s", Scenario: "s.json", CallLogSize: 5, DeliveryLogSize: 6, StrictTokens: true,
+				DeliverTo: "http://localhost:3000", AllowRemoteRequestURLs: true,
 			},
 			[]string{
 				"start", "--addr", "a:1", "--app-manifest", "x.json", "--app-manifest", "y.yaml",
 				"--event-timeout", "500ms", "--event-retry-delays", "0s,1s", "--scenario", "s.json",
 				"--call-log-size", "5", "--delivery-log-size", "6", "--strict-tokens",
+				"--deliver-to", "http://localhost:3000", "--allow-remote-request-urls",
 			},
 		},
 	}
