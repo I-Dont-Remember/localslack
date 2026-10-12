@@ -316,9 +316,7 @@ func TestEngineRetryWaitUsesInjectedClock(t *testing.T) {
 
 	e.Publish(posted("hello", "UBOT1"))
 	waitState(t, e, events.StateRetrying, 1)
-	for clock.Waiting() == 0 {
-		time.Sleep(time.Millisecond) // the retry timer registers just after the state flips
-	}
+	waitUntil(t, "retry timer to register on the clock", func() bool { return clock.Waiting() > 0 })
 	if n := len(app.requests()); n != 1 {
 		t.Fatalf("requests before the clock moved = %d, want 1", n)
 	}
@@ -1026,5 +1024,17 @@ func TestEngineDifferentAppsDeliverConcurrently(t *testing.T) {
 
 	if got[0].AppID != "A2" {
 		t.Errorf("first delivered app = %s, want the fast one (apps must not block each other)", got[0].AppID)
+	}
+}
+
+// waitUntil polls cond (bounded) instead of sleeping a guessed duration.
+func waitUntil(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(waitFor)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

@@ -186,7 +186,11 @@ func TestClearWakesParkedPoller(t *testing.T) {
 	done := make(chan calllog.Result, 1)
 	go func() { done <- l.Query(t.Context(), calllog.Query{Min: 1, Timeout: 10 * time.Second}) }()
 	// Wait until the poller is parked, then clear: it must wake (generation changed) without a record.
+	deadline := time.Now().Add(5 * time.Second)
 	for l.Waiters() == 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("poller never parked")
+		}
 		runtime.Gosched()
 	}
 	l.Clear()

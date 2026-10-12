@@ -191,9 +191,7 @@ func TestResetWakesParkedCallPoll(t *testing.T) {
 		_, page := listCalls(t, app.URL, "min=1&timeout_ms=20000")
 		done <- page
 	}()
-	for app.Components.CallLog.Waiters() == 0 {
-		time.Sleep(time.Millisecond)
-	}
+	waitUntil(t, "the long poll to park", func() bool { return app.Components.CallLog.Waiters() > 0 })
 
 	postReset(t, app.URL, "", "")
 

@@ -163,9 +163,7 @@ func TestCallsLongPollWakesOnNewCall(t *testing.T) {
 		_, page := listCalls(t, app.URL, "min=1&timeout_ms=10000")
 		done <- page
 	}()
-	for app.Components.CallLog.Waiters() == 0 { // parked
-		time.Sleep(time.Millisecond)
-	}
+	waitUntil(t, "the long poll to park", func() bool { return app.Components.CallLog.Waiters() > 0 })
 	slackCall(t, app.URL, "auth.test", nil)
 
 	select {
@@ -228,5 +226,17 @@ func TestCallsRedactsToken(t *testing.T) {
 	_, page := listCalls(t, app.URL, "")
 	if got := page.Items[0].Params["token"]; got != "[redacted]" {
 		t.Errorf("params.token = %v, want [redacted]", got)
+	}
+}
+
+// waitUntil polls cond (bounded) instead of sleeping a guessed duration.
+func waitUntil(t *testing.T, what string, cond func() bool) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for !cond() {
+		if time.Now().After(deadline) {
+			t.Fatalf("timed out waiting for %s", what)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }

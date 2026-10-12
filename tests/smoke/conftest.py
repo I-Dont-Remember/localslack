@@ -7,7 +7,7 @@ import pytest
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
-from localslack_admin import Admin, AdminError
+from localslack_admin import Admin
 
 
 @pytest.fixture(scope="session")
@@ -84,17 +84,40 @@ def calls_since(admin: Admin):
 
 @pytest.fixture
 def faults(admin: Admin):
-    """Fault rules for one test; teardown clears them and restores the delivery config."""
-    try:
-        saved = admin.delivery_config()
-    except AdminError:
-        saved = None  # endpoint not implemented yet: nothing to restore
+    """Fault rules for one test; teardown clears them and restores the delivery config.
+
+    Teardown failures fail the test loudly: a rule left behind would poison every later test.
+    """
+    saved = admin.delivery_config()
     yield admin
-    for cleanup in (
-        admin.delete_faults,
-        lambda: saved and admin.put_delivery_config(**saved),
+    failures = []
+    for what, cleanup in (
+        ("delete faults", admin.delete_faults),
+        ("restore delivery config", lambda: admin.put_delivery_config(**saved)),
     ):
         try:
             cleanup()
-        except AdminError:
-            pass
+        except Exception as e:  # noqa: BLE001 (report every failed step, whatever it was)
+            failures.append(f"{what}: {e!r}")
+    assert not failures, "faults fixture teardown failed: " + "; ".join(failures)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _control_state_restored(base_url: str):
+    """At session end the fault list and delivery config must be what they were at the start.
+
+    No live server (unit-style tests with a mock transport) means nothing to check.
+    """
+    probe = Admin(base_url)
+    try:
+        baseline = {"faults": probe.faults(), "delivery_config": probe.delivery_config()}
+    except Exception:  # noqa: BLE001 (any failure to reach the server: skip the check)
+        probe.close()
+        yield
+        return
+    yield
+    try:
+        final = {"faults": probe.faults(), "delivery_config": probe.delivery_config()}
+    finally:
+        probe.close()
+    assert final == baseline, f"a test leaked control state: started {baseline}, ended {final}"
