@@ -7,6 +7,8 @@ import pytest
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+from localslack_admin import Admin, AdminError
+
 
 @pytest.fixture(scope="session")
 def base_url() -> str:
@@ -54,3 +56,49 @@ def api_url(base_url: str) -> str:
 
 def humans(client: WebClient) -> list[str]:
     return [u["id"] for u in client.users_list()["members"] if not u["is_bot"]]
+
+
+@pytest.fixture
+def admin(base_url: str):
+    """Client for the /_localslack testing API."""
+    a = Admin(base_url)
+    yield a
+    a.close()
+
+
+@pytest.fixture
+def calls_since(admin: Admin):
+    """Call log scoped to this test: a function returning calls recorded since the fixture ran.
+
+    `calls_since(min=1, timeout_ms=2000, method=...)` long-polls for `min` matching calls.
+    """
+    cursor = admin.calls(limit=1)["next_since"]
+
+    def fetch(min: int | None = None, timeout_ms: int = 5000, **filters):
+        if min:
+            return admin.wait_calls(min, timeout_ms, since=cursor, **filters)
+        return admin.calls(since=cursor, **filters)["calls"]
+
+    return fetch
+
+
+@pytest.fixture
+def faults(admin: Admin):
+    """Fault rules for one test; teardown clears them and restores the delivery config."""
+    try:
+        saved = admin.delivery_config()
+    except AdminError:
+        saved = None  # endpoint not implemented yet: nothing to restore
+    yield admin
+    for cleanup in (
+        admin.delete_faults,
+        lambda: saved and admin.put_delivery_config(**_config(saved)),
+    ):
+        try:
+            cleanup()
+        except AdminError:
+            pass
+
+
+def _config(saved: dict) -> dict:
+    return {k: v for k, v in saved.items() if k != "ok"}

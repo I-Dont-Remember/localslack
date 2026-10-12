@@ -1,0 +1,325 @@
+"""Client for LocalSlack's testing API (`/_localslack/*`), see docs/TESTING_API.md.
+
+One method per endpoint. Long-poll waits (`wait_calls`, `wait_deliveries`) block server-side,
+so tests never sleep. Failures raise `AdminError`; an unmet wait raises `AdminTimeout`.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+import httpx
+
+PREFIX = "/_localslack"
+LONG_POLL_SLACK_S = 5.0  # HTTP timeout headroom over a server-side long poll
+
+
+class AdminError(Exception):
+    """A control endpoint answered with an HTTP error or `ok: false`."""
+
+    def __init__(self, status: int, body: Any, path: str):
+        self.status = status
+        self.body = body
+        self.path = path
+        self.error = body.get("error") if isinstance(body, dict) else None
+        super().__init__(f"{path}: HTTP {status} {self.error or body!r}")
+
+
+class AdminTimeout(AssertionError):
+    """A long-poll wait ended before `min` items arrived."""
+
+
+def _clean(params: dict[str, Any]) -> dict[str, Any]:
+    """Drop Nones and render bools the way the server parses them."""
+    out: dict[str, Any] = {}
+    for key, value in params.items():
+        if value is None:
+            continue
+        out[key] = str(value).lower() if isinstance(value, bool) else value
+    return out
+
+
+class Admin:
+    """Thin, stateless wrapper over the testing API."""
+
+    def __init__(self, base_url: str, *, transport: httpx.BaseTransport | None = None):
+        self.base_url = base_url.rstrip("/")
+        self._http = httpx.Client(base_url=self.base_url, transport=transport, timeout=10.0)
+
+    def close(self) -> None:
+        self._http.close()
+
+    def _request(
+        self,
+        verb: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        json: Any = None,
+        content: str | None = None,
+        content_type: str | None = None,
+        timeout: float | None = None,
+    ) -> dict[str, Any]:
+        headers = {"Content-Type": content_type} if content_type else None
+        resp = self._http.request(
+            verb,
+            PREFIX + path,
+            params=_clean(params or {}),
+            json=json,
+            content=content,
+            headers=headers,
+            timeout=timeout if timeout is not None else httpx.USE_CLIENT_DEFAULT,
+        )
+        try:
+            body = resp.json()
+        except ValueError:
+            body = resp.text
+        if resp.status_code >= 400 or (isinstance(body, dict) and body.get("ok") is False):
+            raise AdminError(resp.status_code, body, PREFIX + path)
+        return body
+
+    def _poll_timeout(self, timeout_ms: int) -> float:
+        return timeout_ms / 1000 + LONG_POLL_SLACK_S
+
+    # --- health / state ---------------------------------------------------------------------
+
+    def health(self) -> dict[str, Any]:
+        return self._request("GET", "/health")
+
+    def state(self) -> dict[str, Any]:
+        return self._request("GET", "/state")
+
+    # --- apps -------------------------------------------------------------------------------
+
+    def register_app(
+        self,
+        manifest: dict[str, Any] | str,
+        *,
+        signing_secret: str | None = None,
+        bot_token: str | None = None,
+        app_token: str | None = None,
+        app_id: str | None = None,
+        verify: bool | None = None,
+    ) -> dict[str, Any]:
+        """Register an app from a manifest (dict = JSON, str = YAML); returns the response."""
+        extras = {
+            "signing_secret": signing_secret,
+            "bot_token": bot_token,
+            "app_token": app_token,
+            "app_id": app_id,
+            "verify": verify,
+        }
+        extras = {k: v for k, v in extras.items() if v is not None}
+        if extras:
+            return self._request("POST", "/apps", json={"manifest": manifest, **extras})
+        if isinstance(manifest, str):
+            return self._request("POST", "/apps", content=manifest, content_type="application/yaml")
+        return self._request("POST", "/apps", json=manifest)
+
+    def apps(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/apps")["apps"]
+
+    def app(self, app_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/apps/{app_id}")["app"]
+
+    def delete_app(self, app_id: str) -> dict[str, Any]:
+        return self._request("DELETE", f"/apps/{app_id}")
+
+    def verify_app(self, app_id: str) -> dict[str, Any]:
+        return self._request("POST", f"/apps/{app_id}/verify")
+
+    # --- events / deliveries ----------------------------------------------------------------
+
+    def deliveries(
+        self,
+        *,
+        event_type: str | None = None,
+        state: str | None = None,
+        app_id: str | None = None,
+        since: int | None = None,
+        min: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> dict[str, Any]:
+        params = {
+            "event_type": event_type,
+            "state": state,
+            "app_id": app_id,
+            "since": since,
+            "min": min,
+            "timeout_ms": timeout_ms,
+        }
+        timeout = self._poll_timeout(timeout_ms) if timeout_ms else None
+        return self._request("GET", "/deliveries", params=params, timeout=timeout)
+
+    def wait_deliveries(self, min: int, timeout_ms: int = 5000, **filters: Any) -> list[dict]:
+        """Block until `min` deliveries match; raise AdminTimeout if they do not arrive."""
+        body = self.deliveries(min=min, timeout_ms=timeout_ms, **filters)
+        got = body["deliveries"]
+        if len(got) < min:
+            raise AdminTimeout(f"wanted {min} deliveries within {timeout_ms}ms, got {len(got)}")
+        return got
+
+    def delivery(self, delivery_id: str) -> dict[str, Any]:
+        return self._request("GET", f"/deliveries/{delivery_id}")["delivery"]
+
+    def delete_deliveries(self) -> dict[str, Any]:
+        return self._request("DELETE", "/deliveries")
+
+    def inject_event(
+        self,
+        event: dict[str, Any],
+        *,
+        app_id: str | None = None,
+        signature: str | None = None,
+        envelope: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        body = {"event": event, "app_id": app_id, "signature": signature, "envelope": envelope}
+        return self._request(
+            "POST", "/events", json={k: v for k, v in body.items() if v is not None}
+        )
+
+    def redeliver(
+        self,
+        event_id: str,
+        *,
+        retry_num: int | None = None,
+        retry_reason: str | None = None,
+        signature: str | None = None,
+    ) -> dict[str, Any]:
+        body = {"retry_num": retry_num, "retry_reason": retry_reason, "signature": signature}
+        body = {k: v for k, v in body.items() if v is not None}
+        return self._request("POST", f"/events/{event_id}/redeliver", json=body)
+
+    def delivery_config(self, app_id: str | None = None) -> dict[str, Any]:
+        return self._request("GET", self._config_path(app_id))
+
+    def put_delivery_config(self, app_id: str | None = None, **config: Any) -> dict[str, Any]:
+        return self._request("PUT", self._config_path(app_id), json=config)
+
+    @staticmethod
+    def _config_path(app_id: str | None) -> str:
+        return f"/apps/{app_id}/delivery-config" if app_id else "/delivery-config"
+
+    # --- socket mode ------------------------------------------------------------------------
+
+    def socket_connections(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/socket/connections")["connections"]
+
+    def socket_disconnect(
+        self,
+        *,
+        connection_id: str | None = None,
+        reason: str = "refresh_requested",
+        drop: bool = False,
+    ) -> dict[str, Any]:
+        body = {"connection_id": connection_id, "reason": reason, "drop": drop}
+        return self._request(
+            "POST", "/socket/disconnect", json={k: v for k, v in body.items() if v is not None}
+        )
+
+    # --- call log ---------------------------------------------------------------------------
+
+    def calls(
+        self,
+        *,
+        method: str | None = None,
+        channel: str | None = None,
+        app_id: str | None = None,
+        ok: bool | None = None,
+        error: str | None = None,
+        since: int | None = None,
+        limit: int | None = None,
+        min: int | None = None,
+        timeout_ms: int | None = None,
+    ) -> dict[str, Any]:
+        params = {
+            "method": method,
+            "channel": channel,
+            "app_id": app_id,
+            "ok": ok,
+            "error": error,
+            "since": since,
+            "limit": limit,
+            "min": min,
+            "timeout_ms": timeout_ms,
+        }
+        timeout = self._poll_timeout(timeout_ms) if timeout_ms else None
+        return self._request("GET", "/calls", params=params, timeout=timeout)
+
+    def wait_calls(self, min: int, timeout_ms: int = 5000, **filters: Any) -> list[dict]:
+        """Block until `min` calls match; raise AdminTimeout if they do not arrive."""
+        got = self.calls(min=min, timeout_ms=timeout_ms, **filters)["calls"]
+        if len(got) < min:
+            raise AdminTimeout(f"wanted {min} calls within {timeout_ms}ms, got {len(got)}")
+        return got
+
+    def delete_calls(self) -> dict[str, Any]:
+        return self._request("DELETE", "/calls")
+
+    # --- reset ------------------------------------------------------------------------------
+
+    def reset(
+        self,
+        *,
+        seed: str | None = None,
+        scenario: dict[str, Any] | str | None = None,
+        generate: dict[str, Any] | None = None,
+        keep: list[str] | None = None,
+    ) -> dict[str, Any]:
+        body = {"seed": seed, "scenario": scenario, "generate": generate, "keep": keep}
+        return self._request(
+            "POST", "/reset", json={k: v for k, v in body.items() if v is not None}
+        )
+
+    # --- faults -----------------------------------------------------------------------------
+
+    def add_fault(
+        self,
+        method: str,
+        action: dict[str, Any],
+        *,
+        match: dict[str, Any] | None = None,
+        nth: int | None = None,
+        every: int | None = None,
+        times: int | None = None,
+        once: bool | None = None,
+    ) -> dict[str, Any]:
+        """Add a fault rule; returns the created fault (with its `id`)."""
+        body = {
+            "method": method,
+            "match": match,
+            "nth": nth,
+            "every": every,
+            "times": times,
+            "once": once,
+            "action": action,
+        }
+        body = {k: v for k, v in body.items() if v is not None}
+        return self._request("POST", "/faults", json=body)["fault"]
+
+    def faults(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/faults")["faults"]
+
+    def delete_fault(self, fault_id: str) -> dict[str, Any]:
+        return self._request("DELETE", f"/faults/{fault_id}")
+
+    def delete_faults(self) -> dict[str, Any]:
+        return self._request("DELETE", "/faults")
+
+    # --- snapshots / diff -------------------------------------------------------------------
+
+    def create_snapshot(self, name: str) -> dict[str, Any]:
+        return self._request("POST", "/snapshots", json={"name": name})
+
+    def snapshots(self) -> list[dict[str, Any]]:
+        return self._request("GET", "/snapshots")["snapshots"]
+
+    def snapshot(self, name: str) -> dict[str, Any]:
+        """The snapshot as a Fixture (also usable as a scenario)."""
+        return self._request("GET", f"/snapshots/{name}")
+
+    def restore_snapshot(self, name: str) -> dict[str, Any]:
+        return self._request("POST", f"/snapshots/{name}/restore")
+
+    def diff(self, from_: str, to: str = "current") -> dict[str, Any]:
+        return self._request("GET", "/diff", params={"from": from_, "to": to})["changes"]
