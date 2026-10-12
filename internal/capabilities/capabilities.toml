@@ -267,6 +267,11 @@ status = "implemented"
 summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
 evidence = "llm"
 
+[behaviors.inspector-ui]
+status = "implemented"
+summary = "Browser inspector at /ui/inspector: live API calls (filters, fault and not-implemented badges), event deliveries (attempts, redeliver), apps (delivery readiness, editable deliver_to, credentials), faults, delivery-config toggles and reset. Socket connections and snapshots/diff panels appear once those backends are wired."
+evidence = "llm"
+
 [behaviors.state-reset]
 status = "implemented"
 summary = "POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps."
