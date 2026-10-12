@@ -6,7 +6,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 **Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
 
-**Methods:** 8 implemented, 1 partial, 16 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 9 llm, 0 none.
+**Methods:** 8 implemented, 1 partial, 9 in_progress, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 9 llm, 0 none.
 
 ## How to read the evidence column
 
@@ -37,14 +37,14 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 | Method | Status | Priority | Tier | Scopes | Plan |
 |---|---|---|---|---|---|
-| `api.test` | planned | bolt-core | — | — | — |
-| `chat.delete` | planned | bolt-core | 3 | `chat:write` | — |
-| `chat.postEphemeral` | planned | bolt-core | 4 | `chat:write` | — |
-| `chat.update` | planned | bolt-core | 3 | `chat:write` | — |
-| `conversations.info` | planned | bolt-core | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | — |
-| `conversations.members` | planned | bolt-core | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | — |
-| `reactions.add` | planned | bolt-core | 3 | `reactions:write` | — |
-| `users.info` | planned | bolt-core | 4 | `users:read` | — |
+| `api.test` | in_progress | bolt-core | — | — | agent-docs/plans/test-loop.md |
+| `chat.delete` | in_progress | bolt-core | 3 | `chat:write` | agent-docs/plans/test-loop.md |
+| `chat.postEphemeral` | in_progress | bolt-core | 4 | `chat:write` | agent-docs/plans/test-loop.md |
+| `chat.update` | in_progress | bolt-core | 3 | `chat:write` | agent-docs/plans/test-loop.md |
+| `conversations.info` | in_progress | bolt-core | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | agent-docs/plans/test-loop.md |
+| `conversations.members` | in_progress | bolt-core | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | agent-docs/plans/test-loop.md |
+| `reactions.add` | in_progress | bolt-core | 3 | `reactions:write` | agent-docs/plans/test-loop.md |
+| `users.info` | in_progress | bolt-core | 4 | `users:read` | agent-docs/plans/test-loop.md |
 | `conversations.invite` | planned | common | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | — |
 | `conversations.join` | planned | common | 3 | `channels:join` | — |
 | `conversations.leave` | planned | common | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | — |
@@ -52,15 +52,19 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `users.conversations` | planned | common | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | — |
 | `views.open` | planned | interactivity | 4 | — | — |
 | `views.publish` | planned | interactivity | 4 | — | — |
-| `apps.connections.open` | planned | socket-mode | 1 | — | — |
+| `apps.connections.open` | in_progress | socket-mode | 1 | — | agent-docs/plans/test-loop.md |
 
 ## Behaviors and quirks
 
 | Behavior | Status | Milestone | Evidence | Summary | Deviations |
 |---|---|---|---|---|---|
 | `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `unknown-method-404`, `collapsed-errors` |
+| `app-manifest` | planned | — | — | Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps. | — |
 | `block-kit` | planned | — | — | Storing and returning blocks, attachments and message metadata. | `no-blocks` |
+| `call-log` | planned | — | — | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
+| `event-delivery-controls` | planned | — | — | Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace. | — |
 | `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
+| `fault-injection` | planned | — | — | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
 | `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
@@ -75,6 +79,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | `fabricated-bot-id` |
 | `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
+| `state-snapshot` | planned | — | — | Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture. | — |
 
 ## Known deviations from real Slack
 

@@ -76,47 +76,55 @@ deviations = ["no-blocks", "name-targets-unresolved", "no-membership-check", "pa
 # interactivity = needs Block Kit/interactivity support; socket-mode = M3.
 
 [methods."api.test"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 
 [methods."conversations.info"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 3
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
 
 [methods."conversations.members"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 4
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
 
 [methods."users.info"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 4
 scopes = ["users:read"]
 
 [methods."chat.update"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 3
 scopes = ["chat:write"]
 
 [methods."chat.delete"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 3
 scopes = ["chat:write"]
 
 [methods."chat.postEphemeral"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 4
 scopes = ["chat:write"]
 
 [methods."reactions.add"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "bolt-core"
 tier = 3
 scopes = ["reactions:write"]
@@ -162,7 +170,8 @@ priority = "interactivity"
 tier = 4
 
 [methods."apps.connections.open"]
-status = "planned"
+status = "in_progress"
+plan = "agent-docs/plans/test-loop.md"
 priority = "socket-mode"
 tier = 1
 
@@ -259,6 +268,26 @@ summary = "LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert
 [behaviors.scenario-seeding]
 status = "planned"
 summary = "Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate."
+
+[behaviors.call-log]
+status = "planned"
+summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
+
+[behaviors.fault-injection]
+status = "planned"
+summary = "Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults."
+
+[behaviors.app-manifest]
+status = "planned"
+summary = "Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps."
+
+[behaviors.event-delivery-controls]
+status = "planned"
+summary = "Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace."
+
+[behaviors.state-snapshot]
+status = "planned"
+summary = "Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture."
 
 # ---------------------------------------------------------------- known deviations
 # Referenced by id from methods and behaviors above. Keep summaries one sentence: they are
