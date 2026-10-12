@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,6 +23,9 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	st := &state{method: chi.URLParam(r, "method")}
 	a.run(rw, r, st)
 	a.rec.Record(st.record(r, rw, start, a.now()))
+	if err := rw.flush(); err != nil {
+		a.log.ErrorContext(r.Context(), "write response", slog.Any("error", err))
+	}
 }
 
 // state is what the stages learn about a call, for the record.
