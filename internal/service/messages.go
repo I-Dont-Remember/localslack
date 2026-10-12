@@ -2,14 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"localslack/internal/store"
 )
 
 // History returns a channel's top-level messages, newest first.
-func (s *Service) History(ctx context.Context, _ User, channelID string, o PageOpts) (Page[Message], error) {
-	if err := s.requireChannel(ctx, channelID); err != nil {
+func (s *Service) History(ctx context.Context, u User, channelID string, o PageOpts) (Page[Message], error) {
+	if err := s.requireReadable(ctx, u, channelID); err != nil {
 		return Page[Message]{}, err
 	}
 	before, err := decodeCursor(cursorHistory, o.Cursor)
@@ -31,8 +30,8 @@ func (s *Service) History(ctx context.Context, _ User, channelID string, o PageO
 }
 
 // Replies returns a thread (root first, then replies oldest first).
-func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS string, o PageOpts) (Page[Message], error) {
-	if err := s.requireChannel(ctx, channelID); err != nil {
+func (s *Service) Replies(ctx context.Context, u User, channelID, threadTS string, o PageOpts) (Page[Message], error) {
+	if err := s.requireReadable(ctx, u, channelID); err != nil {
 		return Page[Message]{}, err
 	}
 	after, err := decodeCursor(cursorReplies, o.Cursor)
@@ -70,12 +69,19 @@ func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS strin
 	return out, nil
 }
 
-func (s *Service) requireChannel(ctx context.Context, channelID string) error {
-	if _, err := s.st.Conversation(ctx, channelID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return ErrChannelNotFound
-		}
-		return err
+func (s *Service) requireReadable(ctx context.Context, u User, channelID string) error {
+	c, err := s.st.Conversation(ctx, channelID)
+	if err != nil {
+		return notFoundAs(err, ErrChannelNotFound)
 	}
-	return nil
+	return s.canRead(ctx, u, c)
+}
+
+func (s *Service) requireVisible(ctx context.Context, u User, channelID string) error {
+	c, err := s.st.Conversation(ctx, channelID)
+	if err != nil {
+		return notFoundAs(err, ErrChannelNotFound)
+	}
+	_, err = s.canSee(ctx, u, c)
+	return err
 }

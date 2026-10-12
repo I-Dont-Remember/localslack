@@ -47,9 +47,9 @@ Process for adding a new Slack API endpoint. Check `internal/capabilities/capabi
 - Always accept POST: the Slack Python SDK sends POST even to GET-documented methods.
 - Handler tests for `api`/`web` must be external packages (`api_test`, `web_test`): `storetest`
   imports `server`, which imports them, so in-package tests would be an import cycle.
-- Authorization is deliberately permissive for channels: no membership checks on read/post (`caller`
-  is passed through so a rule can be added later); only im/mpim listings are filtered by membership.
-  This is a documented deviation (`no-membership-check`).
+- Authorization is one rule set in `service/access.go` (`canSee`/`canRead`/`checkAccess`/`canReact`): private
+  channels and DMs are `channel_not_found` for non-members; public non-member bots get `not_in_channel` (post
+  allowed with `chat:write.public`). New methods that touch a conversation must call it with the acting User.
 - Rate-limit tiers are the manifest's per-method `tier` (Slack tiers: 1 = 1/min, 2 = 20/min,
   3 = 50/min, 4 = 100/min; default 60/min). M5 enforces them; do not add a second table.
 - Web UI errors: map new `service.Err*` in `web.fail` (HTTP status) as well as in `api/errors.go`.

@@ -9,8 +9,10 @@ import (
 type ConvQuery struct {
 	Kinds           []string
 	ExcludeArchived bool
-	// MemberID restricts non-channel kinds (im, mpim) to conversations this user is in.
+	// MemberID restricts private channels and non-channel kinds (im, mpim) to conversations this user is in.
 	MemberID string
+	// Privacy narrows channels: "public", "private" or "" (both). Other kinds are unaffected.
+	Privacy string
 	// AfterID is an exclusive keyset cursor on conversation id.
 	AfterID string
 	Limit   int
@@ -30,8 +32,12 @@ func (s *Store) ConversationsPage(ctx context.Context, cq ConvQuery) ([]Conversa
 		where = append(where, "is_archived = 0")
 	}
 	if cq.MemberID != "" {
-		where = append(where, `(kind = 'channel' OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = conversations.id AND m.user_id = ?))`)
+		where = append(where, `((kind = 'channel' AND is_private = 0) OR EXISTS (SELECT 1 FROM members m WHERE m.conversation_id = conversations.id AND m.user_id = ?))`)
 		args = append(args, cq.MemberID)
+	}
+	if cq.Privacy != "" {
+		where = append(where, "(kind <> 'channel' OR is_private = ?)")
+		args = append(args, cq.Privacy == "private")
 	}
 	if cq.AfterID != "" {
 		where = append(where, "id > ?")

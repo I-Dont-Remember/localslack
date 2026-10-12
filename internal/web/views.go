@@ -14,6 +14,7 @@ import (
 type navItem struct {
 	ID, Title string
 	Active    bool
+	Private   bool
 }
 
 type msgView struct {
@@ -114,7 +115,7 @@ func (w *Web) page(ctx context.Context, actor service.User, path, channelID stri
 		return nil, err
 	}
 	who := names(users)
-	chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel"}, true)
+	chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel", "private_channel"}, true)
 	if err != nil {
 		return nil, err
 	}
@@ -137,7 +138,7 @@ func (w *Web) page(ctx context.Context, actor service.User, path, channelID stri
 func nav(cs []service.Conversation, active string, label func(service.Conversation) string) []navItem {
 	out := make([]navItem, 0, len(cs))
 	for _, c := range cs {
-		out = append(out, navItem{ID: c.ID, Title: label(c), Active: c.ID == active})
+		out = append(out, navItem{ID: c.ID, Title: label(c), Active: c.ID == active, Private: c.IsPrivate && c.Kind == service.KindChannel})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 	return out

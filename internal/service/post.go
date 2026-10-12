@@ -32,11 +32,8 @@ func (s *Service) PostMessage(ctx context.Context, author User, o PostOpts) (Mes
 		if err != nil {
 			return notFoundAs(err, ErrChannelNotFound)
 		}
-		if err := s.checkAccess(ctx, author, conv); err != nil {
+		if err := s.checkWrite(ctx, author, conv); err != nil {
 			return err
-		}
-		if conv.IsArchived {
-			return ErrIsArchived
 		}
 		root, err := threadRoot(ctx, tx, o.Channel, o.ThreadTS)
 		if err != nil {

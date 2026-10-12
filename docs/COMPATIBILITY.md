@@ -25,19 +25,19 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 |---|---|---|---|---|---|---|
 | `api.test` | implemented | llm | 4 | — | yes | — |
 | `auth.test` | implemented | llm | 3 | — | yes | `any-token-accepted` |
-| `chat.delete` | implemented | llm | 3 | `chat:write` | yes | `no-membership-check`, `tombstone-shape` |
+| `chat.delete` | implemented | llm | 3 | `chat:write` | yes | `tombstone-shape` |
 | `chat.postEphemeral` | implemented | llm | 4 | `chat:write` | yes | `ephemeral-not-delivered` |
-| `chat.postMessage` | partial | llm | — | `chat:write`, `chat:write.public` | yes | `name-targets-unresolved`, `no-membership-check`, `partial-message-fields` |
-| `chat.update` | implemented | llm | 3 | `chat:write` | yes | `no-membership-check`, `partial-message-fields` |
+| `chat.postMessage` | partial | llm | — | `chat:write`, `chat:write.public` | yes | `name-targets-unresolved`, `partial-message-fields` |
+| `chat.update` | implemented | llm | 3 | `chat:write` | yes | `partial-message-fields` |
 | `conversations.archive` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors` |
-| `conversations.create` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors`, `no-private-channels` |
-| `conversations.history` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
-| `conversations.info` | implemented | llm | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `no-membership-check`, `partial-conversation-fields` |
-| `conversations.list` | implemented | llm | 2 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `no-private-channels`, `partial-conversation-fields`, `limit-clamping` |
-| `conversations.members` | implemented | llm | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `no-membership-check`, `limit-clamping`, `cursor-format` |
+| `conversations.create` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors` |
+| `conversations.history` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `partial-message-fields`, `limit-clamping`, `cursor-format` |
+| `conversations.info` | implemented | llm | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `partial-conversation-fields` |
+| `conversations.list` | implemented | llm | 2 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `partial-conversation-fields`, `limit-clamping` |
+| `conversations.members` | implemented | llm | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `limit-clamping`, `cursor-format` |
 | `conversations.open` | implemented | llm (errors only) | 3 | `groups:write`, `im:write`, `mpim:write` | yes | `partial-conversation-fields` |
-| `conversations.replies` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
-| `reactions.add` | implemented | llm | 3 | `reactions:write` | yes | `no-membership-check` |
+| `conversations.replies` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `partial-message-fields`, `limit-clamping`, `cursor-format` |
+| `reactions.add` | implemented | llm | 3 | `reactions:write` | yes | — |
 | `users.info` | implemented | llm | 4 | `users:read` | yes | `partial-user-fields` |
 | `users.list` | implemented | llm | 2 | `users:read` | yes | `users-list-unpaginated`, `partial-user-fields` |
 
@@ -68,12 +68,12 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
 | `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
-| `membership-enforcement` | planned | — | — | not_in_channel / channel_not_found for non-members reading or posting in channels and DMs. | `no-membership-check` |
+| `membership-enforcement` | implemented | — | llm | Strict, scope-gated membership (service/access.go): private channels and DMs are channel_not_found for non-members; a bot not in a public channel gets not_in_channel on history/replies and on post unless its app has chat:write.public (default scopes do); a user token not in a public channel can read but not post; reactions need membership; archived is is_archived on post/update/react/ephemeral. The web UI actor auto-joins a public channel when posting or reacting; registered apps auto-join public channels at registration and after reset. | — |
 | `message-ts` | implemented | — | llm | Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts. | — |
 | `multipart-bodies` | planned | — | — | multipart/form-data requests (file uploads). | `multipart-ignored` |
 | `oauth-scopes` | planned | M4 | — | Per-method scope checks (missing_scope) with a permissive default; full OAuth flow emulation is intentionally low priority. | `any-token-accepted` |
 | `opaque-cursor-pagination` | implemented | — | llm | Cursor pagination with response_metadata.next_cursor; cursors are opaque and bound to their endpoint. | `cursor-format`, `limit-clamping` |
-| `private-channels` | planned | — | — | Private channels and groups. | `no-private-channels` |
+| `private-channels` | implemented | — | llm | conversations.create is_private=true makes a private channel (is_private, is_group true); types=private_channel lists only the caller's; the web UI shows a lock icon. | — |
 | `rate-limiting` | planned | M5 | — | Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var). | — |
 | `response-headers` | planned | — | — | Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type. | `response-headers-missing` |
 | `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
@@ -90,8 +90,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `event-subset` | medium | Only message (channels/groups/im/mpim, incl. message_changed and message_deleted), app_mention and reaction_added events are emitted; other subscriptions are accepted with a warning and never fire (inject them with POST /_localslack/events). | `events-api-http` | — |
 | `multipart-ignored` | medium | multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text). | `multipart-bodies` | yes |
 | `name-targets-unresolved` | medium | The channel param must be an ID: "#general" and user IDs as DM targets return channel_not_found (Slack resolves both). | `chat.postMessage` | yes |
-| `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.delete`, `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.info`, `conversations.members`, `conversations.replies`, `membership-enforcement`, `reactions.add` | yes |
-| `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` | yes |
 | `partial-message-fields` | medium | Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users. | `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies` | yes |
 | `response-headers-missing` | medium | Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset. | `response-headers` | yes |
 | `collapsed-errors` | low | Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments. | `api-errors-http-200`, `conversations.archive`, `conversations.create` | yes |

@@ -54,6 +54,10 @@ func (w *Web) reactThen(again http.HandlerFunc) http.HandlerFunc {
 			http.Error(rw, "bad form", http.StatusBadRequest)
 			return
 		}
+		if err = w.svc.EnsureMember(ctx, actor, chi.URLParam(r, "id")); err != nil {
+			w.fail(rw, r, err)
+			return
+		}
 		err = w.svc.AddReaction(ctx, actor, chi.URLParam(r, "id"), r.PostForm.Get("message"), r.PostForm.Get("name"))
 		if err != nil && !errors.Is(err, service.ErrAlreadyReacted) {
 			w.fail(rw, r, err)

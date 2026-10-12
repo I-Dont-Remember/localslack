@@ -119,6 +119,9 @@ func (s *Service) Conversation(ctx context.Context, caller User, id string) (Con
 	if err != nil {
 		return Conversation{}, notFoundAs(err, ErrChannelNotFound)
 	}
+	if _, err := s.canSee(ctx, caller, c); err != nil {
+		return Conversation{}, err
+	}
 	return s.enrichOne(ctx, caller, c)
 }
 

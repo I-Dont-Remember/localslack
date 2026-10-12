@@ -7,7 +7,11 @@ import (
 )
 
 func (a *API) conversationsCreate(ctx context.Context, c *call) (map[string]any, error) {
-	conv, err := a.svc.CreateChannel(ctx, c.p.User, c.params.Get("name"))
+	var opts []service.CreateOpt
+	if boolParam(c.params, "is_private") {
+		opts = append(opts, service.CreatePrivate())
+	}
+	conv, err := a.svc.CreateChannel(ctx, c.p.User, c.params.Get("name"), opts...)
 	if err != nil {
 		return nil, err
 	}

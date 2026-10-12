@@ -17,6 +17,12 @@ def chan(client: WebClient, unique: str) -> str:
     return client.conversations_create(name=f"wr-{unique}")["channel"]["id"]
 
 
+@pytest.fixture
+def human_chan(human_client: WebClient, unique: str) -> str:
+    """A channel only the human is in; the bot can still post (chat:write.public)."""
+    return human_client.conversations_create(name=f"hwr-{unique}")["channel"]["id"]
+
+
 def test_update_edits_text_and_marks_edited(client, chan):
     ts = client.chat_postMessage(channel=chan, text="v1")["ts"]
     resp = client.chat_update(channel=chan, ts=ts, text="v2")
@@ -41,7 +47,8 @@ def assert_errors(calls: dict) -> None:
     assert got == {want: want for want in calls}
 
 
-def test_update_errors(client, human_client, chan):
+def test_update_errors(client, human_client, human_chan):
+    chan = human_chan
     ts = client.chat_postMessage(channel=chan, text="mine")["ts"]
     assert_errors(
         {
@@ -77,7 +84,8 @@ def test_delete_root_with_replies_leaves_tombstone(client, chan):
     assert [m["ts"] for m in thread] == [root, reply]
 
 
-def test_delete_errors(client, human_client, chan):
+def test_delete_errors(client, human_client, human_chan):
+    chan = human_chan
     ts = client.chat_postMessage(channel=chan, text="mine")["ts"]
     assert_errors(
         {
@@ -95,7 +103,11 @@ def test_post_ephemeral_is_not_in_history(client, chan, unique):
     assert client.conversations_history(channel=chan)["messages"] == []
 
 
-def test_reaction_shows_in_history_and_replies(client, human_client, chan):
+def test_reaction_shows_in_history_and_replies(client, human_client):
+    # Both actors must be members to react: #general is the seeded channel they share.
+    chan = next(
+        c["id"] for c in client.conversations_list(limit=1000)["channels"] if c["name"] == "general"
+    )
     root = client.chat_postMessage(channel=chan, text="root")["ts"]
     reply = client.chat_postMessage(channel=chan, text="reply", thread_ts=root)["ts"]
     me = client.auth_test()["user_id"]

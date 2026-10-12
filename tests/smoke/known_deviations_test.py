@@ -30,15 +30,6 @@ def test_post_to_user_id_opens_a_dm(client):
     assert client.chat_postMessage(channel=user, text="hello via user id")["ok"]
 
 
-@deviation("no-membership-check")
-def test_non_member_cannot_read_a_dm(api_url, client, unique):
-    a, b = humans(client)[:2]
-    dm = WebClient(token=f"xoxp-{a}", base_url=api_url).conversations_open(users=b)["channel"]["id"]
-    client.chat_postMessage(channel=dm, text=f"secret {unique}")  # the bot is not in this DM
-    status, error = error_of(lambda: client.conversations_history(channel=dm))
-    assert (status, error) == (200, "channel_not_found")
-
-
 @deviation("unknown-method-404")
 def test_unknown_method_is_200_unknown_method(client):
     assert error_of(lambda: client.api_call("does.notExist")) == (200, "unknown_method")
@@ -66,12 +57,6 @@ def test_users_list_honors_limit(client):
     page = client.users_list(limit=1)
     assert len(page["members"]) == 1
     assert page["response_metadata"]["next_cursor"]
-
-
-@deviation("no-private-channels")
-def test_create_private_channel(client, unique):
-    channel = client.conversations_create(name=f"priv-{unique}", is_private=True)["channel"]
-    assert channel["is_private"] is True
 
 
 @deviation("token-in-json-body")
