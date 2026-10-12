@@ -6,7 +6,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 **Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
 
-**Methods:** 9 implemented, 1 partial, 8 in_progress, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 10 llm, 0 none.
+**Methods:** 10 implemented, 1 partial, 7 in_progress, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 11 llm, 0 none.
 
 ## How to read the evidence column
 
@@ -24,6 +24,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | Method | Status | Evidence | Tier | Scopes | SDK-called | Deviations |
 |---|---|---|---|---|---|---|
 | `auth.test` | implemented | llm | 3 | — | yes | `any-token-accepted` |
+| `chat.delete` | implemented | llm | 3 | `chat:write` | yes | `no-membership-check`, `tombstone-shape` |
 | `chat.postMessage` | partial | llm | — | `chat:write`, `chat:write.public` | yes | `no-blocks`, `name-targets-unresolved`, `no-membership-check`, `partial-message-fields`, `message-length-unbounded` |
 | `chat.update` | implemented | llm | 3 | `chat:write` | yes | `no-membership-check`, `partial-message-fields`, `message-length-unbounded` |
 | `conversations.archive` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `collapsed-errors` |
@@ -39,7 +40,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | Method | Status | Priority | Tier | Scopes | Plan |
 |---|---|---|---|---|---|
 | `api.test` | in_progress | bolt-core | — | — | agent-docs/plans/test-loop.md |
-| `chat.delete` | in_progress | bolt-core | 3 | `chat:write` | agent-docs/plans/test-loop.md |
 | `chat.postEphemeral` | in_progress | bolt-core | 4 | `chat:write` | agent-docs/plans/test-loop.md |
 | `conversations.info` | in_progress | bolt-core | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | agent-docs/plans/test-loop.md |
 | `conversations.members` | in_progress | bolt-core | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | agent-docs/plans/test-loop.md |
@@ -89,7 +89,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `any-token-accepted` | medium | Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking. | `auth.test`, `oauth-scopes` | — |
 | `multipart-ignored` | medium | multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text). | `multipart-bodies` | yes |
 | `name-targets-unresolved` | medium | The channel param must be an ID: "#general" and user IDs as DM targets return channel_not_found (Slack resolves both). | `chat.postMessage` | yes |
-| `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies`, `membership-enforcement` | yes |
+| `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.delete`, `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies`, `membership-enforcement` | yes |
 | `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` | yes |
 | `partial-message-fields` | medium | Messages omit bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users. | `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies` | yes |
 | `response-headers-missing` | medium | Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset. | `response-headers` | yes |
@@ -100,6 +100,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.list`, `conversations.open` | — |
 | `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.list` | — |
 | `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` | yes |
+| `tombstone-shape` | low | Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text "This message was deleted.") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording. | `chat.delete` | — |
 | `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` | yes |
 | `users-list-unpaginated` | low | users.list ignores limit and cursor and always returns every user with an empty next_cursor. | `users.list` | yes |
 

@@ -108,11 +108,10 @@ scopes = ["chat:write"]
 deviations = ["no-membership-check", "partial-message-fields", "message-length-unbounded"]
 
 [methods."chat.delete"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "tombstone-shape"]
 
 [methods."chat.postEphemeral"]
 status = "in_progress"
@@ -354,6 +353,10 @@ summary = "Cursors are unpadded base64url of an internal key; Slack's are padded
 [deviations.token-in-json-body]
 severity = "low"
 summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
+
+[deviations.tombstone-shape]
+severity = "low"
+summary = "Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text \"This message was deleted.\") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording."
 
 [deviations.message-length-unbounded]
 severity = "low"

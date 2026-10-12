@@ -50,3 +50,39 @@ def test_update_errors(client, human_client, chan):
             "channel_not_found": lambda: client.chat_update(channel="C00000000", ts=ts, text="x"),
         }
     )
+
+
+def test_delete_removes_message(client, chan):
+    ts = client.chat_postMessage(channel=chan, text="bye")["ts"]
+    client.chat_delete(channel=chan, ts=ts)
+    assert client.conversations_history(channel=chan)["messages"] == []
+
+
+def test_delete_reply_updates_thread_counters(client, chan):
+    root = client.chat_postMessage(channel=chan, text="root")["ts"]
+    first = client.chat_postMessage(channel=chan, text="one", thread_ts=root)["ts"]
+    second = client.chat_postMessage(channel=chan, text="two", thread_ts=root)["ts"]
+    client.chat_delete(channel=chan, ts=second)
+    head = client.conversations_history(channel=chan)["messages"][0]
+    assert (head["reply_count"], head["latest_reply"]) == (1, first)
+
+
+def test_delete_root_with_replies_leaves_tombstone(client, chan):
+    root = client.chat_postMessage(channel=chan, text="root")["ts"]
+    reply = client.chat_postMessage(channel=chan, text="reply", thread_ts=root)["ts"]
+    client.chat_delete(channel=chan, ts=root)
+    head = client.conversations_history(channel=chan)["messages"][0]
+    assert (head["subtype"], head["text"]) == ("tombstone", "This message was deleted.")
+    thread = client.conversations_replies(channel=chan, ts=root)["messages"]
+    assert [m["ts"] for m in thread] == [root, reply]
+
+
+def test_delete_errors(client, human_client, chan):
+    ts = client.chat_postMessage(channel=chan, text="mine")["ts"]
+    assert_errors(
+        {
+            "cant_delete_message": lambda: human_client.chat_delete(channel=chan, ts=ts),
+            "message_not_found": lambda: client.chat_delete(channel=chan, ts="1.000001"),
+            "channel_not_found": lambda: client.chat_delete(channel="C00000000", ts=ts),
+        }
+    )

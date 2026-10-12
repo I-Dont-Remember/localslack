@@ -64,4 +64,71 @@ func (s *Service) UpdateMessage(ctx context.Context, actor User, o UpdateOpts) (
 }
 
 // subtypeTombstone marks a deleted thread root that still has replies.
-const subtypeTombstone = "tombstone"
+const (
+	subtypeTombstone = "tombstone"
+	tombstoneText    = "This message was deleted."
+)
+
+// DeleteMessage deletes a message; only its author may. A reply updates its
+// root's counters; a root that still has replies becomes a tombstone (and goes
+// once its last reply does). Emits MessageDeleted.
+func (s *Service) DeleteMessage(ctx context.Context, actor User, channelID, ts string) error {
+	return s.st.Write(ctx, func(tx *store.Tx) error {
+		conv, err := tx.Conversation(ctx, channelID)
+		if err != nil {
+			return notFoundAs(err, ErrChannelNotFound)
+		}
+		if err := s.checkAccess(ctx, actor, conv); err != nil {
+			return err
+		}
+		cur, err := tx.Message(ctx, channelID, ts)
+		if err != nil {
+			return notFoundAs(err, ErrMessageNotFound)
+		}
+		if cur.Subtype == subtypeTombstone {
+			return ErrMessageNotFound
+		}
+		if cur.UserID != actor.ID {
+			return ErrCantDeleteMessage
+		}
+		if err := removeMessage(ctx, tx, cur); err != nil {
+			return err
+		}
+		scope, err := scopeOf(ctx, tx, conv)
+		if err != nil {
+			return err
+		}
+		publishAfterCommit(s, tx, MessageDeleted{Msg: msgFrom(cur), Scope: scope})
+		return nil
+	})
+}
+
+// removeMessage applies the delete rules for cur inside tx.
+func removeMessage(ctx context.Context, tx *store.Tx, cur store.Message) error {
+	switch {
+	case cur.ThreadTS != "":
+		return removeReply(ctx, tx, cur)
+	case cur.ReplyCount > 0:
+		cur.Text, cur.Subtype, cur.Edited = tombstoneText, subtypeTombstone, nil
+		cur.Blocks, cur.Attachments, cur.Metadata = nil, nil, nil
+		return tx.UpdateMessage(ctx, cur)
+	}
+	return tx.DeleteMessage(ctx, cur.ChannelID, cur.TS)
+}
+
+func removeReply(ctx context.Context, tx *store.Tx, reply store.Message) error {
+	if err := tx.DeleteMessage(ctx, reply.ChannelID, reply.TS); err != nil {
+		return err
+	}
+	if err := tx.RecountThread(ctx, reply.ChannelID, reply.ThreadTS); err != nil {
+		return err
+	}
+	root, err := tx.Message(ctx, reply.ChannelID, reply.ThreadTS)
+	if err != nil {
+		return err
+	}
+	if root.Subtype == subtypeTombstone && root.ReplyCount == 0 {
+		return tx.DeleteMessage(ctx, root.ChannelID, root.TS)
+	}
+	return nil
+}

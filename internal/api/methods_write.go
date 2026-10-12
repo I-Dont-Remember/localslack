@@ -45,8 +45,17 @@ func (a *API) chatUpdate(ctx context.Context, c *call) (map[string]any, error) {
 	return map[string]any{"channel": channel, "ts": msg.TS, "text": msg.Text, "message": messageDTO(msg)}, nil
 }
 
+func (a *API) chatDelete(ctx context.Context, c *call) (map[string]any, error) {
+	channel, ts := c.params.Get("channel"), c.params.Get("ts")
+	if err := a.svc.DeleteMessage(ctx, c.p.User, channel, ts); err != nil {
+		return nil, err
+	}
+	return map[string]any{"channel": channel, "ts": ts}, nil
+}
+
 func (a *API) writeMethods() map[string]spec {
 	return map[string]spec{
 		"chat.update": tok(a.chatUpdate),
+		"chat.delete": tok(a.chatDelete),
 	}
 }
