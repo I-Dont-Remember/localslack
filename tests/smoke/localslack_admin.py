@@ -240,6 +240,16 @@ class Admin:
 
     # --- call log ---------------------------------------------------------------------------
 
+    def head_seq(self) -> int:
+        """Seq of the newest recorded call (0 when empty).
+
+        `calls(limit=1)` is the oldest page, so its `next_since` is not the head.
+        """
+        since = 0
+        while page := self.calls(since=since, limit=1000)["items"]:
+            since = page[-1]["seq"]
+        return since
+
     def calls(
         self,
         *,

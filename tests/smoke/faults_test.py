@@ -160,7 +160,7 @@ def test_delete_fault_stops_it(faults, base_url):
 
 def test_fault_id_in_call_log(faults, base_url):
     try:
-        cursor = faults.calls(limit=1)["next_since"]
+        cursor = faults.head_seq()
     except AdminError as e:
         if e.status == 404:
             pytest.skip("/calls not implemented yet (stream C)")

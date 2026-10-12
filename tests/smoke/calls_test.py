@@ -7,18 +7,10 @@ from slack_sdk.errors import SlackApiError
 from conftest import humans
 
 
-def head_seq(admin) -> int:
-    """Seq of the newest call (0 when empty). `calls(limit=1)` is the oldest page, not the head."""
-    since = 0
-    while page := admin.calls(since=since, limit=1000)["items"]:
-        since = page[-1]["seq"]
-    return since
-
-
 @pytest.fixture
 def calls_since(admin):
     """Calls recorded since this test began (the shared fixture's cursor is the oldest call)."""
-    cursor = head_seq(admin)
+    cursor = admin.head_seq()
 
     def fetch(min: int | None = None, timeout_ms: int = 5000, **filters):
         if min:
@@ -126,7 +118,7 @@ def test_since_and_next_since_page_through_calls(client, admin, calls_since):
 
 
 def test_long_poll_returns_when_a_matching_call_arrives(client, admin):
-    cursor = head_seq(admin)
+    cursor = admin.head_seq()
 
     client.users_list()  # in flight before the wait: a long poll must still see it
     got = admin.wait_calls(1, timeout_ms=5000, method="users.list", since=cursor)

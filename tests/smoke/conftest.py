@@ -72,7 +72,7 @@ def calls_since(admin: Admin):
 
     `calls_since(min=1, timeout_ms=2000, method=...)` long-polls for `min` matching calls.
     """
-    cursor = admin.calls(limit=1)["next_since"]
+    cursor = admin.head_seq()
 
     def fetch(min: int | None = None, timeout_ms: int = 5000, **filters):
         if min:
