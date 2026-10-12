@@ -135,7 +135,19 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 **Extra tests**: concurrent-post event ordering; no events on seed/restore/reset; late delivery after reset not recorded; two-app Principal resolution; export->wipe->import->export identity; populate perf as benchmark + loose bound.
 
 ## Progress
-- [ ] Wave 0 (11 steps)  - [ ] Gate 0
+- [x] Wave 0 (11 steps)  - [ ] Gate 0
 - [ ] Wave 1: A B1 B2 C D E  - [ ] Gate 1
 - [ ] Wave 2: S X F G I  - [ ] Gate 2
 - [ ] Wave 3
+
+## Handoff: Wave 0 extension points (Wave 1 streams register here, nothing else)
+- API methods: new `a.<x>Methods()` in own `api/methods_<x>.go`, add to `registry()` in `api/api.go` (one line). Error codes: own `api/errors_<stream>.go` returning `map[error]string`, add to `errorCodes()` in `api/errors.go` (one line; stubs exist: messages, content, access, names). Web status: `web/errors.go` table.
+- Service: `service/{post,edit,react,access}.go` (access: `checkAccess` hook already called by `PostMessage`); events via `publishAfterCommit(s, tx, ev)` + `scopeOf` in `service/events.go`; `Subscribe` for consumers (must be O(1)).
+- Store: `store/{messages,reactions,apps,wipe}.go`; `Tx.AfterCommit`; `Store.Read` + `Reader` (add bulk reads there); migrations in reserved ranges.
+- Apps: `store` accessors + `Service.RefreshApps(ctx)` after register/delete (cache is token->app).
+- Wiring: `server.Components` in `server/build.go` (+ `admin.Deps` field, `storetest.App.Components`); `server.WithDispatcher` option. depguard in `.golangci.yml`.
+- admin: one `mountX` per file in `internal/admin` (stubs; `Deps` carries Calls, Faults, Events, Control).
+- calllog: `calllog.Log` is wired as the API Recorder (cap `CallLogSize`); `faults.Set` wired as Interceptor (no rules yet); `events.Noop` dispatcher subscribed to service events; `control.Reset` returns `ErrNotImplemented` after Pause/Resume.
+- Config fields exist (not yet consumed): AppManifest, EventTimeout, EventRetryDelays, Scenario, DeliveryLogSize, StrictTokens.
+- Python: `tests/smoke/localslack_admin.py` (`Admin`), fixtures `admin`, `calls_since`, `faults`; add own `*_test.py`. QA pages: `docs/qa/<stream>.md`.
+- Known gap: DBs created before bot_id existed keep an empty `bot_id` on their bot user (delete the DB or backfill).
