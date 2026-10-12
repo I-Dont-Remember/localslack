@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 
 	"localslack/internal/config"
 	"localslack/internal/server"
@@ -21,6 +22,76 @@ import (
 type StartCmd struct {
 	Addr   string `help:"Listen address (default 127.0.0.1:3232; use 0.0.0.0:3232 to expose, e.g. in containers)." env:"LOCALSLACK_ADDR"`
 	Detach bool   `short:"d" help:"Run server in the background."`
+
+	AppManifest      []string      `name:"app-manifest" sep:"," help:"App manifest file (JSON/YAML) to register at startup; repeatable." env:"LOCALSLACK_APP_MANIFEST"`
+	EventTimeout     time.Duration `help:"Per-attempt event delivery timeout (default 3s)." env:"LOCALSLACK_EVENT_TIMEOUT"`
+	EventRetryDelays string        `help:"Comma-separated waits before each delivery retry (default 0s,1m,5m; 'none' disables)." env:"LOCALSLACK_EVENT_RETRY_DELAYS"`
+	Scenario         string        `help:"Scenario fixture file to populate instead of the default seed." env:"LOCALSLACK_SCENARIO"`
+	CallLogSize      int           `help:"Call log capacity (default 10000)." env:"LOCALSLACK_CALL_LOG_SIZE"`
+	DeliveryLogSize  int           `help:"Delivery log capacity (default 2000)." env:"LOCALSLACK_DELIVERY_LOG_SIZE"`
+	StrictTokens     bool          `help:"Reject bot tokens that belong to no registered app." env:"LOCALSLACK_STRICT_TOKENS"`
+}
+
+// apply overlays the flags that were set (which also read their env vars) onto cfg.
+func (c *StartCmd) apply(cfg *config.Config) error {
+	if c.Addr != "" {
+		cfg.Addr = c.Addr
+	}
+	if len(c.AppManifest) > 0 {
+		cfg.AppManifest = c.AppManifest
+	}
+	if c.EventTimeout > 0 {
+		cfg.EventTimeout = c.EventTimeout
+	}
+	if c.EventRetryDelays != "" {
+		delays, err := config.ParseDelays(c.EventRetryDelays)
+		if err != nil {
+			return fmt.Errorf("--event-retry-delays: %w", err)
+		}
+		cfg.EventRetryDelays = delays
+	}
+	if c.Scenario != "" {
+		cfg.Scenario = c.Scenario
+	}
+	if c.CallLogSize > 0 {
+		cfg.CallLogSize = c.CallLogSize
+	}
+	if c.DeliveryLogSize > 0 {
+		cfg.DeliveryLogSize = c.DeliveryLogSize
+	}
+	cfg.StrictTokens = cfg.StrictTokens || c.StrictTokens
+	return nil
+}
+
+// detachedArgs is the argv (minus the program) for the background child: every set flag.
+func (c *StartCmd) detachedArgs() []string {
+	args := []string{"start"}
+	add := func(flag, val string) { args = append(args, flag, val) }
+	if c.Addr != "" {
+		add("--addr", c.Addr)
+	}
+	for _, m := range c.AppManifest {
+		add("--app-manifest", m)
+	}
+	if c.EventTimeout > 0 {
+		add("--event-timeout", c.EventTimeout.String())
+	}
+	if c.EventRetryDelays != "" {
+		add("--event-retry-delays", c.EventRetryDelays)
+	}
+	if c.Scenario != "" {
+		add("--scenario", c.Scenario)
+	}
+	if c.CallLogSize > 0 {
+		add("--call-log-size", strconv.Itoa(c.CallLogSize))
+	}
+	if c.DeliveryLogSize > 0 {
+		add("--delivery-log-size", strconv.Itoa(c.DeliveryLogSize))
+	}
+	if c.StrictTokens {
+		args = append(args, "--strict-tokens")
+	}
+	return args
 }
 
 // Run starts the server, or detaches it to the background if -d is set.
@@ -34,8 +105,8 @@ func (c *StartCmd) Run() error {
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
-	if c.Addr != "" { // flag (which also reads LOCALSLACK_ADDR) wins over the config default
-		cfg.Addr = c.Addr
+	if err := c.apply(&cfg); err != nil {
+		return err
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	return server.Run(ctx, log, cfg)
@@ -58,11 +129,7 @@ func (c *StartCmd) startDetached() error {
 		return fmt.Errorf("open server log: %w", err)
 	}
 	defer func() { _ = logFile.Close() }()
-	args := []string{"start"}
-	if c.Addr != "" {
-		args = append(args, "--addr", c.Addr)
-	}
-	cmd := exec.CommandContext(context.Background(), exe, args...)
+	cmd := exec.CommandContext(context.Background(), exe, c.detachedArgs()...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 	cmd.Stdout, cmd.Stderr = logFile, logFile
 	if err := cmd.Start(); err != nil {
