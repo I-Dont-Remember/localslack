@@ -244,9 +244,10 @@ summary = "Per-method scope checks (missing_scope) with a permissive default; fu
 deviations = ["any-token-accepted"]
 
 [behaviors.events-api-http]
-status = "planned"
-milestone = "M2"
-summary = "Events API delivery over HTTP with url_verification and X-Slack-Signature signing."
+status = "implemented"
+summary = "Events API delivery over HTTP to one or more registered apps: url_verification, v0 HMAC signing, per-app event_callback envelopes, retries with X-Slack-Retry-Num/-Reason, X-Slack-No-Retry, and request URL resolution (deliver_to) that refuses remote hosts by default."
+evidence = "llm"
+deviations = ["event-subset", "permissive-url-verification"]
 
 [behaviors.socket-mode]
 status = "planned"
@@ -277,12 +278,14 @@ summary = "Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors
 evidence = "llm"
 
 [behaviors.app-manifest]
-status = "planned"
-summary = "Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps."
+status = "implemented"
+summary = "Register multiple apps from Slack app manifests (JSON/YAML) via --app-manifest or /_localslack/apps; each gets a bot user, bot_id and deterministic credentials."
+evidence = "llm"
 
 [behaviors.event-delivery-controls]
-status = "planned"
-summary = "Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace."
+status = "implemented"
+summary = "Test controls for event delivery: inject, redeliver, bad/stale/missing signatures, pause, per-app delivery config and a delivery trace with long-poll."
+evidence = "llm"
 
 [behaviors.state-snapshot]
 status = "planned"
@@ -355,6 +358,14 @@ summary = "A token field inside a JSON body is accepted; Slack only accepts it i
 [deviations.tombstone-shape]
 severity = "low"
 summary = "Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text \"This message was deleted.\") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording."
+
+[deviations.event-subset]
+severity = "medium"
+summary = "Only message (channels/groups/im/mpim, incl. message_changed and message_deleted), app_mention and reaction_added events are emitted; other subscriptions are accepted with a warning and never fire (inject them with POST /_localslack/events)."
+
+[deviations.permissive-url-verification]
+severity = "low"
+summary = "A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text."
 
 [deviations.ephemeral-not-delivered]
 severity = "low"

@@ -16,7 +16,7 @@ func TestAppsCRUD(t *testing.T) {
 		ID: "A1", Name: "demo", Manifest: []byte(`{"display_information":{"name":"demo"}}`),
 		SigningSecret: "sec", BotToken: "bt", AppToken: "at", VerificationToken: "vt",
 		RequestURL: "http://127.0.0.1:1/x", BotEvents: []string{"message.channels"}, Scopes: []string{"chat:write"},
-		SocketMode: true, Verified: true, BotUserID: "UB", BotID: "BB", Created: 5,
+		SocketMode: true, Verified: true, BotUserID: "UB", BotID: "BB", Created: 5, DeliverTo: "http://localhost:3000",
 	}
 	b := App{ID: "A2", Name: "other", Manifest: []byte(`{}`), BotEvents: []string{}, Scopes: []string{}}
 

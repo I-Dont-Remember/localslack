@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 
@@ -21,13 +23,21 @@ const (
 	TokenInvalid TokenKind = "invalid" // unrecognised
 )
 
-// App is a registered Slack app. Stub: filled by the app-registry stream.
+// App is a registered Slack app.
 type App struct {
 	ID, Name           string
 	BotToken, AppToken string
 	BotUserID, BotID   string
 	Scopes             []string
 	SocketMode         bool
+
+	SigningSecret, VerificationToken string
+	// RequestURL is the manifest's request_url; DeliverTo overrides where events go.
+	RequestURL, DeliverTo string
+	BotEvents             []string
+	Verified              bool
+	Manifest              json.RawMessage
+	Created               int64
 }
 
 // Principal is who a token acts as. User is zero when the token does not
@@ -43,6 +53,7 @@ type Principal struct {
 type appCache struct {
 	mu      sync.RWMutex
 	byToken map[string]*App
+	list    []App
 }
 
 func (c *appCache) set(apps []App) {
@@ -57,7 +68,15 @@ func (c *appCache) set(apps []App) {
 	}
 	c.mu.Lock()
 	c.byToken = m
+	c.list = apps
 	c.mu.Unlock()
+}
+
+// all returns a copy of the cached apps, in the order they were set.
+func (c *appCache) all() []App {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return slices.Clone(c.list)
 }
 
 func (c *appCache) get(token string) *App {

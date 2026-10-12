@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: demo demo-check tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -74,6 +74,14 @@ e2e:
 	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/e2e/ -v \
 		--screenshot only-on-failure --output tmp/e2e-artifacts $(E2E_ARGS)
 
+# Hands-on demo: LocalSlack + two Bolt apps on :3232 (Ctrl-C to stop); DEMO_MODE=socket for Socket Mode.
+demo:
+	scripts/demo.sh
+
+# Non-interactive demo smoke: boots everything, mentions the bot, expects "pong".
+demo-check:
+	scripts/demo.sh --check
+
 test-all: test conformance tools-test smoke smoke-reset e2e
 
 # single "am I done" command
@@ -87,7 +95,7 @@ setup:
 
 fmt:
 	golangci-lint fmt ./...
-	uv run --project tests/smoke ruff format tests
+	uv run --project tests/smoke ruff format tests examples
 
 lint:
 	golangci-lint run ./...
@@ -95,8 +103,8 @@ lint:
 	ast-grep scan
 
 lint-py:
-	uv run --project tests/smoke ruff check tests
-	uv run --project tests/smoke ruff format --check tests
+	uv run --project tests/smoke ruff check tests examples
+	uv run --project tests/smoke ruff format --check tests examples
 
 vet:
 	go vet ./...

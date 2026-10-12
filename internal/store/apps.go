@@ -16,15 +16,17 @@ type App struct {
 	SocketMode, Verified              bool
 	BotUserID, BotID                  string
 	Created                           int64
+	// DeliverTo overrides where events go (host-only or full URL); "" = unset.
+	DeliverTo string
 }
 
 const appCols = `id, name, manifest, signing_secret, bot_token, app_token, verification_token, request_url,
-	bot_events, scopes, socket_mode, verified, bot_user_id, bot_id, created`
+	bot_events, scopes, socket_mode, verified, bot_user_id, bot_id, created, deliver_to`
 
 func scanApp(r scanner, a *App) error {
 	var manifest, events, scopes string
 	err := r.Scan(&a.ID, &a.Name, &manifest, &a.SigningSecret, &a.BotToken, &a.AppToken, &a.VerificationToken,
-		&a.RequestURL, &events, &scopes, &a.SocketMode, &a.Verified, &a.BotUserID, &a.BotID, &a.Created)
+		&a.RequestURL, &events, &scopes, &a.SocketMode, &a.Verified, &a.BotUserID, &a.BotID, &a.Created, &a.DeliverTo)
 	if err != nil {
 		return err
 	}
@@ -53,9 +55,39 @@ func (t *Tx) InsertApp(ctx context.Context, a App) error {
 		manifest = "{}"
 	}
 	return t.exec(ctx, "insert app",
-		`INSERT INTO apps (`+appCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO apps (`+appCols+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		a.ID, a.Name, manifest, a.SigningSecret, a.BotToken, a.AppToken, a.VerificationToken, a.RequestURL,
-		string(events), string(scopes), a.SocketMode, a.Verified, a.BotUserID, a.BotID, a.Created)
+		string(events), string(scopes), a.SocketMode, a.Verified, a.BotUserID, a.BotID, a.Created, a.DeliverTo)
+}
+
+// UpdateApp rewrites every column of an app except id and created;
+// ErrNotFound if it does not exist.
+func (t *Tx) UpdateApp(ctx context.Context, a App) error {
+	events, err := json.Marshal(nonNil(a.BotEvents))
+	if err != nil {
+		return fmt.Errorf("encode bot_events: %w", err)
+	}
+	scopes, err := json.Marshal(nonNil(a.Scopes))
+	if err != nil {
+		return fmt.Errorf("encode scopes: %w", err)
+	}
+	manifest := string(a.Manifest)
+	if manifest == "" {
+		manifest = "{}"
+	}
+	res, err := t.tx.ExecContext(ctx,
+		`UPDATE apps SET name = ?, manifest = ?, signing_secret = ?, bot_token = ?, app_token = ?,
+		 verification_token = ?, request_url = ?, bot_events = ?, scopes = ?, socket_mode = ?, verified = ?,
+		 bot_user_id = ?, bot_id = ?, deliver_to = ? WHERE id = ?`,
+		a.Name, manifest, a.SigningSecret, a.BotToken, a.AppToken, a.VerificationToken, a.RequestURL,
+		string(events), string(scopes), a.SocketMode, a.Verified, a.BotUserID, a.BotID, a.DeliverTo, a.ID)
+	if err != nil {
+		return fmt.Errorf("update app: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("update app %s: %w", a.ID, ErrNotFound)
+	}
+	return nil
 }
 
 // DeleteApp removes an app; ErrNotFound if it does not exist.
@@ -68,6 +100,11 @@ func (t *Tx) DeleteApp(ctx context.Context, id string) error {
 		return fmt.Errorf("delete app %s: %w", id, ErrNotFound)
 	}
 	return nil
+}
+
+// App returns an app by id, seeing this txn's writes.
+func (t *Tx) App(ctx context.Context, id string) (App, error) {
+	return getOne(ctx, t.tx, "app", `SELECT `+appCols+` FROM apps WHERE id = ?`, scanApp, id)
 }
 
 // App returns an app by id.

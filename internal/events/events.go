@@ -55,6 +55,20 @@ type Delivery struct {
 	Injected  bool            `json:"injected"`
 	Payload   json.RawMessage `json:"payload"`
 	Attempts  []Attempt       `json:"attempts"`
+
+	// Spec is how to send it; internal, never serialized.
+	Spec Spec `json:"-"`
+}
+
+// Spec is the recipe for one attempt, filled by the dispatcher for the Transport.
+type Spec struct {
+	URL, Secret string
+	// Mode is a signature mode (SigValid ...); StaleSeconds backdates SigStale.
+	Mode         string
+	StaleSeconds int
+	// RetryNum and RetryReason become X-Slack-Retry-Num/-Reason when RetryNum > 0.
+	RetryNum    int
+	RetryReason string
 }
 
 // Attempt is one try at delivering.
@@ -69,7 +83,15 @@ type Attempt struct {
 	Timestamp     string    `json:"timestamp"`
 	Signature     string    `json:"signature"`
 	ResponseBody  string    `json:"response_body"`
+
+	// NoRetry is set when the receiver answered X-Slack-No-Retry: 1.
+	NoRetry bool `json:"-"`
+	// FailReason classifies a failure for the next attempt's X-Slack-Retry-Reason.
+	FailReason string `json:"-"`
 }
+
+// OK reports whether the attempt was acknowledged (a 2xx response, no error).
+func (a Attempt) OK() bool { return a.Error == "" && a.Status >= 200 && a.Status < 300 }
 
 // Noop drops every event.
 type Noop struct{}
