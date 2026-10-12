@@ -8,6 +8,8 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"localslack/internal/constants"
 	"localslack/internal/service"
 	"localslack/internal/storetest"
@@ -117,24 +119,29 @@ func TestInjectAndRedeliver(t *testing.T) {
 	if status != http.StatusCreated {
 		t.Fatalf("inject status %d %v", status, res)
 	}
-	evID := res["event_id"].(string)
-	if ds := res["deliveries"].([]any); len(ds) != 1 || ds[0].(map[string]any)["app_id"] != id {
-		t.Fatalf("deliveries = %v", res["deliveries"])
+	ds := res["deliveries"].([]any)
+	if _, top := res["event_id"]; top || len(ds) != 1 || ds[0].(map[string]any)["app_id"] != id {
+		t.Fatalf("response = %v, want deliveries only (event ids are per app)", res)
 	}
+	evID, deliveryID := ds[0].(map[string]any)["event_id"].(string), ds[0].(map[string]any)["delivery_id"].(string)
 	doReq(t, http.MethodGet, app.URL+"/_localslack/deliveries?state=delivered&min=1&timeout_ms=5000", "", nil)
 
 	status, _, again := doReq(t, http.MethodPost, app.URL+"/_localslack/events/"+evID+"/redeliver", constants.ContentTypeJSON,
 		map[string]any{"retry_num": 2, "retry_reason": "http_timeout"})
-	if status != http.StatusCreated || again["event_id"] != evID {
+	if got := again["deliveries"].([]any)[0].(map[string]any); status != http.StatusCreated || got["event_id"] != evID || got["app_id"] != id {
 		t.Fatalf("redeliver status %d %v", status, again)
 	}
-	_, _, list := doReq(t, http.MethodGet, app.URL+"/_localslack/deliveries?state=delivered&min=2&timeout_ms=5000", "", nil)
-	if len(list["items"].([]any)) != 2 {
+	status, _, byDelivery := doReq(t, http.MethodPost, app.URL+"/_localslack/deliveries/"+deliveryID+"/redeliver", constants.ContentTypeJSON, map[string]any{})
+	if got := byDelivery["deliveries"].([]any)[0].(map[string]any); status != http.StatusCreated || got["event_id"] != evID {
+		t.Fatalf("redeliver by delivery id status %d %v", status, byDelivery)
+	}
+	_, _, list := doReq(t, http.MethodGet, app.URL+"/_localslack/deliveries?state=delivered&min=3&timeout_ms=5000", "", nil)
+	if len(list["items"].([]any)) != 3 {
 		t.Fatalf("deliveries = %v", list["items"])
 	}
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
-	if len(fake.hdrs) != 2 || fake.hdrs[1].Get("X-Slack-Retry-Num") != "2" {
+	if len(fake.hdrs) != 3 || fake.hdrs[1].Get("X-Slack-Retry-Num") != "2" {
 		t.Errorf("headers = %v", fake.hdrs)
 	}
 
@@ -144,9 +151,11 @@ func TestInjectAndRedeliver(t *testing.T) {
 		status int
 		code   string
 	}{
-		"inject no type":     {"/_localslack/events", map[string]any{"event": map[string]any{}}, 422, "invalid_event"},
-		"inject unknown app": {"/_localslack/events", map[string]any{"event": map[string]any{"type": "x"}, "app_id": "A404"}, 404, "app_not_found"},
-		"redeliver unknown":  {"/_localslack/events/Ev404/redeliver", map[string]any{}, 404, "event_not_found"},
+		"inject no type":             {"/_localslack/events", map[string]any{"event": map[string]any{}}, 422, "invalid_event"},
+		"inject unknown app":         {"/_localslack/events", map[string]any{"event": map[string]any{"type": "x"}, "app_id": "A404"}, 404, "app_not_found"},
+		"redeliver unknown":          {"/_localslack/events/Ev404/redeliver", map[string]any{}, 404, "event_not_found"},
+		"redeliver wrong app":        {"/_localslack/events/" + evID + "/redeliver", map[string]any{"app_id": "A404"}, 404, "event_not_found"},
+		"redeliver unknown delivery": {"/_localslack/deliveries/D404/redeliver", map[string]any{}, 404, "delivery_not_found"},
 	} {
 		status, _, body := doReq(t, http.MethodPost, app.URL+tc.path, constants.ContentTypeJSON, tc.body)
 		if status != tc.status || sub(body, "error")["code"] != tc.code {
@@ -155,45 +164,105 @@ func TestInjectAndRedeliver(t *testing.T) {
 	}
 }
 
-func TestDeliveryConfigGlobalAndPerApp(t *testing.T) {
+func TestDeliveryConfigPutReplacesPatchMerges(t *testing.T) {
 	t.Parallel()
 
 	app := storetest.NewApp(t)
 	fake := newRecApp(t)
 	id := register(t, app.URL, "Cfg", fake.URL, "message.channels")
 	base := app.URL + "/_localslack/delivery-config"
-
-	status, _, def := doReq(t, http.MethodGet, base, "", nil)
-	if status != http.StatusOK || def["signature"] != "valid" || def["paused"] != false || def["timeout_ms"] == nil {
-		t.Fatalf("default config %d %v", status, def)
-	}
-	status, _, put := doReq(t, http.MethodPut, base, constants.ContentTypeJSON, map[string]any{"signature": "stale", "paused": true})
-	if status != http.StatusOK || put["signature"] != "stale" || put["paused"] != true || put["timeout_ms"] != def["timeout_ms"] {
-		t.Errorf("put config %d %v", status, put)
-	}
-	if status, _, bad := doReq(t, http.MethodPut, base, constants.ContentTypeJSON, map[string]any{"signature": "bogus"}); status != 422 || sub(bad, "error")["code"] != "invalid_delivery_config" {
-		t.Errorf("bad config %d %v", status, bad)
-	}
-	doReq(t, http.MethodPut, base, constants.ContentTypeJSON, map[string]any{"signature": "valid", "paused": false})
-
 	appBase := app.URL + "/_localslack/apps/" + id + "/delivery-config"
-	_, _, put = doReq(t, http.MethodPut, appBase, constants.ContentTypeJSON, map[string]any{"signature": "missing"})
-	_, _, got := doReq(t, http.MethodGet, appBase, "", nil)
-	if put["signature"] != "missing" || got["signature"] != "missing" {
-		t.Errorf("per-app config %v / %v", put, got)
+	get := func(url string) map[string]any {
+		t.Helper()
+		_, _, got := doReq(t, http.MethodGet, url, "", nil)
+		return got
 	}
-	if _, _, g := doReq(t, http.MethodGet, base, "", nil); g["signature"] != "valid" {
-		t.Errorf("per-app override leaked to global: %v", g)
+	def := get(base)
+	if def["signature"] != "valid" || def["paused"] != false || def["timeout_ms"] == nil {
+		t.Fatalf("default config %v", def)
 	}
-	if status, _, _ := doReq(t, http.MethodDelete, appBase, "", nil); status != http.StatusNoContent {
-		t.Errorf("delete override status %d", status)
+	with := func(over map[string]any) map[string]any {
+		out := map[string]any{}
+		for k, v := range def {
+			out[k] = v
+		}
+		for k, v := range over {
+			out[k] = v
+		}
+		return out
 	}
-	if _, _, g := doReq(t, http.MethodGet, appBase, "", nil); g["signature"] != "valid" {
-		t.Errorf("override survived delete: %v", g)
+
+	tests := []struct {
+		name       string
+		method     string
+		url        string
+		body       map[string]any
+		wantStatus int
+		want       map[string]any // nil = skip
+	}{
+		{"global patch merges", http.MethodPatch, base, map[string]any{"signature": "stale"}, 200, with(map[string]any{"signature": "stale"})},
+		{"global patch keeps earlier change", http.MethodPatch, base, map[string]any{"stale_seconds": float64(30)}, 200, with(map[string]any{"signature": "stale", "stale_seconds": float64(30)})},
+		{"global put resets omitted fields", http.MethodPut, base, map[string]any{"timeout_ms": float64(1234)}, 200, with(map[string]any{"timeout_ms": float64(1234)})},
+		{"global put rejects bad value", http.MethodPut, base, map[string]any{"signature": "bogus"}, 422, nil},
+		{"global patch rejects bad value", http.MethodPatch, base, map[string]any{"timeout_ms": float64(0)}, 422, nil},
+		{
+			"app patch is sparse", http.MethodPatch, appBase,
+			map[string]any{"signature": "missing"},
+			200,
+			with(map[string]any{"timeout_ms": float64(1234), "signature": "missing", "override": map[string]any{"signature": "missing"}}),
+		},
+		{
+			"app patch adds to override", http.MethodPatch, appBase,
+			map[string]any{"paused": false},
+			200,
+			with(map[string]any{"timeout_ms": float64(1234), "signature": "missing", "override": map[string]any{"signature": "missing", "paused": false}}),
+		},
+		{
+			"app put replaces override", http.MethodPut, appBase,
+			map[string]any{"stale_seconds": float64(5)},
+			200,
+			with(map[string]any{"timeout_ms": float64(1234), "stale_seconds": float64(5), "override": map[string]any{"stale_seconds": float64(5)}}),
+		},
 	}
-	if status, _, _ := doReq(t, http.MethodGet, app.URL+"/_localslack/apps/A404/delivery-config", "", nil); status != http.StatusNotFound {
-		t.Errorf("unknown app status %d", status)
+	for _, tt := range tests {
+		status, _, got := doReq(t, tt.method, tt.url, constants.ContentTypeJSON, tt.body)
+		if status != tt.wantStatus {
+			t.Fatalf("%s: status %d body %v, want %d", tt.name, status, got, tt.wantStatus)
+		}
+		if tt.want == nil {
+			if sub(got, "error")["code"] != "invalid_delivery_config" {
+				t.Errorf("%s: body %v, want invalid_delivery_config", tt.name, got)
+			}
+			continue
+		}
+		if diff := cmp.Diff(tt.want, got); diff != "" {
+			t.Errorf("%s (-want +got):\n%s", tt.name, diff)
+		}
 	}
+
+	t.Run("app GET shows effective config plus override and follows global changes", func(t *testing.T) { //nolint:paralleltest // ordered steps share one server
+		doReq(t, http.MethodPatch, base, constants.ContentTypeJSON, map[string]any{"timeout_ms": float64(4321)})
+		got := get(appBase)
+		if got["timeout_ms"] != float64(4321) || got["stale_seconds"] != float64(5) || cmp.Diff(map[string]any{"stale_seconds": float64(5)}, got["override"]) != "" {
+			t.Errorf("per-app config %v, want live-inherited timeout and sparse override", got)
+		}
+		if _, leaked := get(base)["override"]; leaked || get(base)["stale_seconds"] == float64(5) {
+			t.Errorf("per-app override leaked into global: %v", get(base))
+		}
+	})
+	t.Run("delete drops the override", func(t *testing.T) { //nolint:paralleltest // ordered steps share one server
+		if status, _, _ := doReq(t, http.MethodDelete, appBase, "", nil); status != http.StatusNoContent {
+			t.Errorf("delete override status %d", status)
+		}
+		if got := get(appBase); cmp.Diff(map[string]any{}, got["override"]) != "" {
+			t.Errorf("override survived delete: %v", got)
+		}
+	})
+	t.Run("unknown app", func(t *testing.T) { //nolint:paralleltest // ordered steps share one server
+		if status, _, _ := doReq(t, http.MethodGet, app.URL+"/_localslack/apps/A404/delivery-config", "", nil); status != http.StatusNotFound {
+			t.Errorf("unknown app status %d", status)
+		}
+	})
 }
 
 // humanAndGeneral returns a non-bot user and #general's id.

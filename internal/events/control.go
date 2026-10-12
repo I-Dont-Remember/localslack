@@ -17,7 +17,9 @@ import (
 var (
 	ErrAppNotFound   = errors.New("events: app not found")
 	ErrEventNotFound = errors.New("events: event not found")
-	ErrInvalidEvent  = errors.New("events: invalid event")
+	// ErrDeliveryNotFound means the delivery id is unknown or aged out of the trace.
+	ErrDeliveryNotFound = errors.New("events: delivery not found")
+	ErrInvalidEvent     = errors.New("events: invalid event")
 )
 
 // Controller is what the admin API drives; *Engine implements it. admin
@@ -33,10 +35,16 @@ type Controller interface {
 	ClearDeliveries()
 	Inject(ctx context.Context, r InjectRequest) (InjectResult, error)
 	Redeliver(ctx context.Context, eventID string, r RedeliverRequest) (InjectResult, error)
+	RedeliverDelivery(ctx context.Context, deliveryID string, r RedeliverRequest) (InjectResult, error)
 	Config() DeliveryConfig
+	// SetConfig merges p into the global config (PATCH); ReplaceConfig is PUT:
+	// the process defaults with p applied, so omitted fields reset.
 	SetConfig(p ConfigPatch) (DeliveryConfig, error)
-	AppConfig(appID string) (cfg DeliveryConfig, override bool)
+	ReplaceConfig(p ConfigPatch) (DeliveryConfig, error)
+	// AppConfig is the effective config (global + override, inherited live) and the sparse override.
+	AppConfig(appID string) (effective DeliveryConfig, override ConfigPatch)
 	SetAppConfig(appID string, p ConfigPatch) (DeliveryConfig, error)
+	ReplaceAppConfig(appID string, p ConfigPatch) (DeliveryConfig, error)
 	ClearAppConfig(appID string)
 }
 
@@ -143,15 +151,16 @@ type RedeliverRequest struct {
 	Signature   string
 }
 
-// DeliveryRef points at one queued delivery.
+// DeliveryRef points at one queued delivery. Event ids are per app delivery
+// (as on real Slack), so every ref carries its own.
 type DeliveryRef struct {
 	AppID      string `json:"app_id"`
+	EventID    string `json:"event_id"`
 	DeliveryID string `json:"delivery_id"`
 }
 
 // InjectResult is the reply to Inject and Redeliver.
 type InjectResult struct {
-	EventID    string        `json:"event_id"`
 	Deliveries []DeliveryRef `json:"deliveries"`
 }
 
@@ -167,7 +176,7 @@ func subscribed(app service.App, typ string) bool {
 	return slices.Contains(app.BotEvents, typ)
 }
 
-// Inject delivers a hand-made event: one shared event_id, one delivery per target app.
+// Inject delivers a hand-made event: one delivery per target app, each with its own event_id.
 func (e *Engine) Inject(ctx context.Context, r InjectRequest) (InjectResult, error) {
 	typ, _ := r.Event["type"].(string)
 	if typ == "" || !validSignature(r.Signature) {
@@ -187,64 +196,69 @@ func (e *Engine) Inject(ctx context.Context, r InjectRequest) (InjectResult, err
 	if !ok {
 		return InjectResult{}, errors.New("events: workspace unavailable")
 	}
-	res := InjectResult{EventID: newEventID(), Deliveries: []DeliveryRef{}}
+	res := InjectResult{Deliveries: []DeliveryRef{}}
 	gen := e.gen.Load()
 	for _, app := range apps {
-		body, err := Envelope(app, team, res.EventID, e.clock.Now(), r.Event)
+		eventID := newEventID()
+		body, err := Envelope(app, team, eventID, e.clock.Now(), r.Event)
 		if err == nil && len(r.Envelope) > 0 {
 			body, err = MergeEnvelope(body, r.Envelope)
 		}
 		if err != nil {
 			return InjectResult{}, err
 		}
-		d, ok := e.enqueue(gen, outgoing{app: app, eventID: res.EventID, eventType: typ, payload: body, injected: true, sigMode: r.Signature})
+		d, ok := e.enqueue(gen, outgoing{app: app, eventID: eventID, eventType: typ, payload: body, injected: true, sigMode: r.Signature})
 		if ok {
-			res.Deliveries = append(res.Deliveries, DeliveryRef{AppID: app.ID, DeliveryID: d.ID})
+			res.Deliveries = append(res.Deliveries, DeliveryRef{AppID: app.ID, EventID: eventID, DeliveryID: d.ID})
 		}
 	}
 	return res, nil
 }
 
-// Redeliver sends a stored event again, unchanged, as Slack does for a retry.
-func (e *Engine) Redeliver(_ context.Context, eventID string, r RedeliverRequest) (InjectResult, error) {
+// Redeliver sends the event with this event_id again, unchanged, as Slack does
+// for a retry. Event ids are per app delivery, so the id alone is unambiguous;
+// r.AppID is optional and, when set, must be the event's app (else ErrEventNotFound).
+func (e *Engine) Redeliver(ctx context.Context, eventID string, r RedeliverRequest) (InjectResult, error) {
 	if !validSignature(r.Signature) {
 		return InjectResult{}, ErrInvalidEvent
 	}
 	e.mu.Lock()
 	stored, ok := e.sent.get(eventID)
 	e.mu.Unlock()
-	if !ok {
+	if !ok || (r.AppID != "" && stored.appID != r.AppID) {
 		return InjectResult{}, ErrEventNotFound
 	}
+	return e.resend(ctx, eventID, stored, r)
+}
+
+// RedeliverDelivery is Redeliver addressed by delivery id (the trace record).
+func (e *Engine) RedeliverDelivery(ctx context.Context, deliveryID string, r RedeliverRequest) (InjectResult, error) {
+	d, ok := e.trace.Get(deliveryID)
+	if !ok || (r.AppID != "" && r.AppID != d.AppID) {
+		return InjectResult{}, ErrDeliveryNotFound
+	}
+	r.AppID = ""
+	return e.Redeliver(ctx, d.EventID, r)
+}
+
+func (e *Engine) resend(_ context.Context, eventID string, s storedDelivery, r RedeliverRequest) (InjectResult, error) {
 	if r.RetryNum <= 0 {
 		r.RetryNum = 1
 	}
 	if r.RetryReason == "" {
 		r.RetryReason = ReasonTimeout
 	}
-	res := InjectResult{EventID: eventID, Deliveries: []DeliveryRef{}}
-	gen := e.gen.Load()
-	for _, s := range stored {
-		if r.AppID != "" && s.appID != r.AppID {
-			continue
-		}
-		app, ok := e.app(s.appID)
-		if !ok {
-			if r.AppID != "" {
-				return InjectResult{}, ErrAppNotFound
-			}
-			continue
-		}
-		d, ok := e.enqueue(gen, outgoing{
-			app: app, eventID: eventID, eventType: s.typ, payload: s.payload, injected: s.injected,
-			sigMode: r.Signature, retryNum: r.RetryNum, retryReason: r.RetryReason,
-		})
-		if ok {
-			res.Deliveries = append(res.Deliveries, DeliveryRef{AppID: app.ID, DeliveryID: d.ID})
-		}
-	}
-	if r.AppID != "" && len(res.Deliveries) == 0 {
+	app, ok := e.app(s.appID)
+	if !ok {
 		return InjectResult{}, ErrAppNotFound
+	}
+	res := InjectResult{Deliveries: []DeliveryRef{}}
+	d, ok := e.enqueue(e.gen.Load(), outgoing{
+		app: app, eventID: eventID, eventType: s.typ, payload: s.payload, injected: s.injected,
+		sigMode: r.Signature, retryNum: r.RetryNum, retryReason: r.RetryReason,
+	})
+	if ok {
+		res.Deliveries = append(res.Deliveries, DeliveryRef{AppID: app.ID, EventID: eventID, DeliveryID: d.ID})
 	}
 	return res, nil
 }
@@ -256,11 +270,23 @@ func (e *Engine) Config() DeliveryConfig {
 	return e.cfg
 }
 
-// SetConfig merges p into the global config; unpausing releases held events.
+// SetConfig merges p into the global config (PATCH); unpausing releases held events.
 func (e *Engine) SetConfig(p ConfigPatch) (DeliveryConfig, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	next, err := e.cfg.Apply(p)
+	return e.setGlobalLocked(e.cfg, p)
+}
+
+// ReplaceConfig replaces the global config (PUT): the process defaults with p
+// applied, so fields p omits go back to their defaults.
+func (e *Engine) ReplaceConfig(p ConfigPatch) (DeliveryConfig, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.setGlobalLocked(e.defaults, p)
+}
+
+func (e *Engine) setGlobalLocked(base DeliveryConfig, p ConfigPatch) (DeliveryConfig, error) {
+	next, err := base.Apply(p)
 	if err != nil {
 		return e.cfg, err
 	}
@@ -269,25 +295,40 @@ func (e *Engine) SetConfig(p ConfigPatch) (DeliveryConfig, error) {
 	return next, nil
 }
 
-// AppConfig is app's effective config and whether it has its own override.
-func (e *Engine) AppConfig(appID string) (cfg DeliveryConfig, override bool) {
+// AppConfig is app's effective config (global with the app's sparse override on
+// top, so unset fields follow later global changes) and the override itself.
+func (e *Engine) AppConfig(appID string) (effective DeliveryConfig, override ConfigPatch) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	_, override = e.overrides[appID]
-	return e.configLocked(appID), override
+	return e.configLocked(appID), e.overrides[appID]
 }
 
-// SetAppConfig merges p into app's override (starting from the global config).
+// SetAppConfig merges p into app's sparse override (PATCH).
 func (e *Engine) SetAppConfig(appID string, p ConfigPatch) (DeliveryConfig, error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-	next, err := e.configLocked(appID).Apply(p)
+	return e.setOverrideLocked(appID, e.overrides[appID].Merge(p))
+}
+
+// ReplaceAppConfig replaces app's override with exactly p (PUT): fields p omits inherit.
+func (e *Engine) ReplaceAppConfig(appID string, p ConfigPatch) (DeliveryConfig, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	return e.setOverrideLocked(appID, p)
+}
+
+func (e *Engine) setOverrideLocked(appID string, o ConfigPatch) (DeliveryConfig, error) {
+	eff, err := e.cfg.Apply(o) // validates the override against the current global
 	if err != nil {
 		return e.configLocked(appID), err
 	}
-	e.overrides[appID] = next
+	if o.IsZero() {
+		delete(e.overrides, appID)
+	} else {
+		e.overrides[appID] = o
+	}
 	e.flushHeldLocked()
-	return next, nil
+	return eff, nil
 }
 
 // ClearAppConfig drops app's override.

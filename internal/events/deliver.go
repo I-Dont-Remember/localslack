@@ -177,43 +177,36 @@ func randomString(n int) string {
 // newEventID returns a Slack-style event id ("Ev" + 10 characters).
 func newEventID() string { return "Ev" + randomString(10) }
 
-// storedDelivery is what redelivery needs to resend an event to one app.
+// storedDelivery is what redelivery needs to resend one app's event.
 type storedDelivery struct {
 	appID, typ string
 	payload    []byte
 	injected   bool
 }
 
-// eventStore remembers the last cap events, keyed by event id.
+// eventStore remembers the last cap events, keyed by event id (unique per app delivery).
 type eventStore struct {
 	cap   int
 	order []string
-	m     map[string][]storedDelivery
+	m     map[string]storedDelivery
 }
 
 func newEventStore(capacity int) *eventStore {
-	return &eventStore{cap: capacity, m: map[string][]storedDelivery{}}
+	return &eventStore{cap: capacity, m: map[string]storedDelivery{}}
 }
 
 func (s *eventStore) put(eventID string, sd storedDelivery) {
-	list, seen := s.m[eventID]
-	if !seen {
+	if _, seen := s.m[eventID]; !seen {
 		s.order = append(s.order, eventID)
 		if len(s.order) > s.cap {
 			delete(s.m, s.order[0])
 			s.order = s.order[1:]
 		}
 	}
-	for i, x := range list {
-		if x.appID == sd.appID {
-			list[i] = sd
-			return
-		}
-	}
-	s.m[eventID] = append(list, sd)
+	s.m[eventID] = sd
 }
 
-func (s *eventStore) get(eventID string) ([]storedDelivery, bool) {
-	list, ok := s.m[eventID]
-	return append([]storedDelivery(nil), list...), ok
+func (s *eventStore) get(eventID string) (storedDelivery, bool) {
+	sd, ok := s.m[eventID]
+	return sd, ok
 }

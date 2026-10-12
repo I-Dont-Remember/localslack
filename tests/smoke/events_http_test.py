@@ -142,6 +142,35 @@ def test_redeliver_sends_a_duplicate_with_retry_headers(admin, bolt, human):
     assert retried[0]["X-Slack-Retry-Reason"] == "http_timeout"
 
 
+def test_event_ids_are_per_app_and_redeliver_accepts_delivery_id(admin, bolt, human):
+    @bolt.app.event("app_mention")
+    def on_mention(say):
+        say(text="seen")
+
+    app_id = bolt.record["id"]
+    human.client.chat_postMessage(
+        channel=human.general, text=f"<@{bolt.record['bot_user_id']}> twice"
+    )
+    first = admin.wait_deliveries(1, app_id=app_id, event_type="app_mention", state="delivered")[0]
+
+    res = admin.redeliver_delivery(first["id"])
+
+    ref = res["deliveries"][0]
+    assert (ref["app_id"], ref["event_id"]) == (app_id, first["event_id"])
+    assert ref["delivery_id"] != first["id"]
+    admin.wait_deliveries(2, app_id=app_id, event_type="app_mention", state="delivered")
+
+
+def test_per_app_delivery_override_is_sparse_and_follows_global(admin, bolt):
+    app_id = bolt.record["id"]
+    admin.patch_delivery_config(app_id, signature="invalid")
+
+    got = admin.delivery_config(app_id)
+
+    assert got["override"] == {"signature": "invalid"}
+    assert got["timeout_ms"] == admin.delivery_config()["timeout_ms"]
+
+
 def test_injected_event_with_stale_signature_is_rejected(admin, bolt):
     app_id = bolt.record["id"]
     res = admin.inject_event(

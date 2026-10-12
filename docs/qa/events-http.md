@@ -31,31 +31,32 @@ Mention the demo bot again, then look at `#general`: Demo Bolt answers `pong` in
 ```sh
 curl -s "$L/deliveries?event_type=reaction_added" | jq '.items[] | {app_id,event_id}'
 ```
-Each app has its own `event_id`, `api_app_id` and `authorizations[0].user_id` in `payload`.
+Each app has its own `event_id` (like real Slack, one per app delivery), `api_app_id` and `authorizations[0].user_id` in `payload`.
 
 ### 4. Bad signature mode
 ```sh
 DEMO=$(curl -s $L/apps | jq -r '.items[] | select(.name=="Demo Bolt") | .id')
-curl -s -X PUT $L/apps/$DEMO/delivery-config -H 'content-type: application/json' -d '{"signature":"invalid"}'
+curl -s -X PATCH $L/apps/$DEMO/delivery-config -H 'content-type: application/json' -d '{"signature":"invalid"}'   # effective config + sparse "override"
 ```
 Mention the demo bot in the UI. No reply arrives. Then:
 ```sh
 curl -s "$L/deliveries?app_id=$DEMO&state=failed&min=1&timeout_ms=10000" | jq '.items[0].attempts[] | {n,status,retry_reason,error}'
 ```
-Restore: `curl -X DELETE $L/apps/$DEMO/delivery-config`.
+Restore: `curl -X DELETE $L/apps/$DEMO/delivery-config`. (`PUT` replaces the app's whole override, `PATCH` adds to it; fields not overridden follow the global config live.)
 
 ### 5. Redeliver a duplicate
 ```sh
 EV=$(curl -s "$L/deliveries?event_type=app_mention&state=delivered" | jq -r '.items[0].event_id')
 curl -s -X POST $L/events/$EV/redeliver -H 'content-type: application/json' -d '{"retry_num":1,"retry_reason":"http_timeout"}'
 ```
+Event ids are per app delivery, so `$EV` alone is enough. You can also redeliver by delivery id: `curl -s -X POST $L/deliveries/<delivery id>/redeliver -d '{}'`.
 Demo Bolt replies `pong` a second time (it does not de-duplicate).
 
 ### 6. Pause and release
 ```sh
-curl -s -X PUT $L/delivery-config -H 'content-type: application/json' -d '{"paused":true}'
+curl -s -X PATCH $L/delivery-config -H 'content-type: application/json' -d '{"paused":true}'
 ```
-Mention the bot: nothing happens, the delivery sits in `pending`. Then `{"paused":false}`: the reply appears.
+Mention the bot: nothing happens, the delivery sits in `pending`. Then `PATCH` `{"paused":false}`: the reply appears. (`PUT` would replace the whole document and reset the fields you omit to their defaults.)
 
 ### 7. Inject an event
 ```sh

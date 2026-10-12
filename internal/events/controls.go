@@ -37,13 +37,39 @@ func (c DeliveryConfig) RetryDelays() []time.Duration {
 	return out
 }
 
-// ConfigPatch is a partial DeliveryConfig: nil fields keep their value.
+// ConfigPatch is a partial DeliveryConfig: nil fields keep their value. As a
+// per-app override it is sparse: nil fields inherit the global config live.
 type ConfigPatch struct {
-	Signature     *string  `json:"signature"`
-	StaleSeconds  *int     `json:"stale_seconds"`
-	TimeoutMS     *int64   `json:"timeout_ms"`
-	RetryDelaysMS *[]int64 `json:"retry_delays_ms"`
-	Paused        *bool    `json:"paused"`
+	Signature     *string  `json:"signature,omitempty"`
+	StaleSeconds  *int     `json:"stale_seconds,omitempty"`
+	TimeoutMS     *int64   `json:"timeout_ms,omitempty"`
+	RetryDelaysMS *[]int64 `json:"retry_delays_ms,omitempty"`
+	Paused        *bool    `json:"paused,omitempty"`
+}
+
+// IsZero reports whether no field is set.
+func (p ConfigPatch) IsZero() bool {
+	return p.Signature == nil && p.StaleSeconds == nil && p.TimeoutMS == nil && p.RetryDelaysMS == nil && p.Paused == nil
+}
+
+// Merge returns p with q's set fields on top (sparse-override accumulation).
+func (p ConfigPatch) Merge(q ConfigPatch) ConfigPatch {
+	if q.Signature != nil {
+		p.Signature = q.Signature
+	}
+	if q.StaleSeconds != nil {
+		p.StaleSeconds = q.StaleSeconds
+	}
+	if q.TimeoutMS != nil {
+		p.TimeoutMS = q.TimeoutMS
+	}
+	if q.RetryDelaysMS != nil {
+		p.RetryDelaysMS = q.RetryDelaysMS
+	}
+	if q.Paused != nil {
+		p.Paused = q.Paused
+	}
+	return p
 }
 
 // ConfigError is an invalid delivery-config field.

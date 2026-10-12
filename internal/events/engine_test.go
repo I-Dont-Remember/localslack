@@ -628,12 +628,18 @@ func TestEngineInjectWithBadSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Inject: %v", err)
 	}
-	if len(res.Deliveries) != 2 || res.EventID == "" {
-		t.Fatalf("result = %+v, want one delivery per subscribed app and a shared event id", res)
+	if len(res.Deliveries) != 2 || res.Deliveries[0].EventID == "" || res.Deliveries[0].EventID == res.Deliveries[1].EventID {
+		t.Fatalf("result = %+v, want one delivery per subscribed app, each with its own event id", res)
 	}
 	got := waitState(t, e, events.StateDelivered, 2)
-	if got[0].EventID != res.EventID || got[1].EventID != res.EventID || !got[0].Injected {
-		t.Errorf("deliveries = %+v, want injected, sharing event id %s", got, res.EventID)
+	wantIDs := map[string]string{} // delivery id -> event id
+	for _, ref := range res.Deliveries {
+		wantIDs[ref.DeliveryID] = ref.EventID
+	}
+	for _, d := range got {
+		if wantIDs[d.ID] != d.EventID || !d.Injected {
+			t.Errorf("delivery %+v, want injected with event id %q", d, wantIDs[d.ID])
+		}
 	}
 	for name, app := range map[string]*fakeApp{"A1": a, "A2": b} {
 		if ok := app.signatureOK(); len(ok) != 1 || ok[0] {
@@ -673,7 +679,7 @@ func TestEngineInjectTargetsAppAndMergesEnvelope(t *testing.T) {
 	if err := json.Unmarshal([]byte(b.requests()[0].Body), &env); err != nil {
 		t.Fatalf("body: %v", err)
 	}
-	if env["team_id"] != "TCUSTOM" || env["event_id"] != res.EventID {
+	if env["team_id"] != "TCUSTOM" || env["event_id"] != res.Deliveries[0].EventID {
 		t.Errorf("envelope = %v", env)
 	}
 }
@@ -707,8 +713,8 @@ func TestEngineRedeliverSendsDuplicateWithRetryHeaders(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Redeliver: %v", err)
 	}
-	if len(res.Deliveries) != 1 || res.EventID != first[0].EventID {
-		t.Fatalf("result = %+v", res)
+	if want := []events.DeliveryRef{{AppID: "A1", EventID: first[0].EventID, DeliveryID: res.Deliveries[0].DeliveryID}}; !cmp.Equal(res.Deliveries, want) || res.Deliveries[0].DeliveryID == first[0].ID {
+		t.Fatalf("result = %+v, want a new delivery of event %s to A1", res, first[0].EventID)
 	}
 	waitState(t, e, events.StateDelivered, 2)
 
@@ -757,14 +763,14 @@ func TestEnginePerAppConfigOverridesGlobal(t *testing.T) {
 	if b.signatureOK()[0] {
 		t.Error("app A2 override requested invalid signatures")
 	}
-	if cfg, override := e.AppConfig("A2"); !override || cfg.Signature != events.SigInvalid {
-		t.Errorf("AppConfig(A2) = %+v, override=%v", cfg, override)
+	if cfg, override := e.AppConfig("A2"); !cmp.Equal(override, events.ConfigPatch{Signature: &bad}) || cfg.Signature != events.SigInvalid {
+		t.Errorf("AppConfig(A2) = %+v, override=%+v", cfg, override)
 	}
-	if cfg, override := e.AppConfig("A1"); override || cfg.Signature != events.SigValid {
-		t.Errorf("AppConfig(A1) = %+v, override=%v", cfg, override)
+	if cfg, override := e.AppConfig("A1"); !override.IsZero() || cfg.Signature != events.SigValid {
+		t.Errorf("AppConfig(A1) = %+v, override=%+v", cfg, override)
 	}
 	e.ClearAppConfig("A2")
-	if _, override := e.AppConfig("A2"); override {
+	if _, override := e.AppConfig("A2"); !override.IsZero() {
 		t.Error("override survived ClearAppConfig")
 	}
 }
@@ -812,5 +818,145 @@ func TestEngineIDsLookLikeSlackIDs(t *testing.T) {
 			t.Errorf("event id %q: want unique Ev + 10 chars", d.EventID)
 		}
 		seen[d.EventID] = true
+	}
+}
+
+func TestEngineRedeliverByDeliveryAndEventID(t *testing.T) {
+	t.Parallel()
+
+	app := newFakeApp(t, "s")
+	other := newFakeApp(t, "s")
+	src := &fakeSource{apps: []service.App{
+		app.appDef("A1", "UBOT1", "message.channels"), other.appDef("A2", "UBOT2", "message.channels"),
+	}}
+	e := newEngine(t, src, engineOpts{})
+	e.Publish(posted("dup me", "UBOT1", "UBOT2"))
+	first := waitState(t, e, events.StateDelivered, 2)
+	byApp := map[string]events.Delivery{first[0].AppID: first[0], first[1].AppID: first[1]}
+	if byApp["A1"].EventID == byApp["A2"].EventID {
+		t.Fatalf("both apps share event id %q; event ids are per app delivery", byApp["A1"].EventID)
+	}
+
+	total := 2
+	tests := []struct {
+		name    string
+		redeliv func() (events.InjectResult, error)
+		wantApp string
+		wantErr error
+	}{
+		{"by event id", func() (events.InjectResult, error) {
+			return e.Redeliver(t.Context(), byApp["A1"].EventID, events.RedeliverRequest{})
+		}, "A1", nil},
+		{"by event id and matching app", func() (events.InjectResult, error) {
+			return e.Redeliver(t.Context(), byApp["A2"].EventID, events.RedeliverRequest{AppID: "A2"})
+		}, "A2", nil},
+		{"by event id and another app", func() (events.InjectResult, error) {
+			return e.Redeliver(t.Context(), byApp["A1"].EventID, events.RedeliverRequest{AppID: "A2"})
+		}, "", events.ErrEventNotFound},
+		{"by delivery id", func() (events.InjectResult, error) {
+			return e.RedeliverDelivery(t.Context(), byApp["A2"].ID, events.RedeliverRequest{})
+		}, "A2", nil},
+		{"unknown delivery id", func() (events.InjectResult, error) {
+			return e.RedeliverDelivery(t.Context(), "D404", events.RedeliverRequest{})
+		}, "", events.ErrDeliveryNotFound},
+	}
+	for _, tt := range tests { //nolint:paralleltest // ordered cases share one engine
+		t.Run(tt.name, func(t *testing.T) {
+			// Subtests share one engine and run in order, each adding at most one delivery.
+			res, err := tt.redeliv()
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if tt.wantErr != nil {
+				return
+			}
+			if len(res.Deliveries) != 1 || res.Deliveries[0].AppID != tt.wantApp || res.Deliveries[0].EventID != byApp[tt.wantApp].EventID {
+				t.Fatalf("result = %+v, want one redelivery of %s's event %s", res, tt.wantApp, byApp[tt.wantApp].EventID)
+			}
+			total++
+			waitState(t, e, events.StateDelivered, total)
+		})
+	}
+}
+
+func TestEngineReplaceConfigRestoresDefaultsForOmittedFields(t *testing.T) {
+	t.Parallel()
+
+	e := newEngine(t, &fakeSource{}, engineOpts{})
+	bad, stale, timeout := events.SigInvalid, 30, int64(9000)
+	if _, err := e.SetConfig(events.ConfigPatch{Signature: &bad, StaleSeconds: &stale}); err != nil {
+		t.Fatalf("SetConfig: %v", err)
+	}
+
+	tests := []struct {
+		name  string
+		apply func(events.ConfigPatch) (events.DeliveryConfig, error)
+		want  events.DeliveryConfig
+	}{
+		{"patch merges", e.SetConfig, withTimeout(withStale(withSig(fastConfig(), events.SigInvalid), 30), 9000)},
+		{"replace resets omitted", e.ReplaceConfig, withTimeout(fastConfig(), 9000)},
+	}
+	for _, tt := range tests { //nolint:paralleltest // ordered cases share one engine
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.apply(events.ConfigPatch{TimeoutMS: &timeout})
+			if err != nil {
+				t.Fatalf("apply: %v", err)
+			}
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("config (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(got, e.Config()); diff != "" {
+				t.Errorf("Config() disagrees with the reply (-reply +config):\n%s", diff)
+			}
+			// Restore the non-default start state for the next case.
+			if _, err := e.ReplaceConfig(events.ConfigPatch{Signature: &bad, StaleSeconds: &stale}); err != nil {
+				t.Fatalf("restore: %v", err)
+			}
+		})
+	}
+}
+
+func withTimeout(c events.DeliveryConfig, ms int64) events.DeliveryConfig { c.TimeoutMS = ms; return c }
+
+func withStale(c events.DeliveryConfig, s int) events.DeliveryConfig { c.StaleSeconds = s; return c }
+
+func TestEnginePerAppOverridesAreSparseAndInheritLive(t *testing.T) {
+	t.Parallel()
+
+	e := newEngine(t, &fakeSource{}, engineOpts{})
+	bad, paused, timeout := events.SigInvalid, true, int64(7000)
+	if _, err := e.SetAppConfig("A1", events.ConfigPatch{Signature: &bad}); err != nil {
+		t.Fatalf("SetAppConfig: %v", err)
+	}
+	if _, err := e.SetConfig(events.ConfigPatch{TimeoutMS: &timeout}); err != nil {
+		t.Fatalf("SetConfig: %v", err)
+	}
+
+	eff, override := e.AppConfig("A1")
+	if want := withTimeout(withSig(fastConfig(), events.SigInvalid), 7000); !cmp.Equal(eff, want) {
+		t.Errorf("effective = %+v, want global change inherited live: %+v", eff, want)
+	}
+	if want := (events.ConfigPatch{Signature: &bad}); !cmp.Equal(override, want) {
+		t.Errorf("override = %+v, want only the signature", override)
+	}
+
+	// PATCH-style merge adds a field; PUT-style replace drops the others.
+	if _, err := e.SetAppConfig("A1", events.ConfigPatch{Paused: &paused}); err != nil {
+		t.Fatalf("merge: %v", err)
+	}
+	if _, o := e.AppConfig("A1"); !cmp.Equal(o, events.ConfigPatch{Signature: &bad, Paused: &paused}) {
+		t.Errorf("after merge override = %+v, want signature+paused", o)
+	}
+	if _, err := e.ReplaceAppConfig("A1", events.ConfigPatch{TimeoutMS: &timeout}); err != nil {
+		t.Fatalf("replace: %v", err)
+	}
+	if eff, o := e.AppConfig("A1"); !cmp.Equal(o, events.ConfigPatch{TimeoutMS: &timeout}) || eff.Signature != events.SigValid || eff.Paused {
+		t.Errorf("after replace effective=%+v override=%+v, want only timeout overridden", eff, o)
+	}
+
+	e.Reset()
+	if _, o := e.AppConfig("A1"); !o.IsZero() {
+		t.Errorf("reset kept per-app override %+v", o)
 	}
 }

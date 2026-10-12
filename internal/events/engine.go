@@ -66,7 +66,7 @@ type Engine struct {
 	ctx       context.Context // current generation's context
 	cancel    context.CancelFunc
 	cfg       DeliveryConfig
-	overrides map[string]DeliveryConfig
+	overrides map[string]ConfigPatch
 	held      []*job
 	sent      *eventStore
 	verifyErr map[string]string
@@ -104,7 +104,7 @@ func New(o Options) *Engine {
 		src: o.Source, tr: o.Transport, sock: o.Socket, clock: o.Clock, policy: o.Policy, log: o.Log,
 		defaults: o.Config, trace: NewTrace(o.TraceSize), queue: make(chan queued, o.QueueSize),
 		sem: make(chan struct{}, maxInFlight), root: root, rootStop: stop, loopDone: make(chan struct{}),
-		cfg: o.Config, overrides: map[string]DeliveryConfig{}, sent: newEventStore(o.TraceSize),
+		cfg: o.Config, overrides: map[string]ConfigPatch{}, sent: newEventStore(o.TraceSize),
 		verifyErr: map[string]string{}, warned: map[string]bool{},
 	}
 	e.ctx, e.cancel = context.WithCancel(root)
@@ -150,7 +150,7 @@ func (e *Engine) Reset() {
 	e.held = nil
 	e.sent = newEventStore(e.sent.cap)
 	e.cfg = e.defaults
-	e.overrides = map[string]DeliveryConfig{}
+	e.overrides = map[string]ConfigPatch{}
 	e.verifyErr = map[string]string{}
 	e.warned = map[string]bool{}
 	e.mu.Unlock()
@@ -228,10 +228,15 @@ func (e *Engine) team() (string, bool) {
 
 // configLocked is app's effective delivery config.
 func (e *Engine) configLocked(appID string) DeliveryConfig {
-	if c, ok := e.overrides[appID]; ok {
-		return c
+	o, ok := e.overrides[appID]
+	if !ok {
+		return e.cfg
 	}
-	return e.cfg
+	eff, err := e.cfg.Apply(o)
+	if err != nil { // validated on write; fall back rather than fail a delivery
+		return e.cfg
+	}
+	return eff
 }
 
 // Resolve reports where app's events go (zero Target for Socket Mode apps).

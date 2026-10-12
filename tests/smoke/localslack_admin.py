@@ -203,19 +203,44 @@ class Admin:
         self,
         event_id: str,
         *,
+        app_id: str | None = None,
+        retry_num: int | None = None,
+        retry_reason: str | None = None,
+        signature: str | None = None,
+    ) -> dict[str, Any]:
+        """Resend by event id. Event ids are per app delivery, so `app_id` is optional."""
+        body = {
+            "app_id": app_id,
+            "retry_num": retry_num,
+            "retry_reason": retry_reason,
+            "signature": signature,
+        }
+        body = {k: v for k, v in body.items() if v is not None}
+        return self._request("POST", f"/events/{event_id}/redeliver", json=body)
+
+    def redeliver_delivery(
+        self,
+        delivery_id: str,
+        *,
         retry_num: int | None = None,
         retry_reason: str | None = None,
         signature: str | None = None,
     ) -> dict[str, Any]:
         body = {"retry_num": retry_num, "retry_reason": retry_reason, "signature": signature}
         body = {k: v for k, v in body.items() if v is not None}
-        return self._request("POST", f"/events/{event_id}/redeliver", json=body)
+        return self._request("POST", f"/deliveries/{delivery_id}/redeliver", json=body)
 
     def delivery_config(self, app_id: str | None = None) -> dict[str, Any]:
+        """Global config, or an app's effective config plus its sparse `override`."""
         return self._request("GET", self._config_path(app_id))
 
     def put_delivery_config(self, app_id: str | None = None, **config: Any) -> dict[str, Any]:
+        """Replace: fields not given go back to their defaults (globally) or inherit (per app)."""
         return self._request("PUT", self._config_path(app_id), json=config)
+
+    def patch_delivery_config(self, app_id: str | None = None, **config: Any) -> dict[str, Any]:
+        """Merge the given fields into the current config (globally) or the app's override."""
+        return self._request("PATCH", self._config_path(app_id), json=config)
 
     @staticmethod
     def _config_path(app_id: str | None) -> str:
