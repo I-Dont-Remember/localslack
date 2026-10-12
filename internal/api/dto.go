@@ -5,10 +5,13 @@ import "localslack/internal/service"
 // DTO mappers build Slack-shaped JSON. Service types are never marshaled directly.
 
 func userDTO(u service.User, teamID string) map[string]any {
+	profile := map[string]any{"real_name": u.RealName, "display_name": u.Name}
+	if u.BotID != "" {
+		profile["bot_id"] = u.BotID
+	}
 	return map[string]any{
 		"id": u.ID, "team_id": teamID, "name": u.Name, "real_name": u.RealName,
-		"deleted": false, "is_bot": u.IsBot,
-		"profile": map[string]any{"real_name": u.RealName, "display_name": u.Name},
+		"deleted": false, "is_bot": u.IsBot, "profile": profile,
 	}
 }
 
@@ -20,7 +23,8 @@ func conversationDTO(c service.Conversation) map[string]any {
 	}
 	switch c.Kind {
 	case service.KindChannel:
-		out["is_channel"] = true
+		// Slack's private channels are legacy "groups".
+		out["is_channel"], out["is_group"] = !c.IsPrivate, c.IsPrivate
 		out["name"] = c.Name
 		out["name_normalized"] = c.Name
 		out["is_general"] = c.Name == "general"

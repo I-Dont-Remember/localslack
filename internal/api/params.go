@@ -73,6 +73,7 @@ func csv(s string) []string {
 	return out
 }
 
+//nolint:unparam // generic helper; only "limit" so far
 func intParam(v url.Values, key string) int {
 	n, err := strconv.Atoi(v.Get(key))
 	if err != nil {

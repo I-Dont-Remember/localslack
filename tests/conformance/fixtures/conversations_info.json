@@ -1,0 +1,52 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs, unverified (subset: real Slack returns many more channel fields)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-read"
+      },
+      "capture": {
+        "cid": "channel.id",
+        "uid": "channel.creator"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.info",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{cid}}",
+      "include_num_members": "true"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "channel": {
+        "id": "<id:C>",
+        "name": "fx-read",
+        "is_channel": true,
+        "is_archived": false,
+        "is_private": false,
+        "is_member": true,
+        "num_members": 1
+      }
+    },
+    "ignore": [
+      "created",
+      "creator",
+      "is_group",
+      "is_im",
+      "is_mpim",
+      "name_normalized",
+      "is_general"
+    ]
+  }
+}

@@ -76,30 +76,27 @@ deviations = ["no-blocks", "name-targets-unresolved", "no-membership-check", "pa
 # interactivity = needs Block Kit/interactivity support; socket-mode = M3.
 
 [methods."api.test"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
+tier = 4
+scopes = []
 
 [methods."conversations.info"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+deviations = ["no-membership-check", "partial-conversation-fields"]
 
 [methods."conversations.members"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+deviations = ["no-membership-check", "limit-clamping", "cursor-format"]
 
 [methods."users.info"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["users:read"]
+deviations = ["partial-user-fields"]
 
 [methods."chat.update"]
 status = "in_progress"

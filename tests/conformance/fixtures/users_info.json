@@ -1,0 +1,46 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs, unverified (subset: real Slack returns many more user fields)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-read"
+      },
+      "capture": {
+        "cid": "channel.id",
+        "uid": "channel.creator"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/users.info",
+    "token": "xoxb-test",
+    "params": {
+      "user": "{{uid}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "user": {
+        "id": "<id:U>",
+        "team_id": "<id:T>",
+        "name": "<string>",
+        "real_name": "<string>",
+        "deleted": false,
+        "is_bot": true,
+        "profile": {
+          "real_name": "<string>",
+          "display_name": "<string>",
+          "bot_id": "<id:B>"
+        }
+      }
+    }
+  }
+}
