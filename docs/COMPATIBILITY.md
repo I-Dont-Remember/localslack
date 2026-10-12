@@ -61,7 +61,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `unknown-method-404`, `collapsed-errors` |
 | `app-manifest` | planned | — | — | Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps. | — |
 | `block-kit` | planned | — | — | Storing and returning blocks, attachments and message metadata. | `no-blocks` |
-| `call-log` | planned | — | — | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
+| `call-log` | implemented | — | llm | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
 | `event-delivery-controls` | planned | — | — | Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace. | — |
 | `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
 | `fault-injection` | planned | — | — | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |

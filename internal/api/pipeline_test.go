@@ -113,6 +113,14 @@ func TestRecorder(t *testing.T) {
 			"unknown method", "nope.nothing", "", nil,
 			calllog.CallRecord{Method: "nope.nothing", HTTPMethod: "POST", Status: 404, Error: "not_implemented", NotImplemented: true, Actor: calllog.Actor{TokenKind: "none"}},
 		},
+		{
+			"unknown method keeps actor and params", "nope.nothing", "xoxb-x",
+			url.Values{"channel": {"C1"}},
+			calllog.CallRecord{
+				Method: "nope.nothing", HTTPMethod: "POST", Status: 404, Error: "not_implemented", NotImplemented: true,
+				Params: map[string]any{"channel": "C1"}, Actor: calllog.Actor{TokenKind: "bot"},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -158,6 +166,40 @@ func TestInterceptorOverride(t *testing.T) {
 	}
 	if len(s.recs) != 1 || s.recs[0].FaultID != "F1" || s.recs[0].Error != "ratelimited" || s.recs[0].Status != 429 {
 		t.Errorf("records = %+v, want one faulted ratelimited record", s.recs)
+	}
+}
+
+func TestRecorderFlagsOversizedResponse(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name          string
+		size          int
+		wantTruncated bool
+	}{
+		{"under cap", 1 << 10, false},
+		{"over cap", calllog.MaxResponseBytes + 1, true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			s := &sink{}
+			icpt := &override{
+				ov:  faults.Override{Respond: true, Status: 200, Body: map[string]any{"ok": true, "blob": strings.Repeat("x", tt.size)}},
+				ok:  true,
+				got: make(chan faults.Request, 1),
+			}
+			srv := pipeline(t, api.WithRecorder(s), api.WithInterceptor(icpt))
+			post(t, srv, "auth.test", "xoxb-x", nil)
+
+			got := s.recs[0]
+			if got.ResponseTruncated != tt.wantTruncated {
+				t.Errorf("ResponseTruncated = %v, want %v", got.ResponseTruncated, tt.wantTruncated)
+			}
+			if gotNil := got.Response == nil; gotNil != tt.wantTruncated {
+				t.Errorf("Response nil = %v, want %v", gotNil, tt.wantTruncated)
+			}
+		})
 	}
 }
 

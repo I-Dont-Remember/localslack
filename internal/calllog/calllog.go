@@ -14,20 +14,22 @@ type Actor struct {
 // CallRecord is one Web API call, see docs/TESTING_API.md (call log).
 // Recorders assign Seq and must redact secrets from Params.
 type CallRecord struct {
-	Seq            int64          `json:"seq"`
-	Time           time.Time      `json:"time"`
-	RequestID      string         `json:"request_id"`
-	Method         string         `json:"method"`
-	HTTPMethod     string         `json:"http_method"`
-	Status         int            `json:"status"`
-	OK             bool           `json:"ok"`
-	Error          string         `json:"error"`
-	Params         map[string]any `json:"params"`
-	Actor          Actor          `json:"actor"`
-	Response       map[string]any `json:"response"` // nil when over MaxResponseBytes
-	DurationMS     int64          `json:"duration_ms"`
-	FaultID        string         `json:"fault_id"`
-	NotImplemented bool           `json:"not_implemented"`
+	Seq        int64          `json:"seq"`
+	Time       time.Time      `json:"time"`
+	RequestID  string         `json:"request_id"`
+	Method     string         `json:"method"`
+	HTTPMethod string         `json:"http_method"`
+	Status     int            `json:"status"`
+	OK         bool           `json:"ok"`
+	Error      string         `json:"error"`
+	Params     map[string]any `json:"params"`
+	Actor      Actor          `json:"actor"`
+	Response   map[string]any `json:"response"` // nil when over MaxResponseBytes
+	// ResponseTruncated is set when the body exceeded MaxResponseBytes and was dropped.
+	ResponseTruncated bool   `json:"response_truncated"`
+	DurationMS        int64  `json:"duration_ms"`
+	FaultID           string `json:"fault_id"`
+	NotImplemented    bool   `json:"not_implemented"`
 }
 
 // MaxResponseBytes caps the response body a record may carry.
