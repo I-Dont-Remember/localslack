@@ -172,3 +172,31 @@ func TestChatUpdate(t *testing.T) {
 		t.Errorf("blocks (-want +got):\n%s", diff)
 	}
 }
+
+func TestWriteMethodsValidateContent(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	general := generalID(t, app)
+	human, _ := humanAndBot(t, app)
+	_, posted := call(t, app, "chat.postMessage", botToken, map[string]string{"channel": general, "text": "v1"})
+	ts := posted["ts"].(string)
+
+	tests := []struct {
+		name   string
+		method string
+		params map[string]string
+		want   string
+	}{
+		{"update bad blocks", "chat.update", map[string]string{"channel": general, "ts": ts, "blocks": `[{"no":"type"}]`}, "invalid_blocks"},
+		{"update bad attachments", "chat.update", map[string]string{"channel": general, "ts": ts, "attachments": `{"a":1}`}, "invalid_attachments"},
+		{"update too long", "chat.update", map[string]string{"channel": general, "ts": ts, "text": strings.Repeat("x", 40001)}, "msg_too_long"},
+		{"ephemeral bad metadata", "chat.postEphemeral", map[string]string{"channel": general, "user": human.ID, "text": "x", "metadata": `{"event_type":"t"}`}, "invalid_metadata_format"},
+	}
+	for _, tt := range tests {
+		_, got := call(t, app, tt.method, botToken, tt.params)
+		if got["ok"] != false || got["error"] != tt.want {
+			t.Errorf("%s: body %v, want error %s", tt.name, got, tt.want)
+		}
+	}
+}
