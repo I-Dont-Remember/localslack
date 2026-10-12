@@ -41,7 +41,9 @@ Process for adding a new Slack API endpoint. Check `internal/capabilities/capabi
   LocalSlack's deliberate or infrastructural non-200s: 404 `not_implemented` (unknown method; Slack
   returns 200 `unknown_method`, see the `unknown-method-404` deviation), 403 `invalid_host` /
   `forbidden_origin` (guard), 405 `method_not_allowed`, 500 `internal_error` (unmapped fault), and
-  later 429 for rate limits (M5).
+  later 429 for rate limits (M5). Under `/_localslack/` the same server-level failures use the control-API
+  shape `{"error":{"code","message"}}` instead (`not_found`, `method_not_allowed`, `invalid_host`,
+  `forbidden_origin`, `payload_too_large` 413, `internal_error`); one writer: `internal/respond`.
 - Always accept POST: the Slack Python SDK sends POST even to GET-documented methods.
 - Handler tests for `api`/`web` must be external packages (`api_test`, `web_test`): `storetest`
   imports `server`, which imports them, so in-package tests would be an import cycle.

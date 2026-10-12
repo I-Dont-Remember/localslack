@@ -38,13 +38,14 @@ func TestMethodNotAllowedIsJSON(t *testing.T) {
 	if resp.StatusCode != http.StatusMethodNotAllowed {
 		t.Errorf("status = %d, want %d", resp.StatusCode, http.StatusMethodNotAllowed)
 	}
-	want := errorResponse{OK: false, Error: "method_not_allowed"}
-	var got errorResponse
+	var got struct {
+		Error struct{ Code string }
+	}
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("decode body: %v", err)
 	}
-	if got != want {
-		t.Errorf("body = %+v, want %+v", got, want)
+	if got.Error.Code != "method_not_allowed" {
+		t.Errorf("body = %+v, want /_localslack error code method_not_allowed", got)
 	}
 }
 

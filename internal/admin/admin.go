@@ -4,14 +4,16 @@ package admin
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
+	"io"
 	"log/slog"
 	"net/http"
+
+	"localslack/internal/respond"
 
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/calllog"
-	"localslack/internal/constants"
 	"localslack/internal/control"
 	"localslack/internal/events"
 	"localslack/internal/faults"
@@ -42,17 +44,25 @@ func Mount(r chi.Router, d Deps) {
 	mountSocket(r, d)
 }
 
-func writeJSON(ctx context.Context, log *slog.Logger, w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", constants.ContentTypeJSON)
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		log.ErrorContext(ctx, "encode response", slog.Any("error", err))
-	}
-}
-
 // writeError emits the /_localslack error shape: {"error":{"code","message"}}.
 func writeError(ctx context.Context, log *slog.Logger, w http.ResponseWriter, status int, code, message string) {
-	writeJSON(ctx, log, w, status, map[string]any{
-		"error": map[string]any{"code": code, "message": message},
-	})
+	respond.Error(ctx, log, w, status, code, message, nil)
+}
+
+// maxBodyBytes caps every /_localslack request body.
+const maxBodyBytes = 1 << 20
+
+// capped limits r.Body; reading past the cap fails with *http.MaxBytesError.
+func capped(w http.ResponseWriter, r *http.Request) io.Reader {
+	return http.MaxBytesReader(w, r.Body, maxBodyBytes)
+}
+
+// writeTooLarge answers 413 and reports true when err is a body-cap overflow.
+func writeTooLarge(ctx context.Context, log *slog.Logger, w http.ResponseWriter, err error) bool {
+	var big *http.MaxBytesError
+	if !errors.As(err, &big) {
+		return false
+	}
+	writeError(ctx, log, w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the size limit")
+	return true
 }

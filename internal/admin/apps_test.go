@@ -327,3 +327,36 @@ func TestAppsListGetPatchDelete(t *testing.T) {
 		t.Errorf("verify unknown status = %d, want 404", status)
 	}
 }
+
+func TestAdminBodiesOverTheCapAre413(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	// Over each handler's own cap (1 MiB) but under the server-wide 2 MiB limit.
+	pad := strings.Repeat("x", 1<<20+1)
+	tests := []struct {
+		name, path string
+		body       map[string]any
+	}{
+		{"apps", "/_localslack/apps", map[string]any{"manifest": manifest("Big", ""), "pad": pad}},
+		{"reset", "/_localslack/reset", map[string]any{"seed": pad}},
+		{"faults", "/_localslack/faults", map[string]any{"method": "*", "pad": pad}},
+		{"events", "/_localslack/events", map[string]any{"event": map[string]any{"type": "x"}, "pad": pad}},
+		{"delivery-config", "/_localslack/delivery-config", map[string]any{"pad": pad}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			method := http.MethodPost
+			if tt.name == "delivery-config" {
+				method = http.MethodPut
+			}
+			status, _, got := doReq(t, method, app.URL+tt.path, constants.ContentTypeJSON, tt.body)
+
+			if status != http.StatusRequestEntityTooLarge || sub(got, "error")["code"] != "payload_too_large" {
+				t.Errorf("status %d body %v, want 413 payload_too_large", status, got)
+			}
+		})
+	}
+}

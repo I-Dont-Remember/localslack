@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5/middleware"
 )
 
@@ -18,7 +20,7 @@ func recoverer(log *slog.Logger) func(http.Handler) http.Handler {
 					log.ErrorContext(r.Context(), "handler panic",
 						slog.Any("panic", rec),
 						slog.String("request_id", middleware.GetReqID(r.Context())))
-					writeJSON(r.Context(), log, w, http.StatusInternalServerError, errorBody("internal_error"))
+					respond.ForRequest(r.Context(), log, w, r, http.StatusInternalServerError, "internal_error", "internal error")
 				}
 			}()
 			next.ServeHTTP(w, r)

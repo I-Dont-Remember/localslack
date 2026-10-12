@@ -7,14 +7,14 @@ import (
 	"log/slog"
 	"net/http"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/appmanifest"
 	"localslack/internal/events"
 	"localslack/internal/service"
 )
-
-const maxManifestBytes = 1 << 20
 
 func mountApps(r chi.Router, d Deps) {
 	if d.Svc == nil {
@@ -39,11 +39,7 @@ func (d Deps) controller() (events.Controller, bool) {
 
 // problem writes the /_localslack error shape with optional details.
 func (d Deps) problem(w http.ResponseWriter, r *http.Request, status int, code, msg string, details []map[string]string) {
-	e := map[string]any{"code": code, "message": msg}
-	if len(details) > 0 {
-		e["details"] = details
-	}
-	writeJSON(r.Context(), d.Log, w, status, map[string]any{"error": e})
+	respond.Error(r.Context(), d.Log, w, status, code, msg, details)
 }
 
 func (d Deps) internal(w http.ResponseWriter, r *http.Request, what string, err error) {
@@ -98,8 +94,11 @@ func (a appsAPI) create(w http.ResponseWriter, r *http.Request) {
 
 // decodeCreate reads a raw manifest (JSON or YAML) or the {"manifest": ...} envelope.
 func (a appsAPI) decodeCreate(w http.ResponseWriter, r *http.Request) (createRequest, bool) {
-	body, err := io.ReadAll(io.LimitReader(r.Body, maxManifestBytes))
+	body, err := io.ReadAll(capped(w, r))
 	if err != nil {
+		if writeTooLarge(r.Context(), a.Log, w, err) {
+			return createRequest{}, false
+		}
 		a.problem(w, r, http.StatusBadRequest, "malformed_request", "could not read request body", nil)
 		return createRequest{}, false
 	}
@@ -169,7 +168,7 @@ func (a appsAPI) list(w http.ResponseWriter, r *http.Request) {
 	for _, app := range apps {
 		items = append(items, newAppView(app, ctl))
 	}
-	writeJSON(r.Context(), a.Log, w, http.StatusOK, map[string]any{"items": items})
+	respond.JSON(r.Context(), a.Log, w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (a appsAPI) get(w http.ResponseWriter, r *http.Request) {
@@ -191,7 +190,7 @@ func (a appsAPI) respondApp(w http.ResponseWriter, r *http.Request, status int, 
 	if location != "" {
 		w.Header().Set("Location", location)
 	}
-	writeJSON(r.Context(), a.Log, w, status, newAppView(app, ctl))
+	respond.JSON(r.Context(), a.Log, w, status, newAppView(app, ctl))
 }
 
 func (d Deps) notFound(w http.ResponseWriter, r *http.Request) {
@@ -203,7 +202,10 @@ func (a appsAPI) patch(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		DeliverTo *string `json:"deliver_to"`
 	}
-	if err := json.NewDecoder(io.LimitReader(r.Body, maxManifestBytes)).Decode(&body); err != nil {
+	if err := json.NewDecoder(capped(w, r)).Decode(&body); err != nil {
+		if writeTooLarge(r.Context(), a.Log, w, err) {
+			return
+		}
 		a.problem(w, r, http.StatusBadRequest, "malformed_request", "invalid request body: "+err.Error(), nil)
 		return
 	}

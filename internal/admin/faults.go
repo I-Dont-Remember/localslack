@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/faults"
@@ -41,7 +43,10 @@ type faultHandlers struct{ Deps }
 
 func (h faultHandlers) create(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 1<<20))
+	body, err := io.ReadAll(capped(w, r))
+	if err != nil && writeTooLarge(ctx, h.Log, w, err) {
+		return
+	}
 	if err != nil || !json.Valid(body) {
 		writeError(ctx, h.Log, w, http.StatusBadRequest, "invalid_json", "request body is not valid JSON")
 		return
@@ -58,11 +63,11 @@ func (h faultHandlers) create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.Header().Set("Location", faultsPath+"/"+rule.ID)
-	writeJSON(ctx, h.Log, w, http.StatusCreated, rule)
+	respond.JSON(ctx, h.Log, w, http.StatusCreated, rule)
 }
 
 func (h faultHandlers) list(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.Log, w, http.StatusOK, map[string]any{"items": h.Faults.List()})
+	respond.JSON(r.Context(), h.Log, w, http.StatusOK, map[string]any{"items": h.Faults.List()})
 }
 
 func (h faultHandlers) remove(w http.ResponseWriter, r *http.Request) {
@@ -80,7 +85,7 @@ func (h faultHandlers) clear(w http.ResponseWriter, _ *http.Request) {
 }
 
 func writeInvalid(ctx context.Context, h faultHandlers, w http.ResponseWriter, details []faults.Detail) {
-	writeJSON(ctx, h.Log, w, http.StatusUnprocessableEntity, map[string]any{
+	respond.JSON(ctx, h.Log, w, http.StatusUnprocessableEntity, map[string]any{
 		"error": map[string]any{"code": "invalid_fault", "message": "invalid fault rule", "details": details},
 	})
 }

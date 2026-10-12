@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"time"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/events"
@@ -60,7 +62,7 @@ func (e eventsAPI) list(w http.ResponseWriter, r *http.Request) {
 	}
 	timeout = min(timeout, maxPollTimeout)
 	items, next, gen := e.ctl.WaitDeliveries(r.Context(), f, minN, timeout)
-	writeJSON(r.Context(), e.Log, w, http.StatusOK, map[string]any{"items": items, "next_since": next, "generation": gen})
+	respond.JSON(r.Context(), e.Log, w, http.StatusOK, map[string]any{"items": items, "next_since": next, "generation": gen})
 }
 
 func (e eventsAPI) get(w http.ResponseWriter, r *http.Request) {
@@ -69,7 +71,7 @@ func (e eventsAPI) get(w http.ResponseWriter, r *http.Request) {
 		e.problem(w, r, http.StatusNotFound, "delivery_not_found", "no such delivery (it may have aged out of the log)", nil)
 		return
 	}
-	writeJSON(r.Context(), e.Log, w, http.StatusOK, d)
+	respond.JSON(r.Context(), e.Log, w, http.StatusOK, d)
 }
 
 func (e eventsAPI) clear(w http.ResponseWriter, _ *http.Request) {
@@ -78,7 +80,10 @@ func (e eventsAPI) clear(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (e eventsAPI) decode(w http.ResponseWriter, r *http.Request, into any) bool {
-	if err := json.NewDecoder(io.LimitReader(r.Body, maxManifestBytes)).Decode(into); err != nil && !errors.Is(err, io.EOF) {
+	if err := json.NewDecoder(capped(w, r)).Decode(into); err != nil && !errors.Is(err, io.EOF) {
+		if writeTooLarge(r.Context(), e.Log, w, err) {
+			return false
+		}
 		e.problem(w, r, http.StatusBadRequest, "malformed_request", "invalid request body: "+err.Error(), nil)
 		return false
 	}
@@ -117,7 +122,7 @@ func (e eventsAPI) inject(w http.ResponseWriter, r *http.Request) {
 		e.eventsError(w, r, err)
 		return
 	}
-	writeJSON(r.Context(), e.Log, w, http.StatusCreated, res)
+	respond.JSON(r.Context(), e.Log, w, http.StatusCreated, res)
 }
 
 func (e eventsAPI) redeliver(w http.ResponseWriter, r *http.Request) {
@@ -137,11 +142,11 @@ func (e eventsAPI) redeliver(w http.ResponseWriter, r *http.Request) {
 		e.eventsError(w, r, err)
 		return
 	}
-	writeJSON(r.Context(), e.Log, w, http.StatusCreated, res)
+	respond.JSON(r.Context(), e.Log, w, http.StatusCreated, res)
 }
 
 func (e eventsAPI) getConfig(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), e.Log, w, http.StatusOK, e.ctl.Config())
+	respond.JSON(r.Context(), e.Log, w, http.StatusOK, e.ctl.Config())
 }
 
 func (e eventsAPI) putConfig(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +169,7 @@ func (e eventsAPI) respondConfig(w http.ResponseWriter, r *http.Request, cfg eve
 		e.internal(w, r, "delivery config", err)
 		return
 	}
-	writeJSON(r.Context(), e.Log, w, http.StatusOK, cfg)
+	respond.JSON(r.Context(), e.Log, w, http.StatusOK, cfg)
 }
 
 func (e eventsAPI) requireApp(w http.ResponseWriter, r *http.Request) (string, bool) {
@@ -186,7 +191,7 @@ func (e eventsAPI) getAppConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg, _ := e.ctl.AppConfig(id)
-	writeJSON(r.Context(), e.Log, w, http.StatusOK, cfg)
+	respond.JSON(r.Context(), e.Log, w, http.StatusOK, cfg)
 }
 
 func (e eventsAPI) putAppConfig(w http.ResponseWriter, r *http.Request) {

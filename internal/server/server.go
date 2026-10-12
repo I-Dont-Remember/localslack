@@ -14,6 +14,7 @@ import (
 	"localslack/internal/admin"
 	"localslack/internal/api"
 	"localslack/internal/config"
+	"localslack/internal/respond"
 	"localslack/internal/service"
 	"localslack/internal/web"
 )
@@ -106,10 +107,16 @@ type handlers struct {
 	log *slog.Logger
 }
 
+// notImplemented is the fallthrough: an unknown Slack method is 404 not_implemented
+// (Slack shape); an unknown /_localslack path is 404 not_found.
 func (h handlers) notImplemented(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.log, w, http.StatusNotFound, errorBody("not_implemented"))
+	if respond.IsAdminPath(r.URL.Path) {
+		respond.Error(r.Context(), h.log, w, http.StatusNotFound, "not_found", "no such /_localslack endpoint", nil)
+		return
+	}
+	respond.SlackError(r.Context(), h.log, w, http.StatusNotFound, "not_implemented")
 }
 
 func (h handlers) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.log, w, http.StatusMethodNotAllowed, errorBody("method_not_allowed"))
+	respond.ForRequest(r.Context(), h.log, w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed for this path")
 }

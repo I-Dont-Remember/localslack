@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"time"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/calllog"
@@ -36,7 +38,7 @@ func (d Deps) listCalls(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []calllog.CallRecord{}
 	}
-	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{
+	respond.JSON(ctx, d.Log, w, http.StatusOK, map[string]any{
 		"items": items, "next_since": res.NextSince, "generation": res.Generation,
 	})
 }

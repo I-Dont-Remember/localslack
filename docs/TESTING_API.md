@@ -3,7 +3,7 @@
 Contract for the test-loop controls. LocalSlack-only; never on real Slack. Unauthenticated, loopback-guarded like the rest of the server. Status: **draft contract** (agent-docs/plans/test-loop.md); each stream owns its section.
 
 ## Conventions
-- **Real HTTP semantics (unlike Slack's `/api/*`, which keeps `200 + ok:false` for SDK fidelity).** Success = 2xx with the resource as the body, no `ok` wrapper. Failure = 4xx/5xx with `{"error":{"code":"<snake_case>","message":"<human>","details":[...]?}}`.
+- **Real HTTP semantics (unlike Slack's `/api/*`, which keeps `200 + ok:false` for SDK fidelity).** Success = 2xx with the resource as the body, no `ok` wrapper. Failure = 4xx/5xx with `{"error":{"code":"<snake_case>","message":"<human>","details":[...]?}}`. This includes server-level failures under `/_localslack/`: unknown path 404 `not_found`, wrong verb 405 `method_not_allowed`, guard 403 `invalid_host` / `forbidden_origin`, body over the cap (1 MiB) 413 `payload_too_large`, panic 500 `internal_error`. `/api/*` and the UI keep Slack's `{"ok":false,"error":code}` for the same failures.
 - Status codes: 200 read/update, 201 create (+`Location`), 204 delete/clear/no body, 400 malformed request, 404 unknown id/name, 409 conflict (duplicate, reset in progress), 422 well-formed but invalid (e.g. bad manifest, `details:[{"message","pointer"}]`), 5xx server fault.
 - Lists: `{"items":[...],"next_since":<seq>,"generation":<n>}`; oldest first; long-poll with `since=<seq>` (exclusive), `min=<n>`, `timeout_ms=<=30000`. Default `limit` 100, cap 1000.
 - `seq` is monotonic across DELETE/reset; `next_since` echoes input `since` when empty; parked long-polls wake on reset (new `generation`).

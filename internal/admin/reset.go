@@ -9,13 +9,13 @@ import (
 	"strconv"
 	"strings"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/control"
 	"localslack/internal/service"
 )
-
-const maxResetBody = 1 << 20
 
 func mountReset(r chi.Router, d Deps) {
 	if d.Control == nil {
@@ -40,9 +40,12 @@ func (d Deps) reset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body resetBody
-	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxResetBody))
+	dec := json.NewDecoder(capped(w, r))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+		if writeTooLarge(ctx, d.Log, w, err) {
+			return
+		}
 		code := "invalid_json"
 		if isUnknownField(err) {
 			code = "invalid_reset"
@@ -63,7 +66,7 @@ func (d Deps) reset(w http.ResponseWriter, r *http.Request) {
 		d.resetFailed(w, r, err)
 		return
 	}
-	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{
+	respond.JSON(ctx, d.Log, w, http.StatusOK, map[string]any{
 		"mode": res.Mode, "generation": res.Generation, "seed": res.Seed, "took_ms": res.TookMS,
 		"counts": map[string]int{"users": res.Counts.Users, "channels": res.Counts.Channels, "messages": res.Counts.Messages},
 	})

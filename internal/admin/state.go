@@ -4,6 +4,8 @@ import (
 	"log/slog"
 	"net/http"
 
+	"localslack/internal/respond"
+
 	"github.com/go-chi/chi/v5"
 
 	"localslack/internal/service"
@@ -30,7 +32,7 @@ func (d Deps) stateConversations(w http.ResponseWriter, r *http.Request) {
 	for _, c := range states {
 		out = append(out, stateConversation(c))
 	}
-	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{"conversations": out})
+	respond.JSON(ctx, d.Log, w, http.StatusOK, map[string]any{"conversations": out})
 }
 
 func stateConversation(c service.ConversationState) map[string]any {
