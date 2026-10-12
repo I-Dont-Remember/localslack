@@ -72,7 +72,6 @@ def test_create_private_channel(client, unique):
     assert channel["is_private"] is True
 
 
-@deviation("token-in-json-body")
 def test_token_in_json_body_is_not_accepted(api_url):
     resp = httpx.post(api_url + "auth.test", json={"token": "xoxb-test"})
     assert resp.json().get("ok") is False

@@ -180,10 +180,9 @@ ref = "slack_sdk/web/base_client.py: _perform_urllib_http_request always builds 
 
 [behaviors.form-and-json-bodies]
 status = "implemented"
-summary = "Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists."
+summary = "Request params are read from the query string, urlencoded form bodies and JSON bodies (a token field in a JSON body is ignored, as Slack does); arrays become comma lists."
 evidence = "docs"
 ref = "slack_sdk/web/base_client.py: JSON for chat.postMessage-style methods, urlencoded form for the rest"
-deviations = ["token-in-json-body"]
 
 [behaviors.api-errors-http-200]
 status = "implemented"
@@ -342,10 +341,6 @@ summary = "Invalid or out-of-range limit values are silently clamped (default 10
 [deviations.cursor-format]
 severity = "low"
 summary = "Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque."
-
-[deviations.token-in-json-body]
-severity = "low"
-summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
 
 [deviations.tombstone-shape]
 severity = "low"

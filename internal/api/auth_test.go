@@ -89,18 +89,19 @@ func TestParamAndTokenTransports(t *testing.T) {
 		token       string
 		contentType string
 		body        string
+		wantOK      bool
 	}{
-		{"GET with query token", http.MethodGet, "/api/auth.test?token=xoxb-test", "", "", ""},
-		{"POST json body token", http.MethodPost, "/api/auth.test", "", constants.ContentTypeJSON, `{"token":"xoxb-test"}`},
-		{"POST form body token", http.MethodPost, "/api/auth.test", "", constants.ContentTypeForm, "token=xoxb-test"},
-		{"POST bearer header", http.MethodPost, "/api/auth.test", "xoxb-test", "", ""},
+		{"GET with query token", http.MethodGet, "/api/auth.test?token=xoxb-test", "", "", "", true},
+		{"POST json body token is ignored", http.MethodPost, "/api/auth.test", "", constants.ContentTypeJSON, `{"token":"xoxb-test"}`, false},
+		{"POST form body token", http.MethodPost, "/api/auth.test", "", constants.ContentTypeForm, "token=xoxb-test", true},
+		{"POST bearer header", http.MethodPost, "/api/auth.test", "xoxb-test", "", "", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			_, body := do(t, tt.verb, app.URL+tt.path, tt.token, tt.contentType, strings.NewReader(tt.body))
-			if body["ok"] != true {
-				t.Errorf("body = %v, want ok", body)
+			if body["ok"] != tt.wantOK {
+				t.Errorf("body = %v, want ok=%v", body, tt.wantOK)
 			}
 		})
 	}
