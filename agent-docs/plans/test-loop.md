@@ -144,7 +144,7 @@ Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
 
 ## Progress
 - [x] Wave 0 (11 steps)  - [ ] Gate 0
-- [x] Wave 1: A B1 B2 C D E (merged, make verify green)  - [ ] Gate 1 (owner QA + arch review)
+- [x] Wave 1: A B1 B2 C D E (merged, make verify green)  - [ ] Gate 1 (owner QA) - [x] Gate 1 arch review: findings C1-C4, H1-H6, M1, M5 fixed (see "Gate 1 review fixes")
 - [ ] Wave 2: S X F G I  - [ ] Gate 2
 - [ ] Wave 3
 
@@ -159,3 +159,18 @@ Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
 - Config fields exist (not yet consumed): AppManifest, EventTimeout, EventRetryDelays, Scenario, DeliveryLogSize, StrictTokens.
 - Python: `tests/smoke/localslack_admin.py` (`Admin`), fixtures `admin`, `calls_since`, `faults`; add own `*_test.py`. QA pages: `docs/qa/<stream>.md`.
 - Known gap: DBs created before bot_id existed keep an empty `bot_id` on their bot user (delete the DB or backfill).
+
+## Migration ranges actually used
+`00002_test_loop.sql` (Wave 0 base: apps, users.bot_id, conversations.is_private), `00010_apps_deliver_to.sql` and `00011_apps_unique_tokens.sql` (A), `00020_reactions.sql` (B2). Unused so far: E=30, G=40, X=50, S=60. goose runs with `WithAllowOutofOrder(true)`; `TestRealMigrationsApplyLateLowerVersion` proves a lower file added after a higher one is applied.
+
+## Gate 1 review fixes (decided with owner, 2026-10-12; contract in `docs/TESTING_API.md`)
+- **C1** partial reset re-joins kept app bots to public, unarchived channels inside `resetTx` via `service.JoinBotToPublicChannels(ctx, tx, botUserID)` (reuse it from scenario populate / snapshot restore, same write tx, after the channels exist).
+- **C2** `control.Reset`: Pause -> `svc.Reset` -> `disp.Reset` -> clear logs -> Resume. A failed service reset only resumes (trace untouched). `Engine.Publish` reads the generation before the paused check. Known limit: writes committed between the wipe and Resume lose their events.
+- **C3** `service.New(..., WithStrictTokens)`: strict => unregistered `xoxb-` is `invalid_auth`; deleted apps' tokens are tombstoned (`invalid_auth` in every mode) until `reset --all`/restart; bot/app tokens are unique across apps (409 `already_exists`, unique index in 00011); the default bot reports `DefaultBotScopes()`.
+- **C4** `/_localslack/*` server-level errors (guard 403, panic 500, 404 `not_found`, 405, 413 `payload_too_large`) use `{"error":{code,message}}`; `/api` and UI keep the Slack shape. One writer: `internal/respond`, used by server and admin.
+- **H1** `event_id` is per app per delivery (like Slack); `POST /events` and redeliver return `deliveries:[{app_id,event_id,delivery_id}]`; redeliver by `event_id` (unique, `app_id` optional) or by `delivery_id`.
+- **H2** first attempts to one app run serially in publish order (per-app lane); retries use independent timers.
+- **H3** delivery config: `PUT` = full replace with defaults, `PATCH` = merge; per-app config is a sparse override that inherits global changes live; `GET` per-app returns the effective config plus `override`; reset drops overrides.
+- **H4** `Service.Export()` (one `Store.Read` tx) returns a `scenario.Fixture` (app bot users excluded; their messages/reactions stay); `/state/conversations` is a view of it. Snapshots/diff stay in stream G.
+- **H5/M1/M5** depguard: `service` may not import events/control/admin/api/web (api keeps calllog/faults: they are its Recorder/Interceptor seams); `/health` reports `events_dropped`; the `faults` pytest fixture fails loudly and a session-end check asserts faults and delivery-config are back at their starting state; unbounded sleep/spin test waits are bounded polls.
+- **H6** 409 `app_exists` documented; the derived app id collides for equal display names unless `app_id` is given (error message says so).
