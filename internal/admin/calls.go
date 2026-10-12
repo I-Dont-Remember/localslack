@@ -45,14 +45,14 @@ func (d Deps) listCalls(w http.ResponseWriter, r *http.Request) {
 
 func (d Deps) clearCalls(w http.ResponseWriter, _ *http.Request) {
 	d.Calls.Clear()
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
 
 func parseCallsQuery(v url.Values) (calllog.Query, error) {
 	q := calllog.Query{
 		Method: v.Get("method"), Channel: v.Get("channel"), AppID: v.Get("app_id"), Error: v.Get("error"),
 	}
-	if s := v.Get("ok"); s != "" {
+	if s := v.Get(queryOK); s != "" {
 		b, err := strconv.ParseBool(s)
 		if err != nil || (s != "true" && s != "false") {
 			return q, fmt.Errorf("ok must be true or false, got %q", s)

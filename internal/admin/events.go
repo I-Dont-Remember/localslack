@@ -79,7 +79,7 @@ func (e eventsAPI) get(w http.ResponseWriter, r *http.Request) {
 
 func (e eventsAPI) clear(w http.ResponseWriter, _ *http.Request) {
 	e.ctl.ClearDeliveries()
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
 
 func (e eventsAPI) decode(w http.ResponseWriter, r *http.Request, into any) bool {
@@ -267,5 +267,5 @@ func (e eventsAPI) deleteAppConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e.ctl.ClearAppConfig(id)
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }

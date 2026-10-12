@@ -76,12 +76,12 @@ func (h faultHandlers) remove(w http.ResponseWriter, r *http.Request) {
 		writeError(r.Context(), h.Log, w, http.StatusNotFound, "not_found", "no fault "+id)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
 
 func (h faultHandlers) clear(w http.ResponseWriter, _ *http.Request) {
 	h.Faults.Clear()
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
 
 func writeInvalid(ctx context.Context, h faultHandlers, w http.ResponseWriter, details []faults.Detail) {

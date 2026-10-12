@@ -49,6 +49,15 @@ func writeError(ctx context.Context, log *slog.Logger, w http.ResponseWriter, st
 	respond.Error(ctx, log, w, status, code, message, nil)
 }
 
+// writeNoContent answers 204 with no body (delete/clear).
+func writeNoContent(w http.ResponseWriter) { w.WriteHeader(http.StatusNoContent) }
+
+// queryOK is the calls filter parameter; a query key, not a response field.
+const queryOK = "ok"
+
+// healthyStatus is the documented /health "status" value, not an ok wrapper.
+const healthyStatus = "ok"
+
 // maxBodyBytes caps every /_localslack request body.
 const maxBodyBytes = 1 << 20
 

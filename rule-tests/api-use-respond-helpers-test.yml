@@ -1,0 +1,8 @@
+id: api-use-respond-helpers
+valid:
+  - 'func f() { a.fail(ctx, w, err) }'
+  - 'func f() { a.write(ctx, w, 200, v) }'
+invalid:
+  - 'func f() { http.Error(w, "x", 400) }'
+  - 'func f() { w.WriteHeader(204) }'
+  - 'func f() { json.NewEncoder(w).Encode(v) }'

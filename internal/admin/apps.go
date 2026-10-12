@@ -232,7 +232,7 @@ func (a appsAPI) remove(w http.ResponseWriter, r *http.Request) {
 	if ctl, ok := a.controller(); ok {
 		ctl.ClearAppConfig(id)
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeNoContent(w)
 }
 
 func (a appsAPI) verify(w http.ResponseWriter, r *http.Request) {

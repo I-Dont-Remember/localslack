@@ -1,0 +1,15 @@
+id: api-use-respond-helpers
+language: go
+severity: error
+message: api responses are Slack-shaped; write them via api/respond.go (fail/write), not http.Error/WriteHeader/json.NewEncoder; see docs/TESTING_API.md
+rule:
+  any:
+    - pattern: {context: 'func _() { http.Error($$$) }', selector: call_expression}
+    - pattern: {context: 'func _() { $W.WriteHeader($$$) }', selector: call_expression}
+    - pattern: {context: 'func _() { json.NewEncoder($$$) }', selector: call_expression}
+files:
+  - internal/api/**
+ignores:
+  - "**/*_test.go"
+  # respond.go is the one writer (write, capture.flush).
+  - internal/api/respond.go

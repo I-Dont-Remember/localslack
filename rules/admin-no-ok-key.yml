@@ -1,0 +1,11 @@
+id: admin-no-ok-key
+language: go
+severity: error
+message: admin endpoints use real HTTP statuses, no "ok" wrapper; use respond/writeError/writeJSON; see docs/TESTING_API.md
+rule:
+  pattern: '"ok"'
+files:
+  - internal/admin/**
+ignores:
+  - "**/*_test.go"
+  - internal/admin/admin.go

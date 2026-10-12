@@ -1,0 +1,5 @@
+id: admin-no-ok-key
+valid:
+  - 'func f() { x := map[string]any{"status": "up"}; _ = x }'
+invalid:
+  - 'func f() { x := map[string]any{"ok": true}; _ = x }'

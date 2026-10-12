@@ -17,6 +17,6 @@ func mountHealth(r chi.Router, d Deps) {
 		if c, ok := d.Events.(dropCounter); ok {
 			dropped = c.Dropped()
 		}
-		respond.JSON(r.Context(), d.Log, w, http.StatusOK, map[string]any{"status": "ok", "events_dropped": dropped})
+		respond.JSON(r.Context(), d.Log, w, http.StatusOK, map[string]any{"status": healthyStatus, "events_dropped": dropped})
 	})
 }
