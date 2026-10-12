@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"localslack/internal/config"
@@ -22,7 +23,7 @@ type ResetCmd struct {
 	Addr     string `help:"Server address (default 127.0.0.1:3232)." env:"LOCALSLACK_ADDR"`
 	All      bool   `help:"Also remove apps (blank server). Default keeps apps."`
 	Seed     string `help:"Re-seed generated data with this seed."`
-	Scenario string `help:"Scenario fixture file to populate."`
+	Scenario string `help:"Scenario fixture file (.json, .toml, .yaml) to populate instead of the demo data."`
 }
 
 // Run resets the server and prints its JSON reply.
@@ -46,7 +47,12 @@ func (c *ResetCmd) run(ctx context.Context, out io.Writer) error {
 		body["seed"] = c.Seed
 	}
 	if c.Scenario != "" {
-		body["scenario"] = c.Scenario
+		// The server reads the file, so the path must not depend on this process's working directory.
+		path, err := filepath.Abs(c.Scenario)
+		if err != nil {
+			return fmt.Errorf("scenario path: %w", err)
+		}
+		body["scenario"] = path
 	}
 	payload, err := json.Marshal(body)
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"localslack/internal/events"
+	"localslack/internal/scenario"
 	"localslack/internal/service"
 )
 
@@ -28,6 +29,7 @@ type Control struct {
 
 	resetMu sync.Mutex
 	gen     atomic.Int64
+	snaps   snapshots
 }
 
 // Option configures a Control.
@@ -43,6 +45,9 @@ func WithOnReset(fns ...func()) Option {
 	return func(c *Control) { c.onReset = append(c.onReset, fns...) }
 }
 
+// WithClock replaces the time source (snapshot times, durations).
+func WithClock(now func() time.Time) Option { return func(c *Control) { c.now = now } }
+
 // New returns a Control over svc and disp.
 func New(svc *service.Service, disp events.Dispatcher, opts ...Option) *Control {
 	c := &Control{svc: svc, disp: disp, now: time.Now}
@@ -52,11 +57,14 @@ func New(svc *service.Service, disp events.Dispatcher, opts ...Option) *Control 
 	return c
 }
 
-// ResetOpts selects what a reset repopulates; extended by the scenario stream.
+// ResetOpts selects what a reset repopulates.
 type ResetOpts struct {
 	// All also removes apps (blank server); default keeps them.
 	All  bool
 	Seed string
+	// Scenario repopulates from this fixture or its Generate recipe instead of
+	// the demo seed (invalid ones fail with *scenario.Error, nothing changes).
+	Scenario *scenario.Fixture
 }
 
 // ResetResult is the reply of a completed reset (docs/TESTING_API.md, Reset).
@@ -92,11 +100,12 @@ func (c *Control) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	if seed == "" {
 		seed = c.defaultSeed
 	}
-	res, err := c.svc.Reset(ctx, service.ResetOpts{All: o.All, Seed: seed})
+	res, err := c.svc.Reset(ctx, service.ResetOpts{All: o.All, Seed: seed, Scenario: o.Scenario})
 	if err != nil {
 		return ResetResult{}, err
 	}
 	c.disp.Reset()
+	c.snaps.clear()
 	for _, fn := range c.onReset {
 		fn()
 	}

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,6 +14,11 @@ import (
 
 func TestResetCmdRun(t *testing.T) {
 	t.Parallel()
+
+	wantAbs, err := filepath.Abs("acme.json")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	tests := []struct {
 		name       string
@@ -33,8 +39,8 @@ func TestResetCmdRun(t *testing.T) {
 			wantBody: map[string]any{}, wantQuery: "all=true", wantOut: `{"mode":"all"}`,
 		},
 		{
-			name: "seed and scenario", cmd: ResetCmd{Seed: "7", Scenario: "acme.json"}, status: 200, reply: `{"mode":"partial"}`,
-			wantBody: map[string]any{"seed": "7", "scenario": "acme.json"}, wantOut: `{"mode":"partial"}`,
+			name: "seed and scenario (path made absolute)", cmd: ResetCmd{Seed: "7", Scenario: "acme.json"}, status: 200, reply: `{"mode":"partial"}`,
+			wantBody: map[string]any{"seed": "7", "scenario": wantAbs}, wantOut: `{"mode":"partial"}`,
 		},
 		{name: "endpoint missing", status: 404, reply: `{"error":{"code":"not_implemented","message":"x"}}`, wantBody: map[string]any{}, wantErrSub: "not supported by this server"},
 		{name: "server error code", status: 409, reply: `{"error":{"code":"reset_in_progress","message":"reset already running"}}`, wantBody: map[string]any{}, wantErrSub: "reset_in_progress: reset already running"},

@@ -28,14 +28,8 @@ const contractDoc = "docs/TESTING_API.md"
 // in the commit that registers the route (a stale entry fails the test).
 func plannedRoutes() map[string]string {
 	return map[string]string{
-		"GET /_localslack/state":                 "G (state)",
-		"POST /_localslack/snapshots":            "G (snapshots)",
-		"GET /_localslack/snapshots":             "G (snapshots)",
-		"GET /_localslack/snapshots/{}":          "G (snapshots)",
-		"POST /_localslack/snapshots/{}/restore": "G (snapshots)",
-		"GET /_localslack/diff":                  "G (diff)",
-		"GET /_localslack/socket/connections":    "S (socket mode)",
-		"POST /_localslack/socket/disconnect":    "S (socket mode)",
+		"GET /_localslack/socket/connections": "S (socket mode)",
+		"POST /_localslack/socket/disconnect": "S (socket mode)",
 	}
 }
 
@@ -254,6 +248,12 @@ func successProbes() []probe {
 		{route: "GET /_localslack/calls"},
 		{route: "DELETE /_localslack/calls"},
 		{route: "GET /_localslack/state/conversations"},
+		{route: "GET /_localslack/state"},
+		{route: "POST /_localslack/snapshots", body: `{"name":"probe"}`, capture: map[string]string{"snapshot": "name"}},
+		{route: "GET /_localslack/snapshots"},
+		{route: "GET /_localslack/snapshots/{name}", path: "/_localslack/snapshots/$snapshot"},
+		{route: "GET /_localslack/diff", path: "/_localslack/diff?from=$snapshot&to=current"},
+		{route: "POST /_localslack/snapshots/{name}/restore", path: "/_localslack/snapshots/$snapshot/restore"},
 		{route: "POST /_localslack/reset", body: `{}`},
 		{route: "DELETE /_localslack/apps/{id}", path: "/_localslack/apps/$app"},
 	}

@@ -19,7 +19,20 @@ func mountState(r chi.Router, d Deps) {
 	if d.Svc == nil {
 		return
 	}
+	r.Get("/_localslack/state", d.state)
 	r.Get("/_localslack/state/conversations", d.stateConversations)
+}
+
+// state serves the whole workspace as a scenario fixture (the snapshot format).
+func (d Deps) state(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	fx, err := d.Svc.Export(ctx)
+	if err != nil {
+		d.Log.ErrorContext(ctx, "state endpoint", slog.Any("error", err))
+		writeError(ctx, d.Log, w, http.StatusInternalServerError, "internal_error", "internal error")
+		return
+	}
+	respond.JSON(ctx, d.Log, w, http.StatusOK, fx)
 }
 
 // stateConversations dumps every conversation with members and messages as a

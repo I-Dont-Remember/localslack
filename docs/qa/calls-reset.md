@@ -108,10 +108,10 @@ Expected: the second ts is greater.
 go run ./cmd/localslack reset --seed qa-2          # or ./bin/localslack after `make build`
 go run ./cmd/localslack reset --all
 go run ./cmd/localslack reset --addr 127.0.0.1:1   # no server there
-go run ./cmd/localslack reset --scenario x.json    # not available yet
+go run ./cmd/localslack reset --scenario nope.json   # missing file
 ```
 
-Expected: the first two print the JSON reply (`mode` `partial` then `all`). The third exits non-zero with `reach server at ... (is it running?)`. The last exits non-zero with `reset failed: not_supported_yet: ... (HTTP 422)`.
+Expected: the first two print the JSON reply (`mode` `partial` then `all`). The third exits non-zero with `reach server at ... (is it running?)`. The last exits non-zero with `reset failed: invalid_reset: scenario: read scenario: ... (HTTP 400)`.
 
 ### 9. Errors
 
@@ -119,7 +119,7 @@ Expected: the first two print the JSON reply (`mode` `partial` then `all`). The 
 curl -s -X POST "$LS/_localslack/reset?all=maybe" | jq .          # 400 invalid_query
 curl -s -X POST $LS/_localslack/reset -d '{' | jq .               # 400 invalid_json
 curl -s -X POST $LS/_localslack/reset -d '{"keep":["apps"]}' | jq . # 400 invalid_reset (no keep list)
-curl -s -X POST $LS/_localslack/reset -d '{"generate":{"users":3}}' | jq .   # 422 not_supported_yet
+curl -s -X POST $LS/_localslack/reset -d '{"generate":{"users":3}}' | jq .   # 422 invalid_generate
 ```
 
 All errors have the shape `{"error":{"code","message"}}` with a real HTTP status.

@@ -255,12 +255,14 @@ milestone = "M3"
 summary = "Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel."
 
 [behaviors.inspection-api]
-status = "planned"
+status = "implemented"
 summary = "LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose."
+evidence = "llm"
 
 [behaviors.scenario-seeding]
-status = "planned"
-summary = "Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate."
+status = "implemented"
+summary = "Reproducible workspace scenarios: JSON/TOML/YAML fixtures with exact ids or a seeded generator (400 users x 50 channels in well under 2s), from `start --scenario`, `localslack reset --scenario` or POST /_localslack/reset."
+evidence = "llm"
 
 [behaviors.call-log]
 status = "implemented"
@@ -288,8 +290,9 @@ summary = "Test controls for event delivery: inject, redeliver, bad/stale/missin
 evidence = "llm"
 
 [behaviors.state-snapshot]
-status = "planned"
-summary = "Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture."
+status = "implemented"
+summary = "In-memory named snapshots, restore (no events) and field-level diff of workspace state; the snapshot format doubles as a scenario fixture (GET /_localslack/state)."
+evidence = "llm"
 
 # ---------------------------------------------------------------- known deviations
 # Referenced by id from methods and behaviors above. Keep summaries one sentence: they are

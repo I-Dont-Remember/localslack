@@ -67,7 +67,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `fault-injection` | implemented | — | llm | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
-| `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
+| `inspection-api` | implemented | — | llm | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
 | `membership-enforcement` | planned | — | — | not_in_channel / channel_not_found for non-members reading or posting in channels and DMs. | `no-membership-check` |
 | `message-ts` | implemented | — | llm | Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts. | — |
 | `multipart-bodies` | planned | — | — | multipart/form-data requests (file uploads). | `multipart-ignored` |
@@ -76,11 +76,11 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `private-channels` | planned | — | — | Private channels and groups. | `no-private-channels` |
 | `rate-limiting` | planned | M5 | — | Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var). | — |
 | `response-headers` | planned | — | — | Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type. | `response-headers-missing` |
-| `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
+| `scenario-seeding` | implemented | — | llm | Reproducible workspace scenarios: JSON/TOML/YAML fixtures with exact ids or a seeded generator (400 users x 50 channels in well under 2s), from `start --scenario`, `localslack reset --scenario` or POST /_localslack/reset. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | — |
 | `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
 | `state-reset` | implemented | — | llm | POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps. | — |
-| `state-snapshot` | planned | — | — | Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture. | — |
+| `state-snapshot` | implemented | — | llm | In-memory named snapshots, restore (no events) and field-level diff of workspace state; the snapshot format doubles as a scenario fixture (GET /_localslack/state). | — |
 
 ## Known deviations from real Slack
 
