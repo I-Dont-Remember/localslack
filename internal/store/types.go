@@ -1,5 +1,7 @@
 package store
 
+import "encoding/json"
+
 // Conversation kinds.
 const (
 	KindChannel = "channel"
@@ -28,10 +30,20 @@ type Conversation struct {
 	IsPrivate                       bool
 }
 
+// Edit marks a message as edited by User at TS.
+type Edit struct{ User, TS string }
+
 // Message is a posted message; ThreadTS is empty for non-threaded messages.
+// BotID..Edited live in the messages.data JSON column (see messages.go).
 type Message struct {
 	ChannelID, TS, UserID, Text string
 	ThreadTS                    string
 	ReplyCount                  int
 	LatestReply                 string
+
+	BotID, Subtype string
+	Blocks         json.RawMessage
+	Attachments    json.RawMessage
+	Metadata       json.RawMessage
+	Edited         *Edit
 }

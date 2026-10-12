@@ -53,7 +53,11 @@ func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed stri
 			return nil, err
 		}
 	}
-	return &Service{st: st, now: now, ids: ids.NewGenerator(idSeed), ts: gen}, nil
+	svc := &Service{st: st, now: now, ids: ids.NewGenerator(idSeed), ts: gen}
+	if err := svc.RefreshApps(ctx); err != nil {
+		return nil, err
+	}
+	return svc, nil
 }
 
 // Team returns the workspace.

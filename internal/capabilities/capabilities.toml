@@ -20,7 +20,7 @@
 status = "implemented"
 tier = 3
 scopes = []
-deviations = ["fabricated-bot-id", "any-token-accepted"]
+deviations = ["any-token-accepted"]
 
 [methods."users.list"]
 status = "implemented"
@@ -213,7 +213,6 @@ evidence = "llm"
 status = "implemented"
 summary = "Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars)."
 evidence = "llm"
-deviations = ["fabricated-bot-id"]
 
 [behaviors.response-headers]
 status = "planned"
@@ -311,7 +310,7 @@ summary = "The channel param must be an ID: \"#general\" and user IDs as DM targ
 
 [deviations.partial-message-fields]
 severity = "medium"
-summary = "Messages omit bot_id, bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
+summary = "Messages omit bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
 
 [deviations.no-private-channels]
 severity = "medium"
@@ -356,10 +355,6 @@ summary = "Cursors are unpadded base64url of an internal key; Slack's are padded
 [deviations.token-in-json-body]
 severity = "low"
 summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
-
-[deviations.fabricated-bot-id]
-severity = "low"
-summary = "auth.test derives bot_id from the bot's user ID; bot IDs are not stored and never appear on messages or users."
 
 [deviations.message-length-unbounded]
 severity = "low"

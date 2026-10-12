@@ -1,9 +1,11 @@
 package service_test
 
 import (
+	"encoding/json"
 	"errors"
 	"slices"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -257,16 +259,16 @@ func TestPostMessageAndHistory(t *testing.T) {
 	caller, _ := usersOf(t, svc)
 	ch := generalID(t, svc, caller)
 
-	if _, err := svc.PostMessage(t.Context(), caller, "CNOPE", "x", ""); !errors.Is(err, service.ErrChannelNotFound) {
+	if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: "CNOPE", Content: service.Content{Text: "x"}}); !errors.Is(err, service.ErrChannelNotFound) {
 		t.Errorf("missing channel err = %v", err)
 	}
-	if _, err := svc.PostMessage(t.Context(), caller, ch, "", ""); !errors.Is(err, service.ErrNoText) {
+	if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: ""}}); !errors.Is(err, service.ErrNoText) {
 		t.Errorf("empty text err = %v", err)
 	}
 
 	var posted []string
 	for _, text := range []string{"one", "two", "three"} {
-		m, err := svc.PostMessage(t.Context(), caller, ch, text, "")
+		m, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: text}})
 		if err != nil {
 			t.Fatalf("PostMessage: %v", err)
 		}
@@ -305,23 +307,23 @@ func TestThreads(t *testing.T) {
 	caller, _ := usersOf(t, svc)
 	ch := generalID(t, svc, caller)
 
-	parent, err := svc.PostMessage(t.Context(), caller, ch, "parent", "")
+	parent, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "parent"}})
 	if err != nil {
 		t.Fatalf("parent: %v", err)
 	}
-	reply, err := svc.PostMessage(t.Context(), caller, ch, "reply", parent.TS)
+	reply, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "reply"}, ThreadTS: parent.TS})
 	if err != nil {
 		t.Fatalf("reply: %v", err)
 	}
 	// Replying to a reply attaches to the thread root.
-	reply2, err := svc.PostMessage(t.Context(), caller, ch, "reply to reply", reply.TS)
+	reply2, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "reply to reply"}, ThreadTS: reply.TS})
 	if err != nil {
 		t.Fatalf("reply2: %v", err)
 	}
 	if reply2.ThreadTS != parent.TS {
 		t.Errorf("reply2.ThreadTS = %q, want root %q", reply2.ThreadTS, parent.TS)
 	}
-	if _, err := svc.PostMessage(t.Context(), caller, ch, "orphan", "1.000001"); !errors.Is(err, service.ErrThreadNotFound) {
+	if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "orphan"}, ThreadTS: "1.000001"}); !errors.Is(err, service.ErrThreadNotFound) {
 		t.Errorf("orphan err = %v, want ErrThreadNotFound", err)
 	}
 
@@ -381,7 +383,7 @@ func TestOpenDM(t *testing.T) {
 		t.Errorf("no users err = %v", err)
 	}
 
-	if _, err := svc.PostMessage(t.Context(), caller, im.ID, "psst", ""); err != nil {
+	if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: im.ID, Content: service.Content{Text: "psst"}}); err != nil {
 		t.Fatalf("post to dm: %v", err)
 	}
 	h, err := svc.History(t.Context(), caller, im.ID, service.PageOpts{})
@@ -428,7 +430,7 @@ func TestTSUniqueMonotonicUnderConcurrency(t *testing.T) {
 			defer wg.Done()
 			var mine []string
 			for range perWorker {
-				m, err := svc.PostMessage(t.Context(), caller, ch, "x", "")
+				m, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "x"}})
 				if err != nil {
 					t.Errorf("PostMessage: %v", err)
 					return
@@ -465,7 +467,7 @@ func TestTSSurvivesRestartWithEarlierClock(t *testing.T) {
 	}
 	caller, _ := usersOf(t, first)
 	ch := generalID(t, first, caller)
-	m1, err := first.PostMessage(t.Context(), caller, ch, "before restart", "")
+	m1, err := first.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "before restart"}})
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -475,7 +477,7 @@ func TestTSSurvivesRestartWithEarlierClock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("New: %v", err)
 	}
-	m2, err := second.PostMessage(t.Context(), caller, ch, "after restart", "")
+	m2, err := second.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "after restart"}})
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}
@@ -507,7 +509,7 @@ func TestCursorsAreBoundToTheirEndpoint(t *testing.T) {
 	caller, _ := usersOf(t, svc)
 	ch := generalID(t, svc, caller)
 	for range 3 {
-		if _, err := svc.PostMessage(t.Context(), caller, ch, "x", ""); err != nil {
+		if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "x"}}); err != nil {
 			t.Fatalf("post: %v", err)
 		}
 	}
@@ -573,9 +575,9 @@ func TestMessageThreadFields(t *testing.T) {
 	svc, _ := newSvc(t)
 	caller, other := usersOf(t, svc)
 	ch := generalID(t, svc, caller)
-	plain, _ := svc.PostMessage(t.Context(), caller, ch, "plain", "")
-	root, _ := svc.PostMessage(t.Context(), caller, ch, "root", "")
-	if _, err := svc.PostMessage(t.Context(), other, ch, "reply", root.TS); err != nil {
+	plain, _ := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "plain"}})
+	root, _ := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "root"}})
+	if _, err := svc.PostMessage(t.Context(), other, service.PostOpts{Channel: ch, Content: service.Content{Text: "reply"}, ThreadTS: root.TS}); err != nil {
 		t.Fatalf("reply: %v", err)
 	}
 
@@ -614,7 +616,7 @@ func TestHistoryRange(t *testing.T) {
 	ch := generalID(t, svc, caller)
 	var ts []string
 	for _, text := range []string{"a", "b", "c"} {
-		m, err := svc.PostMessage(t.Context(), caller, ch, text, "")
+		m, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: text}})
 		if err != nil {
 			t.Fatalf("post: %v", err)
 		}
@@ -670,7 +672,7 @@ func TestArchive(t *testing.T) {
 	if err := svc.ArchiveChannel(t.Context(), caller, ch.ID); !errors.Is(err, service.ErrAlreadyArchived) {
 		t.Errorf("second archive err = %v, want ErrAlreadyArchived", err)
 	}
-	if _, err := svc.PostMessage(t.Context(), caller, ch.ID, "hi", ""); !errors.Is(err, service.ErrIsArchived) {
+	if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch.ID, Content: service.Content{Text: "hi"}}); !errors.Is(err, service.ErrIsArchived) {
 		t.Errorf("post to archived err = %v, want ErrIsArchived", err)
 	}
 
@@ -713,7 +715,7 @@ func TestConcurrentCreateAndPostAndRead(t *testing.T) {
 			if _, err := svc.OpenDM(t.Context(), caller, []string{other.ID}); err != nil {
 				t.Errorf("open dm: %v", err)
 			}
-			if _, err := svc.PostMessage(t.Context(), caller, ch, "r", ""); err != nil {
+			if _, err := svc.PostMessage(t.Context(), caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "r"}}); err != nil {
 				t.Errorf("post: %v", err)
 			}
 		}()
@@ -767,7 +769,7 @@ func TestSnapshotGroupsMessagesByConversation(t *testing.T) {
 	caller, _ := usersOf(t, svc)
 	ctx := t.Context()
 	ch := generalID(t, svc, caller)
-	if _, err := svc.PostMessage(ctx, caller, ch, "snap me", ""); err != nil {
+	if _, err := svc.PostMessage(ctx, caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "snap me"}}); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	got, err := svc.Snapshot(ctx)
@@ -785,5 +787,126 @@ func TestSnapshotGroupsMessagesByConversation(t *testing.T) {
 	}
 	if !found {
 		t.Error("posted message missing from snapshot")
+	}
+}
+
+func TestPostMessageContentAndBot(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	human, bot := usersOf(t, svc)
+	ch := generalID(t, svc, human)
+	content := service.Content{
+		Text:        "hi",
+		Blocks:      json.RawMessage(`[{"type":"divider"}]`),
+		Attachments: json.RawMessage(`[{"text":"a"}]`),
+		Metadata:    json.RawMessage(`{"event_type":"e","event_payload":{}}`),
+	}
+	tests := []struct {
+		name   string
+		author service.User
+		want   service.Message
+	}{
+		{"human", human, service.Message{UserID: human.ID}},
+		{"bot", bot, service.Message{UserID: bot.ID, BotID: bot.BotID}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			posted, err := svc.PostMessage(t.Context(), tt.author, service.PostOpts{Channel: ch, Content: content})
+			if err != nil {
+				t.Fatalf("PostMessage: %v", err)
+			}
+			page, err := svc.History(t.Context(), human, ch, service.PageOpts{Limit: 50})
+			if err != nil {
+				t.Fatalf("History: %v", err)
+			}
+			var got service.Message
+			for _, m := range page.Items {
+				if m.TS == posted.TS {
+					got = m
+				}
+			}
+			tt.want.ChannelID, tt.want.TS, tt.want.Text = ch, posted.TS, "hi"
+			tt.want.Blocks, tt.want.Attachments, tt.want.Metadata = content.Blocks, content.Attachments, content.Metadata
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("stored message (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(got, posted); diff != "" {
+				t.Errorf("returned vs stored (-stored +returned):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestSeededBotHasBotID(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	human, bot := usersOf(t, svc)
+	if !strings.HasPrefix(bot.BotID, "B") || len(bot.BotID) != 11 || human.BotID != "" {
+		t.Errorf("bot_id: bot=%q human=%q, want B-prefixed 11 chars and empty", bot.BotID, human.BotID)
+	}
+}
+
+func TestAppsLoadedFromStore(t *testing.T) {
+	t.Parallel()
+
+	st := storetest.NewStore(t)
+	insert := func(a store.App) {
+		t.Helper()
+		if err := st.Write(t.Context(), func(tx *store.Tx) error { return tx.InsertApp(t.Context(), a) }); err != nil {
+			t.Fatalf("InsertApp: %v", err)
+		}
+	}
+	bot, err := st.BotUser(t.Context())
+	if err != nil {
+		t.Fatalf("BotUser: %v", err)
+	}
+	insert(store.App{ID: "A1", Name: "one", BotToken: "xoxb-" + "one", AppToken: "xapp-" + "one", BotUserID: bot.ID, BotID: bot.BotID, Scopes: []string{"chat:write"}})
+
+	svc, err := service.New(t.Context(), st, fixedClock(), "svc-ids")
+	if err != nil {
+		t.Fatalf("service.New: %v", err)
+	}
+	p, err := svc.Authenticate(t.Context(), "xoxb-one")
+	if err != nil || p.App == nil || p.App.ID != "A1" || p.User.ID != bot.ID || !slices.Equal(p.Scopes, []string{"chat:write"}) {
+		t.Fatalf("Authenticate(app bot token) = %+v, %v; want app A1 as the bot", p, err)
+	}
+
+	insert(store.App{ID: "A2", Name: "two", BotToken: "xoxb-" + "two", BotUserID: bot.ID})
+	if p := svc.Identify(t.Context(), "xoxb-two"); p.App != nil {
+		t.Errorf("app registered after load already resolves: %+v", p.App)
+	}
+	if err := svc.RefreshApps(t.Context()); err != nil {
+		t.Fatalf("RefreshApps: %v", err)
+	}
+	if p := svc.Identify(t.Context(), "xoxb-two"); p.App == nil || p.App.ID != "A2" {
+		t.Errorf("after RefreshApps app = %+v, want A2", p.App)
+	}
+}
+
+func TestConversationIsPrivate(t *testing.T) {
+	t.Parallel()
+
+	svc, st := newSvc(t)
+	caller, _ := usersOf(t, svc)
+	team, err := svc.Team(t.Context())
+	if err != nil {
+		t.Fatalf("Team: %v", err)
+	}
+	err = st.Write(t.Context(), func(tx *store.Tx) error {
+		return tx.InsertConversation(t.Context(), store.Conversation{ID: "CPRIV", TeamID: team.ID, Name: "secret", Kind: store.KindChannel, IsPrivate: true})
+	})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	got, err := svc.Conversation(t.Context(), caller, "CPRIV")
+	if err != nil || !got.IsPrivate {
+		t.Errorf("Conversation = %+v, %v; want IsPrivate", got, err)
+	}
+	pub, err := svc.Conversation(t.Context(), caller, generalID(t, svc, caller))
+	if err != nil || pub.IsPrivate {
+		t.Errorf("#general = %+v, %v; want public", pub, err)
 	}
 }

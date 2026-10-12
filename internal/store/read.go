@@ -22,7 +22,6 @@ type scanner interface{ Scan(dest ...any) error }
 const (
 	userCols = `id, team_id, name, real_name, is_bot, bot_id`
 	convCols = `id, team_id, name, kind, creator, created, is_archived, is_private`
-	msgCols  = `channel_id, ts, user_id, text, thread_ts, reply_count, latest_reply`
 )
 
 func scanUser(r scanner, u *User) error {
@@ -31,10 +30,6 @@ func scanUser(r scanner, u *User) error {
 
 func scanConv(r scanner, c *Conversation) error {
 	return r.Scan(&c.ID, &c.TeamID, &c.Name, &c.Kind, &c.Creator, &c.Created, &c.IsArchived, &c.IsPrivate)
-}
-
-func scanMsg(r scanner, m *Message) error {
-	return r.Scan(&m.ChannelID, &m.TS, &m.UserID, &m.Text, &m.ThreadTS, &m.ReplyCount, &m.LatestReply)
 }
 
 // IsEmpty reports whether the database has no teams (i.e. is unseeded).
@@ -86,33 +81,12 @@ func (s *Store) Conversations(ctx context.Context) ([]Conversation, error) {
 	return query(ctx, s.reader, "conversations", `SELECT `+convCols+` FROM conversations ORDER BY id`, scanConv)
 }
 
-// Message returns a message by key.
-func (s *Store) Message(ctx context.Context, channelID, ts string) (Message, error) {
-	return messageByTS(ctx, s.reader, channelID, ts)
-}
-
-// Messages returns every message in a channel, oldest first (replies included).
-func (s *Store) Messages(ctx context.Context, channelID string) ([]Message, error) {
-	return query(ctx, s.reader, "messages",
-		`SELECT `+msgCols+` FROM messages WHERE channel_id = ? ORDER BY ts`, scanMsg, channelID)
-}
-
-// AllMessages returns every message in every channel, ordered by channel then ts.
-func (s *Store) AllMessages(ctx context.Context) ([]Message, error) {
-	return query(ctx, s.reader, "messages",
-		`SELECT `+msgCols+` FROM messages ORDER BY channel_id, ts`, scanMsg)
-}
-
 func userByID(ctx context.Context, q queryer, id string) (User, error) {
 	return getOne(ctx, q, "user", `SELECT `+userCols+` FROM users WHERE id = ?`, scanUser, id)
 }
 
 func conversationByID(ctx context.Context, q queryer, id string) (Conversation, error) {
 	return getOne(ctx, q, "conversation", `SELECT `+convCols+` FROM conversations WHERE id = ?`, scanConv, id)
-}
-
-func messageByTS(ctx context.Context, q queryer, channelID, ts string) (Message, error) {
-	return getOne(ctx, q, "message", `SELECT `+msgCols+` FROM messages WHERE channel_id = ? AND ts = ?`, scanMsg, channelID, ts)
 }
 
 func getOne[T any](ctx context.Context, q queryer, what, sqlStr string, scan func(scanner, *T) error, args ...any) (T, error) {

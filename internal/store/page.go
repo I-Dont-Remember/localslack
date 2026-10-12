@@ -42,39 +42,6 @@ func (s *Store) ConversationsPage(ctx context.Context, cq ConvQuery) ([]Conversa
 	return query(ctx, s.reader, "conversations page", q, scanConv, args...)
 }
 
-// HistoryQuery selects top-level messages. Zero values mean "no bound".
-// Before is an exclusive keyset cursor; Oldest/Latest are Slack range bounds
-// (exclusive unless Inclusive). Limit 0 means unlimited.
-type HistoryQuery struct {
-	Before, Oldest, Latest string
-	Inclusive              bool
-	Limit                  int
-}
-
-// HistoryPage returns top-level messages (thread replies excluded), newest first.
-func (s *Store) HistoryPage(ctx context.Context, channelID string, hq HistoryQuery) ([]Message, error) {
-	q := `SELECT ` + msgCols + ` FROM messages WHERE channel_id = ? AND thread_ts = ''`
-	args := []any{channelID}
-	lo, hi := ">", "<"
-	if hq.Inclusive {
-		lo, hi = ">=", "<="
-	}
-	if hq.Before != "" {
-		q += ` AND ts < ?`
-		args = append(args, hq.Before)
-	}
-	if hq.Latest != "" {
-		q += ` AND ts ` + hi + ` ?`
-		args = append(args, hq.Latest)
-	}
-	if hq.Oldest != "" {
-		q += ` AND ts ` + lo + ` ?`
-		args = append(args, hq.Oldest)
-	}
-	q, args = withLimit(q+` ORDER BY ts DESC`, args, hq.Limit)
-	return query(ctx, s.reader, "history page", q, scanMsg, args...)
-}
-
 // MembersOf returns member user ids (sorted) per conversation id.
 func (s *Store) MembersOf(ctx context.Context, conversationIDs []string) (map[string][]string, error) {
 	out := map[string][]string{}
@@ -96,19 +63,6 @@ func (s *Store) MembersOf(ctx context.Context, conversationIDs []string) (map[st
 		out[r.conv] = append(out[r.conv], r.user)
 	}
 	return out, nil
-}
-
-// ThreadPage returns a thread's parent followed by its replies, oldest first.
-// afterTS is an exclusive keyset cursor; limit 0 means unlimited.
-func (s *Store) ThreadPage(ctx context.Context, channelID, threadTS, afterTS string, limit int) ([]Message, error) {
-	q := `SELECT ` + msgCols + ` FROM messages WHERE channel_id = ? AND (ts = ? OR thread_ts = ?)`
-	args := []any{channelID, threadTS, threadTS}
-	if afterTS != "" {
-		q += ` AND ts > ?`
-		args = append(args, afterTS)
-	}
-	q, args = withLimit(q+` ORDER BY ts`, args, limit)
-	return query(ctx, s.reader, "thread page", q, scanMsg, args...)
 }
 
 func withLimit(q string, args []any, limit int) (string, []any) {

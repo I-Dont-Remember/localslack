@@ -1,10 +1,16 @@
 package api
 
-import "context"
+import (
+	"context"
+
+	"localslack/internal/service"
+)
 
 func (a *API) chatPostMessage(ctx context.Context, c *call) (map[string]any, error) {
 	channel := c.params.Get("channel")
-	msg, err := a.svc.PostMessage(ctx, c.p.User, channel, c.params.Get("text"), c.params.Get("thread_ts"))
+	msg, err := a.svc.PostMessage(ctx, c.p.User, service.PostOpts{
+		Channel: channel, ThreadTS: c.params.Get("thread_ts"), Content: service.Content{Text: c.params.Get("text")},
+	})
 	if err != nil {
 		return nil, err
 	}

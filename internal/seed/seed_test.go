@@ -108,8 +108,14 @@ func checkShape(t *testing.T, d dump) {
 			if u.Name != "localslack-bot" {
 				t.Errorf("bot name = %q, want localslack-bot", u.Name)
 			}
+			if len(u.BotID) != 11 || u.BotID[0] != 'B' {
+				t.Errorf("bot_id = %q, want B + 10 chars", u.BotID)
+			}
 		} else {
 			humans++
+			if u.BotID != "" {
+				t.Errorf("human %s has bot_id %q", u.ID, u.BotID)
+			}
 		}
 	}
 	if humans < 1 || humans > 10 || bots != 1 {

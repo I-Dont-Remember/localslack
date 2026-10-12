@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"localslack/internal/storetest"
 )
 
@@ -92,5 +94,30 @@ func TestConversationsArchive(t *testing.T) {
 	}
 	if _, b := call(t, app, "conversations.archive", botToken, map[string]string{"channel": generalID(t, app)}); b["error"] != "cant_archive_general" {
 		t.Errorf("archive general = %v, want cant_archive_general", b)
+	}
+}
+
+func TestBotMessagesCarryBotID(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	human, _ := humanAndBot(t, app)
+	general := generalID(t, app)
+	_, who := call(t, app, "auth.test", botToken, nil)
+	botID, _ := who["bot_id"].(string)
+	if botID == "" || botID[0] != 'B' {
+		t.Fatalf("auth.test bot_id = %q, want stored B... id", botID)
+	}
+
+	call(t, app, "chat.postMessage", botToken, map[string]string{"channel": general, "text": "from bot"})
+	call(t, app, "chat.postMessage", "xoxp-"+human.ID, map[string]string{"channel": general, "text": "from human"})
+	_, hist := call(t, app, "conversations.history", botToken, map[string]string{"channel": general, "limit": "2"})
+	got := map[any]any{}
+	for _, m := range items(t, hist, "messages") {
+		got[m["text"]] = m["bot_id"]
+	}
+	want := map[any]any{"from bot": botID, "from human": nil}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("bot_id by message text (-want +got):\n%s", diff)
 	}
 }

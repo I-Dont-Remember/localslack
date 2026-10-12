@@ -25,7 +25,7 @@ const (
 type App struct {
 	ID, Name           string
 	BotToken, AppToken string
-	BotUserID          string
+	BotUserID, BotID   string
 	Scopes             []string
 	SocketMode         bool
 }

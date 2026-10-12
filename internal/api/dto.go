@@ -15,7 +15,7 @@ func userDTO(u service.User, teamID string) map[string]any {
 func conversationDTO(c service.Conversation) map[string]any {
 	out := map[string]any{
 		"id": c.ID, "created": c.Created, "creator": c.Creator, "is_archived": c.IsArchived,
-		"is_channel": false, "is_group": false, "is_im": false, "is_mpim": false, "is_private": false,
+		"is_channel": false, "is_group": false, "is_im": false, "is_mpim": false, "is_private": c.IsPrivate,
 		"is_member": c.IsMember, "num_members": c.NumMembers,
 	}
 	switch c.Kind {
@@ -50,7 +50,17 @@ func messageDTO(m service.Message) map[string]any {
 	if m.ParentUserID != "" {
 		out["parent_user_id"] = m.ParentUserID
 	}
+	addBot(out, m)
+	addContent(out, m)
+	addEdited(out, m)
+	addReactions(out, m)
 	return out
+}
+
+func addBot(out map[string]any, m service.Message) {
+	if m.BotID != "" {
+		out["bot_id"] = m.BotID
+	}
 }
 
 func cursorMeta(next string) map[string]any { return map[string]any{"next_cursor": next} }

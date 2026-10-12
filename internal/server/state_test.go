@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"testing"
 
+	"localslack/internal/service"
 	"localslack/internal/storetest"
 )
 
@@ -68,7 +69,7 @@ func TestStateConversations(t *testing.T) {
 		t.Fatalf("state = %+v, want ok with seeded #general (>=3 messages)", before)
 	}
 
-	if _, err := app.Service.PostMessage(t.Context(), caller, generalID, "visible in state", ""); err != nil {
+	if _, err := app.Service.PostMessage(t.Context(), caller, service.PostOpts{Channel: generalID, Content: service.Content{Text: "visible in state"}}); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	after := getState(t, app)

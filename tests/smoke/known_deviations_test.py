@@ -104,12 +104,11 @@ def test_token_in_json_body_is_not_accepted(api_url):
 
 
 @deviation("partial-message-fields")
-def test_messages_carry_bot_fields(client, unique):
-    channel = new_channel(client, f"bot-{unique}")
+def test_messages_carry_team_field(client, unique):
+    channel = new_channel(client, f"team-{unique}")
     client.chat_postMessage(channel=channel, text="from the bot")
     message = client.conversations_history(channel=channel)["messages"][0]
-    assert message.get("bot_id")
-    assert message.get("subtype") in (None, "bot_message")
+    assert message.get("team")
 
 
 @deviation("collapsed-errors")

@@ -17,7 +17,7 @@ type Tx struct{ tx *sql.Tx }
 func (t *Tx) exec(ctx context.Context, what, q string, args ...any) error {
 	if _, err := t.tx.ExecContext(ctx, q, args...); err != nil {
 		var se *sqlite.Error
-		if errors.As(err, &se) && se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
+		if errors.As(err, &se) && (se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE || se.Code() == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY) {
 			return fmt.Errorf("%s: %w", what, ErrDuplicate)
 		}
 		return fmt.Errorf("%s: %w", what, err)
@@ -57,11 +57,6 @@ func (t *Tx) Conversation(ctx context.Context, id string) (Conversation, error) 
 	return conversationByID(ctx, t.tx, id)
 }
 
-// Message returns a message by key, seeing this txn's writes.
-func (t *Tx) Message(ctx context.Context, channelID, ts string) (Message, error) {
-	return messageByTS(ctx, t.tx, channelID, ts)
-}
-
 // ConversationWithMembers returns the id of the conversation of the given kind whose
 // member set is exactly userIDs, or "" if none exists.
 func (t *Tx) ConversationWithMembers(ctx context.Context, kind string, userIDs []string) (string, error) {
@@ -89,20 +84,6 @@ func (t *Tx) ConversationWithMembers(ctx context.Context, kind string, userIDs [
 	return id, nil
 }
 
-// BumpThread records a new reply on a thread parent; ErrNotFound if the parent is missing.
-func (t *Tx) BumpThread(ctx context.Context, channelID, parentTS, replyTS string) error {
-	res, err := t.tx.ExecContext(ctx,
-		`UPDATE messages SET reply_count = reply_count + 1, latest_reply = ? WHERE channel_id = ? AND ts = ?`,
-		replyTS, channelID, parentTS)
-	if err != nil {
-		return fmt.Errorf("bump thread: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("bump thread: parent %s: %w", parentTS, ErrNotFound)
-	}
-	return nil
-}
-
 // SetArchived flips a conversation's archived flag; ErrNotFound if it does not exist.
 func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
 	res, err := t.tx.ExecContext(ctx, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
@@ -113,11 +94,4 @@ func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
 		return fmt.Errorf("set archived %s: %w", id, ErrNotFound)
 	}
 	return nil
-}
-
-// InsertMessage adds a message.
-func (t *Tx) InsertMessage(ctx context.Context, m Message) error {
-	return t.exec(ctx, "insert message",
-		`INSERT INTO messages (channel_id, ts, user_id, text, thread_ts, reply_count, latest_reply) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		m.ChannelID, m.TS, m.UserID, m.Text, m.ThreadTS, m.ReplyCount, m.LatestReply)
 }

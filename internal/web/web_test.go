@@ -192,7 +192,7 @@ func TestSDKPostAppearsInPolledFragment(t *testing.T) {
 
 	app := storetest.NewApp(t)
 	w := setup(t, app)
-	if _, err := app.Service.PostMessage(t.Context(), w.other, w.general, "from the sdk side", ""); err != nil {
+	if _, err := app.Service.PostMessage(t.Context(), w.other, service.PostOpts{Channel: w.general, Content: service.Content{Text: "from the sdk side"}}); err != nil {
 		t.Fatalf("post: %v", err)
 	}
 	status, frag, _ := newBrowser(t, app).get("/ui/c/" + w.general + "/messages")
@@ -208,7 +208,7 @@ func TestThreads(t *testing.T) {
 	app := storetest.NewApp(t)
 	w := setup(t, app)
 	b := newBrowser(t, app)
-	root, err := app.Service.PostMessage(t.Context(), w.other, w.general, "thread root", "")
+	root, err := app.Service.PostMessage(t.Context(), w.other, service.PostOpts{Channel: w.general, Content: service.Content{Text: "thread root"}})
 	if err != nil {
 		t.Fatalf("post: %v", err)
 	}

@@ -33,6 +33,7 @@
       "message": {
         "type": "message",
         "user": "<id:U>",
+        "bot_id": "<id:B>",
         "text": "hello",
         "ts": "<ts>"
       }

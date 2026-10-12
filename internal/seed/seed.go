@@ -56,9 +56,10 @@ func Apply(ctx context.Context, s *store.Store, o Options) (bool, error) {
 }
 
 type gen struct {
-	ids *ids.Generator
-	rng *rand.Rand
-	now time.Time
+	seed string
+	ids  *ids.Generator
+	rng  *rand.Rand
+	now  time.Time
 }
 
 func newGen(o Options) *gen {
@@ -67,7 +68,7 @@ func newGen(o Options) *gen {
 	return &gen{
 		ids: ids.NewGenerator(o.Seed),
 		rng: rand.New(rand.NewPCG(h.Sum64(), 1)),
-		now: o.Now,
+		now: o.Now, seed: o.Seed,
 	}
 }
 
@@ -96,7 +97,9 @@ func (g *gen) users(ctx context.Context, tx *store.Tx, teamID string) ([]store.U
 	for _, i := range g.rng.Perm(len(pool))[:n] {
 		users = append(users, store.User{ID: g.ids.User(), TeamID: teamID, Name: pool[i], RealName: pool[i]})
 	}
-	users = append(users, store.User{ID: g.ids.User(), TeamID: teamID, Name: botName, RealName: botName, IsBot: true})
+	// bot ids come from their own stream so adding them leaves every other seeded id unchanged.
+	bots := ids.NewGenerator(g.seed + "/bot")
+	users = append(users, store.User{ID: g.ids.User(), TeamID: teamID, Name: botName, RealName: botName, IsBot: true, BotID: bots.Bot()})
 	for _, u := range users {
 		if err := tx.InsertUser(ctx, u); err != nil {
 			return nil, err

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"slices"
 
 	"localslack/internal/store"
@@ -12,10 +13,21 @@ type Conversation struct {
 	ID, TeamID, Name, Kind, Creator string
 	Created                         int64
 	IsArchived                      bool
+	IsPrivate                       bool
 	// Peer is the other user of an im (the caller itself for a self-DM).
 	Peer       string
 	IsMember   bool
 	NumMembers int
+}
+
+// Edit marks a message as edited by User at TS.
+type Edit struct{ User, TS string }
+
+// Reaction is one emoji on a message and the users who added it.
+type Reaction struct {
+	Name  string
+	Users []string
+	Count int
 }
 
 // Message is a posted message. ThreadTS is Slack-shaped: the root's ts for a
@@ -27,6 +39,14 @@ type Message struct {
 	LatestReply                 string
 	// ParentUserID is the thread root's author, set on replies by Replies.
 	ParentUserID string
+
+	// BotID is set when a bot user authored the message.
+	BotID, Subtype string
+	Blocks         json.RawMessage
+	Attachments    json.RawMessage
+	Metadata       json.RawMessage
+	Edited         *Edit
+	Reactions      []Reaction
 }
 
 func msgFrom(m store.Message) Message {
@@ -34,10 +54,15 @@ func msgFrom(m store.Message) Message {
 	if thread == "" && m.ReplyCount > 0 {
 		thread = m.TS
 	}
-	return Message{
+	out := Message{
 		ChannelID: m.ChannelID, TS: m.TS, UserID: m.UserID, Text: m.Text,
 		ThreadTS: thread, ReplyCount: m.ReplyCount, LatestReply: m.LatestReply,
+		BotID: m.BotID, Subtype: m.Subtype, Blocks: m.Blocks, Attachments: m.Attachments, Metadata: m.Metadata,
 	}
+	if m.Edited != nil {
+		out.Edited = &Edit{User: m.Edited.User, TS: m.Edited.TS}
+	}
+	return out
 }
 
 // enrich adds membership info for caller to store conversations.
@@ -67,7 +92,7 @@ func (s *Service) enrich(ctx context.Context, caller User, cs []store.Conversati
 func convFrom(c store.Conversation, members []string) Conversation {
 	return Conversation{
 		ID: c.ID, TeamID: c.TeamID, Name: c.Name, Kind: c.Kind, Creator: c.Creator,
-		Created: c.Created, IsArchived: c.IsArchived, NumMembers: len(members),
+		Created: c.Created, IsArchived: c.IsArchived, IsPrivate: c.IsPrivate, NumMembers: len(members),
 	}
 }
 

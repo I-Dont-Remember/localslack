@@ -7,55 +7,6 @@ import (
 	"localslack/internal/store"
 )
 
-// PostMessage stores a message. A non-empty threadTS replies in that thread;
-// replying to a reply attaches to the thread root.
-func (s *Service) PostMessage(ctx context.Context, author User, channelID, text, threadTS string) (Message, error) {
-	if text == "" {
-		return Message{}, ErrNoText
-	}
-	var msg store.Message
-	err := s.st.Write(ctx, func(tx *store.Tx) error {
-		conv, err := tx.Conversation(ctx, channelID)
-		if err != nil {
-			return notFoundAs(err, ErrChannelNotFound)
-		}
-		if conv.IsArchived {
-			return ErrIsArchived
-		}
-		root, err := threadRoot(ctx, tx, channelID, threadTS)
-		if err != nil {
-			return err
-		}
-		msg = store.Message{ChannelID: channelID, TS: s.ts.next(s.now()), UserID: author.ID, Text: text, ThreadTS: root}
-		if err := tx.InsertMessage(ctx, msg); err != nil {
-			return err
-		}
-		if root == "" {
-			return nil
-		}
-		return tx.BumpThread(ctx, channelID, root, msg.TS)
-	})
-	if err != nil {
-		return Message{}, err
-	}
-	return msgFrom(msg), nil
-}
-
-// threadRoot resolves threadTS to the root message's ts ("" for a top-level post).
-func threadRoot(ctx context.Context, tx *store.Tx, channelID, threadTS string) (string, error) {
-	if threadTS == "" {
-		return "", nil
-	}
-	parent, err := tx.Message(ctx, channelID, threadTS)
-	if err != nil {
-		return "", notFoundAs(err, ErrThreadNotFound)
-	}
-	if parent.ThreadTS != "" {
-		return parent.ThreadTS, nil
-	}
-	return parent.TS, nil
-}
-
 // History returns a channel's top-level messages, newest first.
 func (s *Service) History(ctx context.Context, _ User, channelID string, o PageOpts) (Page[Message], error) {
 	if err := s.requireChannel(ctx, channelID); err != nil {

@@ -59,7 +59,7 @@ func (w *Web) post(rw http.ResponseWriter, r *http.Request, threadTS string, aga
 		return
 	}
 	if text := strings.TrimSpace(r.PostForm.Get("text")); text != "" {
-		if _, err := w.svc.PostMessage(ctx, actor, chi.URLParam(r, "id"), text, threadTS); err != nil {
+		if _, err := w.svc.PostMessage(ctx, actor, service.PostOpts{Channel: chi.URLParam(r, "id"), ThreadTS: threadTS, Content: service.Content{Text: text}}); err != nil {
 			w.fail(rw, r, err)
 			return
 		}

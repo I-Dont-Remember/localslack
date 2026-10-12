@@ -31,6 +31,9 @@ func (g *Generator) Team() string { return g.next('T') }
 // User returns a user id (U...).
 func (g *Generator) User() string { return g.next('U') }
 
+// Bot returns a bot identity id (B...), distinct from the bot's user id.
+func (g *Generator) Bot() string { return g.next('B') }
+
 // Channel returns a channel id (C...).
 func (g *Generator) Channel() string { return g.next('C') }
 
