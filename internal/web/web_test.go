@@ -7,6 +7,7 @@ import (
 	"net/http/cookiejar"
 	"net/url"
 	"strings"
+	"sync"
 	"testing"
 
 	"localslack/internal/constants"
@@ -302,5 +303,27 @@ func TestStaticHTMX(t *testing.T) {
 	status, body, hdr := newBrowser(t, app).get("/ui/static/htmx.min.js")
 	if status != http.StatusOK || !strings.Contains(body, "htmx") || !strings.Contains(hdr.Get("Content-Type"), "javascript") {
 		t.Errorf("static htmx = %d %q (%d bytes)", status, hdr.Get("Content-Type"), len(body))
+	}
+}
+
+func TestUIPostEmitsMessagePosted(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	w := setup(t, app)
+	var mu sync.Mutex
+	var got []service.Event
+	app.Service.Subscribe(func(e service.Event) { mu.Lock(); got = append(got, e); mu.Unlock() })
+
+	newBrowser(t, app).post("/ui/c/"+w.general+"/post", url.Values{"text": {"via ui"}})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 1 {
+		t.Fatalf("events = %v, want exactly one", got)
+	}
+	ev, ok := got[0].(service.MessagePosted)
+	if !ok || ev.Msg.Text != "via ui" || ev.Msg.UserID != w.human.ID || ev.Channel.ID != w.general {
+		t.Errorf("event = %+v, want MessagePosted by %s in %s", got[0], w.human.ID, w.general)
 	}
 }

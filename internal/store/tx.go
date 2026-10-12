@@ -12,7 +12,15 @@ import (
 )
 
 // Tx is a write transaction handed to Store.Write callbacks.
-type Tx struct{ tx *sql.Tx }
+type Tx struct {
+	tx    *sql.Tx
+	after []func()
+}
+
+// AfterCommit registers fn to run once the transaction commits (never on rollback).
+// Hooks run in registration order while other writers wait, so they must be O(1)
+// and non-blocking: hand work off, never do I/O inline.
+func (t *Tx) AfterCommit(fn func()) { t.after = append(t.after, fn) }
 
 func (t *Tx) exec(ctx context.Context, what, q string, args ...any) error {
 	if _, err := t.tx.ExecContext(ctx, q, args...); err != nil {
@@ -94,4 +102,12 @@ func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
 		return fmt.Errorf("set archived %s: %w", id, ErrNotFound)
 	}
 	return nil
+}
+
+// BotMemberIDs returns the ids (sorted) of a conversation's members that are bot users.
+func (t *Tx) BotMemberIDs(ctx context.Context, conversationID string) ([]string, error) {
+	return query(ctx, t.tx, "bot members",
+		`SELECT m.user_id FROM members m JOIN users u ON u.id = m.user_id
+		 WHERE m.conversation_id = ? AND u.is_bot = 1 ORDER BY m.user_id`,
+		func(r scanner, id *string) error { return r.Scan(id) }, conversationID)
 }

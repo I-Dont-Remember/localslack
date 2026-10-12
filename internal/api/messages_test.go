@@ -2,10 +2,12 @@ package api_test
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"localslack/internal/service"
 	"localslack/internal/storetest"
 )
 
@@ -119,5 +121,27 @@ func TestBotMessagesCarryBotID(t *testing.T) {
 	want := map[any]any{"from bot": botID, "from human": nil}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("bot_id by message text (-want +got):\n%s", diff)
+	}
+}
+
+func TestChatPostMessageEmitsEvent(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	general := generalID(t, app)
+	var mu sync.Mutex
+	var got []service.Event
+	app.Service.Subscribe(func(e service.Event) { mu.Lock(); got = append(got, e); mu.Unlock() })
+
+	_, body := call(t, app, "chat.postMessage", botToken, map[string]string{"channel": general, "text": "evt"})
+	call(t, app, "chat.postMessage", botToken, map[string]string{"channel": "CNOPE", "text": "fails"})
+
+	mu.Lock()
+	defer mu.Unlock()
+	if len(got) != 1 {
+		t.Fatalf("events = %v, want one (failed post must not emit)", got)
+	}
+	if ev, ok := got[0].(service.MessagePosted); !ok || ev.Msg.TS != body["ts"] {
+		t.Errorf("event = %+v, want MessagePosted ts %v", got[0], body["ts"])
 	}
 }

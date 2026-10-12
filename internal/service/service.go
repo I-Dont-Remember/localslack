@@ -34,6 +34,7 @@ type Service struct {
 	ids  *ids.Generator
 	ts   *tsGen
 	apps appCache
+	bus  bus
 }
 
 // New builds a Service. idSeed makes new conversation ids deterministic for

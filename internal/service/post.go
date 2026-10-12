@@ -26,7 +26,7 @@ func (s *Service) PostMessage(ctx context.Context, author User, o PostOpts) (Mes
 	if o.Content.Text == "" {
 		return Message{}, ErrNoText
 	}
-	var msg store.Message
+	var out Message
 	err := s.st.Write(ctx, func(tx *store.Tx) error {
 		conv, err := tx.Conversation(ctx, o.Channel)
 		if err != nil {
@@ -42,23 +42,29 @@ func (s *Service) PostMessage(ctx context.Context, author User, o PostOpts) (Mes
 		if err != nil {
 			return err
 		}
-		msg = store.Message{
+		msg := store.Message{
 			ChannelID: o.Channel, TS: s.ts.next(s.now()), UserID: author.ID, Text: o.Content.Text, ThreadTS: root,
 			BotID: author.BotID, Blocks: o.Content.Blocks, Attachments: o.Content.Attachments, Metadata: o.Content.Metadata,
 		}
 		if err := tx.InsertMessage(ctx, msg); err != nil {
 			return err
 		}
-		if root == "" {
-			return nil
+		if root != "" {
+			if err := tx.BumpThread(ctx, o.Channel, root, msg.TS); err != nil {
+				return err
+			}
 		}
-		return tx.BumpThread(ctx, o.Channel, root, msg.TS)
+		scope, err := scopeOf(ctx, tx, conv)
+		if err != nil {
+			return err
+		}
+		out = msgFrom(msg)
+		publishAfterCommit(s, tx, MessagePosted{Msg: out, Scope: scope})
+		return nil
 	})
 	if err != nil {
 		return Message{}, err
 	}
-	out := msgFrom(msg)
-	s.emit(out)
 	return out, nil
 }
 
@@ -76,6 +82,3 @@ func threadRoot(ctx context.Context, tx *store.Tx, channelID, threadTS string) (
 	}
 	return parent.TS, nil
 }
-
-// emit is the event-seam hook (service/events.go replaces this stub).
-func (s *Service) emit(Message) {}
