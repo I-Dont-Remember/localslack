@@ -262,8 +262,14 @@ status = "planned"
 summary = "Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate."
 
 [behaviors.call-log]
-status = "planned"
+status = "implemented"
 summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
+evidence = "llm"
+
+[behaviors.state-reset]
+status = "implemented"
+summary = "POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps."
+evidence = "llm"
 
 [behaviors.fault-injection]
 status = "implemented"

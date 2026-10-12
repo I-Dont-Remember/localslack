@@ -42,13 +42,15 @@ Multiple apps per workspace; each owns a bot user, `bot_id`, tokens, signing sec
 ## Call log (stream C)
 - `GET /_localslack/calls?method=&channel=&app_id=&ok=&error=&since=&limit=&min=&timeout_ms=` -> list of `{"seq","time","request_id","method","http_method","status","ok","error","params":{..},"actor":{"user_id","app_id","token_kind":"bot|user|app|none"},"response":{..},"response_truncated","duration_ms","fault_id","not_implemented"}`.
 - Records `/api/*` calls (incl. unknown-method fallback); not `/_localslack/*` or UI actions. Redacted: `Authorization`, `Cookie`, `token`, `client_secret`, `signing_secret`.
-- `DELETE /_localslack/calls` (204).
+- Bad query values (`ok=maybe`, negative `since`, ...) -> 400 `invalid_query`. `min` without `timeout_ms` waits up to 5s. A response over 64KB is dropped: `response` null, `response_truncated` true. Unknown methods keep their params and actor.
+- `DELETE /_localslack/calls` (204): empties the log; `seq` keeps growing and `generation` increments (parked long-polls wake and return the new generation).
 
 ## Reset (stream C; scenario/generate from G)
 Two modes, no knobs. Reset is global: one test session per server.
 - `POST /_localslack/reset` (partial, default) -> 200 `{"mode":"partial","generation","seed","counts":{"users","channels","messages"},"took_ms"}`. Wipes and reseeds workspace data (users, channels, messages, reactions) and clears call log, deliveries, faults, snapshots; delivery-config back to defaults. **Keeps** apps (credentials, bot users/ids, `deliver_to`) and socket connections.
 - `POST /_localslack/reset?all=true` also removes apps: truly blank.
 - Optional body: `{"seed"?,"scenario"?:{..}|"path","generate"?:{..}}` (scenario XOR generate, else 400 `invalid_reset`). Concurrent reset -> 409 `reset_in_progress`.
+- Bare reset reseeds with the server's configured seed (random if none); the reply echoes the seed used. The team id, apps, `seq` counters and ts high-water mark survive, so new ts always exceed old ones. Until the scenario stream lands, `scenario`/`generate` -> 422 `not_supported_yet`. Unknown body fields -> 400 `invalid_reset`; bad `all` -> 400 `invalid_query`; a seed whose ids collide with an app bot user -> 422 `invalid_reset` (nothing changed).
 - CLI: `localslack reset [--all] [--seed s] [--scenario f]`.
 
 ## Faults (stream D)

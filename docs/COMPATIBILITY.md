@@ -61,7 +61,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `unknown-method-404`, `collapsed-errors` |
 | `app-manifest` | planned | — | — | Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps. | — |
 | `block-kit` | implemented | — | llm | chat.postMessage stores blocks, attachments and message metadata (JSON strings or JSON values), validates their shape (not Block Kit element schemas), and history/replies return them (metadata only with include_all_metadata). The UI renders text only. | — |
-| `call-log` | planned | — | — | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
+| `call-log` | implemented | — | llm | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
 | `event-delivery-controls` | planned | — | — | Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace. | — |
 | `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
 | `fault-injection` | implemented | — | llm | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
@@ -79,6 +79,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | — |
 | `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
+| `state-reset` | implemented | — | llm | POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps. | — |
 | `state-snapshot` | planned | — | — | Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture. | — |
 
 ## Known deviations from real Slack
