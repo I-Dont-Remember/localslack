@@ -48,7 +48,7 @@ func TestEnforceAuth(t *testing.T) {
 		{"t.none", "", `{"ok":true}`},
 		{"t.none", "garbage", `{"ok":true}`},
 		{"t.token", "", `{"error":"not_authed","ok":false}`},
-		{"t.token", "xapp-ok", `{"error":"invalid_auth","ok":false}`},
+		{"t.token", "xapp-ok", `{"error":"not_allowed_token_type","ok":false}`},
 		{"t.app", "", `{"error":"not_authed","ok":false}`},
 		{"t.app", "xapp-bad", `{"error":"invalid_auth","ok":false}`},
 		{"t.app", "xapp-ok", `{"ok":true}`},

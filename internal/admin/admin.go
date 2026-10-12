@@ -18,6 +18,7 @@ import (
 	"localslack/internal/events"
 	"localslack/internal/faults"
 	"localslack/internal/service"
+	"localslack/internal/socket"
 )
 
 // Deps are the admin routes' collaborators. Svc may be nil (health only).
@@ -29,6 +30,7 @@ type Deps struct {
 	Faults  *faults.Set
 	Events  events.Dispatcher
 	Control *control.Control
+	Socket  *socket.Hub
 }
 
 // Mount registers every /_localslack route.

@@ -13,13 +13,14 @@ import (
 )
 
 // newEngine builds the real event dispatcher from the process settings.
-func newEngine(cfg config.Config, svc *service.Service, log *slog.Logger) *events.Engine {
+func newEngine(cfg config.Config, svc *service.Service, log *slog.Logger, sock events.Transport) *events.Engine {
 	timeout := cfg.EventTimeout
 	if timeout <= 0 {
 		timeout = config.DefaultEventTimeout
 	}
 	return events.New(events.Options{
 		Source:    svc,
+		Socket:    sock,
 		Policy:    events.URLPolicy{DeliverTo: cfg.DeliverTo, AllowRemote: cfg.AllowRemoteRequestURLs},
 		Config:    events.DefaultDeliveryConfig(timeout, cfg.EventRetryDelays),
 		TraceSize: cfg.DeliveryLogSize,

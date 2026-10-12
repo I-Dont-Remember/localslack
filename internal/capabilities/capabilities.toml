@@ -163,10 +163,11 @@ priority = "interactivity"
 tier = 4
 
 [methods."apps.connections.open"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
+status = "implemented"
 priority = "socket-mode"
 tier = 1
+fixtures = "waived: success needs a registered app and a live WebSocket; covered by internal/api, internal/socket and tests/smoke/socket_mode_test.py"
+deviations = ["socket-url-local"]
 
 # ---------------------------------------------------------------- behaviors and quirks
 # Non-endpoint capabilities. `evidence` is manual here (nothing to derive it from):
@@ -249,9 +250,10 @@ evidence = "llm"
 deviations = ["event-subset", "permissive-url-verification"]
 
 [behaviors.socket-mode]
-status = "planned"
-milestone = "M3"
-summary = "Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel."
+status = "implemented"
+summary = "Socket Mode: apps.connections.open (xapp- token, one-time ticket URL), WebSocket hello/events_api envelopes/ack/disconnect, round-robin across an app's connections, retries through the shared delivery engine, and /_localslack/socket/{connections,disconnect} controls."
+evidence = "llm"
+deviations = ["socket-url-local", "socket-events-only"]
 
 [behaviors.inspection-api]
 status = "planned"
@@ -358,3 +360,11 @@ summary = "A failed url_verification handshake only marks the app unverified and
 [deviations.ephemeral-not-delivered]
 severity = "low"
 summary = "chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart."
+
+[deviations.socket-url-local]
+severity = "low"
+summary = "apps.connections.open returns ws://<this server>/_localslack/socket?ticket=..&app_id=.. instead of a wss://wss-primary.slack.com URL; debug_reconnects is ignored, any registered app can connect (socket_mode_enabled is not required) and the connection count is not capped at 10."
+
+[deviations.socket-events-only]
+severity = "medium"
+summary = "Socket Mode carries events_api envelopes only; slash_commands and interactive envelopes are never sent, and accepts_response_payload is always false. Hello and disconnect debug_info fields are placeholders."

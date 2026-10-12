@@ -34,8 +34,6 @@ func plannedRoutes() map[string]string {
 		"GET /_localslack/snapshots/{}":          "G (snapshots)",
 		"POST /_localslack/snapshots/{}/restore": "G (snapshots)",
 		"GET /_localslack/diff":                  "G (diff)",
-		"GET /_localslack/socket/connections":    "S (socket mode)",
-		"POST /_localslack/socket/disconnect":    "S (socket mode)",
 	}
 }
 
@@ -254,10 +252,18 @@ func successProbes() []probe {
 		{route: "GET /_localslack/calls"},
 		{route: "DELETE /_localslack/calls"},
 		{route: "GET /_localslack/state/conversations"},
+		{route: "GET /_localslack/socket/connections"},
+		{route: "POST /_localslack/socket/disconnect", body: `{}`},
 		{route: "POST /_localslack/reset", body: `{}`},
 		{route: "DELETE /_localslack/apps/{id}", path: "/_localslack/apps/$app"},
 	}
 }
+
+// upgradeRoutes switch protocols, so a plain request cannot succeed on them;
+// their success path is covered by the socket tests (internal/socket, internal/admin).
+//
+//nolint:gochecknoglobals // immutable lookup table
+var upgradeRoutes = map[string]bool{"GET /_localslack/socket": true}
 
 func jsonPath(v any, path string) string {
 	for _, part := range strings.Split(path, ".") {
@@ -327,7 +333,7 @@ func TestAdminRouteSuccessFollowsContract(t *testing.T) {
 		}
 	}
 	for _, r := range registeredRoutes(t, h) {
-		if !covered[r.key()] {
+		if !covered[r.key()] && !upgradeRoutes[r.key()] {
 			t.Errorf("route %q has no entry in successProbes (route_contract_test.go): add one so its success body is checked against %s", r.key(), contractDoc)
 		}
 	}

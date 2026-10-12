@@ -54,6 +54,7 @@ type API struct {
 	icpt    faults.Interceptor
 	now     func() time.Time
 	scopes  map[string][]string // method -> accepted scopes (capabilities manifest)
+	sock    TicketIssuer
 }
 
 // Option customises Mount.
@@ -64,6 +65,9 @@ func WithRecorder(r calllog.Recorder) Option { return func(a *API) { a.rec = r }
 
 // WithInterceptor sets the fault interceptor (default: never fires).
 func WithInterceptor(i faults.Interceptor) Option { return func(a *API) { a.icpt = i } }
+
+// WithSocket sets where apps.connections.open gets its one-time tickets.
+func WithSocket(t TicketIssuer) Option { return func(a *API) { a.sock = t } }
 
 // Mount registers /api/{method} (GET and POST). Unknown methods answer 200 unknown_method.
 func Mount(r chi.Router, svc *service.Service, log *slog.Logger, opts ...Option) {
