@@ -23,6 +23,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	rw.Header().Set("X-Slack-Req-Id", middleware.GetReqID(r.Context()))
 	st := &state{method: chi.URLParam(r, "method")}
 	a.run(rw, r, st)
+	a.setScopeHeaders(rw.Header(), st.method, st.p)
 	a.rec.Record(st.record(r, rw, start, a.now()))
 	if err := rw.flush(); err != nil {
 		a.log.ErrorContext(r.Context(), "write response", slog.Any("error", err))

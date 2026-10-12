@@ -54,6 +54,7 @@ type API struct {
 	rec      calllog.Recorder
 	icpt     faults.Interceptor
 	now      func() time.Time
+	scopes   map[string][]string // method -> accepted scopes (capabilities manifest)
 }
 
 // Option customises Mount.
@@ -72,6 +73,7 @@ func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.H
 		o(a)
 	}
 	a.methods = a.registry()
+	a.scopes = methodScopes()
 	r.Get("/api/{method}", a.serve)
 	r.Post("/api/{method}", a.serve)
 }

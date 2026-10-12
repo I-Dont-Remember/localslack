@@ -44,7 +44,6 @@ def test_unknown_method_is_200_unknown_method(client):
     assert error_of(lambda: client.api_call("does.notExist")) == (200, "unknown_method")
 
 
-@deviation("response-headers-missing")
 def test_responses_carry_slack_headers(api_url):
     resp = httpx.post(api_url + "auth.test", headers={"Authorization": "Bearer xoxb-test"})
     assert "x-slack-req-id" in resp.headers

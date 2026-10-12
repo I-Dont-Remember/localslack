@@ -75,7 +75,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `opaque-cursor-pagination` | implemented | — | llm | Cursor pagination with response_metadata.next_cursor; cursors are opaque and bound to their endpoint. | `cursor-format`, `limit-clamping` |
 | `private-channels` | planned | — | — | Private channels and groups. | `no-private-channels` |
 | `rate-limiting` | planned | M5 | — | Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var). | — |
-| `response-headers` | planned | — | — | Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type. | `response-headers-missing` |
+| `response-headers` | implemented | — | llm | Slack response headers: x-slack-req-id, x-oauth-scopes (caller grants), x-accepted-oauth-scopes (method scopes) and the Content-Type charset; retry-after only on fault-injected 429s. | — |
 | `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | — |
 | `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
@@ -93,7 +93,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.delete`, `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.info`, `conversations.members`, `conversations.replies`, `membership-enforcement`, `reactions.add` | yes |
 | `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` | yes |
 | `partial-message-fields` | medium | Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users. | `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies` | yes |
-| `response-headers-missing` | medium | Responses lack x-oauth-scopes, x-accepted-oauth-scopes and retry-after (x-slack-req-id and the Content-Type charset are sent). | `response-headers` | yes |
 | `collapsed-errors` | low | Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments. | `api-errors-http-200`, `conversations.archive`, `conversations.create` | yes |
 | `cursor-format` | low | Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque. | `conversations.history`, `conversations.members`, `conversations.replies`, `opaque-cursor-pagination` | — |
 | `ephemeral-not-delivered` | low | chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart. | `chat.postEphemeral` | — |

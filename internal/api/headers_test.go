@@ -36,11 +36,17 @@ func TestSlackResponseHeaders(t *testing.T) {
 		want                map[string]string // header -> value; "" means absent
 	}{
 		{"bot success", "auth.test", "xoxb-test", map[string]string{
-			"Content-Type": "application/json; charset=utf-8",
+			"Content-Type":            "application/json; charset=utf-8",
+			"X-Oauth-Scopes":          "chat:write,chat:write.public",
+			"X-Accepted-Oauth-Scopes": "",
 		}},
-		{"scoped method", "users.list", "xoxb-test", map[string]string{}},
+		{"scoped method", "users.list", "xoxb-test", map[string]string{
+			"X-Accepted-Oauth-Scopes": "users:read",
+			"X-Oauth-Scopes":          "chat:write,chat:write.public",
+		}},
 		{"invalid auth has no scopes", "auth.test", "bogus", map[string]string{
-			"Content-Type": "application/json; charset=utf-8",
+			"Content-Type":   "application/json; charset=utf-8",
+			"X-Oauth-Scopes": "",
 		}},
 	}
 	for _, tt := range tests {

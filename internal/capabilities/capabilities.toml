@@ -208,9 +208,9 @@ summary = "Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C
 evidence = "llm"
 
 [behaviors.response-headers]
-status = "planned"
-summary = "Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type."
-deviations = ["response-headers-missing"]
+status = "implemented"
+summary = "Slack response headers: x-slack-req-id, x-oauth-scopes (caller grants), x-accepted-oauth-scopes (method scopes) and the Content-Type charset; retry-after only on fault-injected 429s."
+evidence = "llm"
 
 [behaviors.multipart-bodies]
 status = "planned"
@@ -314,10 +314,6 @@ summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and r
 [deviations.no-private-channels]
 severity = "medium"
 summary = "Only public channels exist; types=private_channel returns nothing and is_private is never true for channels."
-
-[deviations.response-headers-missing]
-severity = "medium"
-summary = "Responses lack x-oauth-scopes, x-accepted-oauth-scopes and retry-after (x-slack-req-id and the Content-Type charset are sent)."
 
 [deviations.multipart-ignored]
 severity = "medium"
