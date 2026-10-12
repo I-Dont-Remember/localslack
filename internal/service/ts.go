@@ -36,6 +36,22 @@ func (g *tsGen) next(now time.Time) string {
 	return fmt.Sprintf("%d.%06d", us/1_000_000, us%1_000_000)
 }
 
+// advanceTo raises the high-water mark to ts ("" is a no-op). Forward-only, so a
+// reset can never make a later ts sort before one already handed out.
+func (g *tsGen) advanceTo(ts string) error {
+	if ts == "" {
+		return nil
+	}
+	us, err := parseTS(ts)
+	if err != nil {
+		return err
+	}
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.last = max(g.last, us)
+	return nil
+}
+
 func parseTS(ts string) (int64, error) {
 	sec, micro, ok := strings.Cut(ts, ".")
 	if !ok {

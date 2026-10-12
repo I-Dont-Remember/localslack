@@ -51,6 +51,10 @@ func stringify(v any) string {
 	case float64:
 		return strconv.FormatFloat(x, 'f', -1, 64)
 	case []any:
+		if hasStructured(x) { // blocks, attachments: keep the JSON array intact
+			b, _ := json.Marshal(x)
+			return string(b)
+		}
 		parts := make([]string, 0, len(x))
 		for _, e := range x {
 			parts = append(parts, stringify(e))
@@ -63,6 +67,16 @@ func stringify(v any) string {
 	return string(b)
 }
 
+func hasStructured(xs []any) bool {
+	for _, e := range xs {
+		switch e.(type) {
+		case map[string]any, []any:
+			return true
+		}
+	}
+	return false
+}
+
 func csv(s string) []string {
 	var out []string
 	for _, p := range strings.Split(s, ",") {
@@ -73,6 +87,7 @@ func csv(s string) []string {
 	return out
 }
 
+//nolint:unparam // generic helper; only "limit" so far
 func intParam(v url.Values, key string) int {
 	n, err := strconv.Atoi(v.Get(key))
 	if err != nil {

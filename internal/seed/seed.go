@@ -48,11 +48,17 @@ func Apply(ctx context.Context, s *store.Store, o Options) (bool, error) {
 	if err != nil || !empty {
 		return false, err
 	}
-	g := newGen(o)
-	if err := s.Write(ctx, g.populate(ctx)); err != nil {
+	if err := s.Write(ctx, func(tx *store.Tx) error { return Populate(ctx, tx, o, nil) }); err != nil {
 		return false, fmt.Errorf("seed: %w", err)
 	}
 	return true, nil
+}
+
+// Populate writes the demo data inside tx. With a non-nil team that row is
+// reused (it must already exist) so a reset keeps the workspace id stable; the
+// rest of the data is identical to a fresh Apply with the same options.
+func Populate(ctx context.Context, tx *store.Tx, o Options, team *store.Team) error {
+	return newGen(o).populate(ctx, tx, team)
 }
 
 type gen struct {
@@ -72,22 +78,22 @@ func newGen(o Options) *gen {
 	}
 }
 
-func (g *gen) populate(ctx context.Context) func(*store.Tx) error {
-	return func(tx *store.Tx) error {
-		team := store.Team{ID: g.ids.Team(), Name: "LocalSlack", Domain: "localslack"}
-		if err := tx.InsertTeam(ctx, team); err != nil {
-			return err
-		}
-		users, err := g.users(ctx, tx, team.ID)
-		if err != nil {
-			return err
-		}
-		convs, err := g.channels(ctx, tx, team.ID, users)
-		if err != nil {
-			return err
-		}
-		return g.thread(ctx, tx, convs[0].ID, users)
+func (g *gen) populate(ctx context.Context, tx *store.Tx, keep *store.Team) error {
+	team := store.Team{ID: g.ids.Team(), Name: "LocalSlack", Domain: "localslack"} // always drawn: keeps later ids seed-stable
+	if keep != nil {
+		team = *keep
+	} else if err := tx.InsertTeam(ctx, team); err != nil {
+		return err
 	}
+	users, err := g.users(ctx, tx, team.ID)
+	if err != nil {
+		return err
+	}
+	convs, err := g.channels(ctx, tx, team.ID, users)
+	if err != nil {
+		return err
+	}
+	return g.thread(ctx, tx, convs[0].ID, users)
 }
 
 func (g *gen) users(ctx context.Context, tx *store.Tx, teamID string) ([]store.User, error) {

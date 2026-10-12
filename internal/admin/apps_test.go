@@ -16,8 +16,8 @@ import (
 	"localslack/internal/storetest"
 )
 
-// doJSON sends body (any JSON value, or a string sent verbatim) and decodes the JSON reply.
-func do(t *testing.T, method, url, contentType string, body any) (int, http.Header, map[string]any) {
+// doReq sends body (any JSON value, or a string sent verbatim) and decodes the JSON reply.
+func doReq(t *testing.T, method, url, contentType string, body any) (int, http.Header, map[string]any) {
 	t.Helper()
 	var rdr io.Reader
 	switch b := body.(type) {
@@ -96,7 +96,7 @@ func TestPostAppRawJSONManifest(t *testing.T) {
 
 	app := storetest.NewApp(t)
 	fake := newEchoApp(t)
-	status, hdr, got := do(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON,
+	status, hdr, got := doReq(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON,
 		manifest("Raw App", fake.URL+"/slack/events", "app_mention"))
 
 	if status != http.StatusCreated {
@@ -135,7 +135,7 @@ func TestPostAppYAMLManifest(t *testing.T) {
 	app := storetest.NewApp(t)
 	fake := newEchoApp(t)
 	doc := "display_information:\n  name: Yaml App\nsettings:\n  event_subscriptions:\n    request_url: " + fake.URL + "/e\n    bot_events: [message.channels]\n"
-	status, _, got := do(t, http.MethodPost, app.URL+"/_localslack/apps", "application/yaml", doc)
+	status, _, got := doReq(t, http.MethodPost, app.URL+"/_localslack/apps", "application/yaml", doc)
 	if status != http.StatusCreated || got["name"] != "Yaml App" {
 		t.Fatalf("status = %d body %v", status, got)
 	}
@@ -150,7 +150,7 @@ func TestPostAppEnvelopeWithOverrides(t *testing.T) {
 
 	app := storetest.NewApp(t)
 	fake := newEchoApp(t)
-	status, _, got := do(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON, map[string]any{
+	status, _, got := doReq(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON, map[string]any{
 		"manifest":       manifest("Env App", "https://example.invalid/hooks/slack", "app_mention"),
 		"deliver_to":     fake.URL,
 		"signing_secret": "my-secret",
@@ -182,7 +182,7 @@ func TestPostAppErrors(t *testing.T) {
 
 	app := storetest.NewApp(t)
 	url := app.URL + "/_localslack/apps"
-	do(t, http.MethodPost, url, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Dup", ""), "verify": false})
+	doReq(t, http.MethodPost, url, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Dup", ""), "verify": false})
 
 	tests := []struct {
 		name        string
@@ -202,7 +202,7 @@ func TestPostAppErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			status, _, got := do(t, http.MethodPost, url, tt.contentType, tt.body)
+			status, _, got := doReq(t, http.MethodPost, url, tt.contentType, tt.body)
 			if status != tt.wantStatus {
 				t.Fatalf("status = %d, want %d; body %v", status, tt.wantStatus, got)
 			}
@@ -224,7 +224,7 @@ func TestAppDeliveryBlockedAndWarnings(t *testing.T) {
 	t.Parallel()
 
 	app := storetest.NewApp(t)
-	status, _, got := do(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON,
+	status, _, got := doReq(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON,
 		manifest("Remote", "https://example.invalid/slack/events", "app_mention", "team_join"))
 	if status != http.StatusCreated {
 		t.Fatalf("status = %d; %v", status, got)
@@ -251,7 +251,7 @@ func TestAppVerifyFailureStillRegisters(t *testing.T) {
 	app := storetest.NewApp(t)
 	fake := newEchoApp(t)
 	fake.failVerify.Store(true)
-	status, _, got := do(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON, manifest("Flaky", fake.URL+"/e", "app_mention"))
+	status, _, got := doReq(t, http.MethodPost, app.URL+"/_localslack/apps", constants.ContentTypeJSON, manifest("Flaky", fake.URL+"/e", "app_mention"))
 	if status != http.StatusCreated || got["verified"] != false || got["delivery"] != "ready" {
 		t.Fatalf("status %d app %v, want 201, verified=false, delivery ready (permissive)", status, got)
 	}
@@ -261,7 +261,7 @@ func TestAppVerifyFailureStillRegisters(t *testing.T) {
 
 	// Fix the app and re-verify through the endpoint.
 	fake.failVerify.Store(false)
-	status, _, again := do(t, http.MethodPost, app.URL+"/_localslack/apps/"+got["id"].(string)+"/verify", "", nil)
+	status, _, again := doReq(t, http.MethodPost, app.URL+"/_localslack/apps/"+got["id"].(string)+"/verify", "", nil)
 	if status != http.StatusOK || again["verified"] != true {
 		t.Errorf("verify status %d app %v, want 200 verified", status, again)
 	}
@@ -275,53 +275,53 @@ func TestAppsListGetPatchDelete(t *testing.T) {
 
 	app := storetest.NewApp(t)
 	base := app.URL + "/_localslack/apps"
-	_, _, a := do(t, http.MethodPost, base, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Alpha", "https://example.invalid/a"), "verify": false})
-	_, _, b := do(t, http.MethodPost, base, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Beta", ""), "verify": false})
+	_, _, a := doReq(t, http.MethodPost, base, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Alpha", "https://example.invalid/a"), "verify": false})
+	_, _, b := doReq(t, http.MethodPost, base, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Beta", ""), "verify": false})
 	idA, idB := a["id"].(string), b["id"].(string)
 
-	status, _, list := do(t, http.MethodGet, base, "", nil)
+	status, _, list := doReq(t, http.MethodGet, base, "", nil)
 	items, _ := list["items"].([]any)
 	if status != http.StatusOK || len(items) != 2 {
 		t.Fatalf("list status %d items %v", status, list)
 	}
 
-	status, _, one := do(t, http.MethodGet, base+"/"+idA, "", nil)
+	status, _, one := doReq(t, http.MethodGet, base+"/"+idA, "", nil)
 	if status != http.StatusOK || one["id"] != idA || one["delivery"] != "blocked" {
 		t.Fatalf("get status %d app %v", status, one)
 	}
-	status, _, missing := do(t, http.MethodGet, base+"/A404", "", nil)
+	status, _, missing := doReq(t, http.MethodGet, base+"/A404", "", nil)
 	if status != http.StatusNotFound || sub(missing, "error")["code"] != "app_not_found" {
 		t.Errorf("get unknown: status %d body %v", status, missing)
 	}
 
-	status, _, patched := do(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": "http://localhost:4000"})
+	status, _, patched := doReq(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": "http://localhost:4000"})
 	if status != http.StatusOK || patched["deliver_to"] != "http://localhost:4000" || patched["delivery"] != "ready" {
 		t.Fatalf("patch status %d app %v", status, patched)
 	}
 	if sub(patched, "event_subscriptions")["effective_request_url"] != "http://localhost:4000/a" {
 		t.Errorf("effective url = %v", sub(patched, "event_subscriptions")["effective_request_url"])
 	}
-	if status, _, bad := do(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": "nope"}); status != 422 || sub(bad, "error")["code"] != "invalid_deliver_to" {
+	if status, _, bad := doReq(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": "nope"}); status != 422 || sub(bad, "error")["code"] != "invalid_deliver_to" {
 		t.Errorf("patch bad deliver_to: status %d body %v", status, bad)
 	}
-	if status, _, _ := do(t, http.MethodPatch, base+"/A404", constants.ContentTypeJSON, map[string]any{"deliver_to": ""}); status != http.StatusNotFound {
+	if status, _, _ := doReq(t, http.MethodPatch, base+"/A404", constants.ContentTypeJSON, map[string]any{"deliver_to": ""}); status != http.StatusNotFound {
 		t.Errorf("patch unknown status = %d", status)
 	}
-	_, _, cleared := do(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": ""})
+	_, _, cleared := doReq(t, http.MethodPatch, base+"/"+idA, constants.ContentTypeJSON, map[string]any{"deliver_to": ""})
 	if cleared["deliver_to"] != "" || cleared["delivery"] != "blocked" {
 		t.Errorf("clearing deliver_to: %v", cleared)
 	}
 
-	if status, _, _ := do(t, http.MethodDelete, base+"/"+idB, "", nil); status != http.StatusNoContent {
+	if status, _, _ := doReq(t, http.MethodDelete, base+"/"+idB, "", nil); status != http.StatusNoContent {
 		t.Errorf("delete status = %d, want 204", status)
 	}
-	if status, _, _ := do(t, http.MethodGet, base+"/"+idB, "", nil); status != http.StatusNotFound {
+	if status, _, _ := doReq(t, http.MethodGet, base+"/"+idB, "", nil); status != http.StatusNotFound {
 		t.Errorf("get after delete status = %d, want 404", status)
 	}
-	if status, _, _ := do(t, http.MethodDelete, base+"/"+idB, "", nil); status != http.StatusNotFound {
+	if status, _, _ := doReq(t, http.MethodDelete, base+"/"+idB, "", nil); status != http.StatusNotFound {
 		t.Errorf("second delete status = %d, want 404", status)
 	}
-	if status, _, _ := do(t, http.MethodPost, base+"/A404/verify", "", nil); status != http.StatusNotFound {
+	if status, _, _ := doReq(t, http.MethodPost, base+"/A404/verify", "", nil); status != http.StatusNotFound {
 		t.Errorf("verify unknown status = %d, want 404", status)
 	}
 }

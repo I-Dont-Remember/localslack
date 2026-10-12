@@ -37,7 +37,7 @@ func TestRunGapsListsShippedMethodsBelowRecorded(t *testing.T) {
 			t.Errorf("gaps output missing %q:\n%s", want, out.String())
 		}
 	}
-	if strings.Contains(out.String(), "chat.update") {
+	if strings.Contains(out.String(), "conversations.leave") {
 		t.Errorf("planned methods must not appear in gaps:\n%s", out.String())
 	}
 }

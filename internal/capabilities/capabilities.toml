@@ -69,65 +69,58 @@ deviations = ["collapsed-errors"]
 status = "partial"
 tier = 0 # special: roughly 1 message/second/channel
 scopes = ["chat:write", "chat:write.public"]
-deviations = ["no-blocks", "name-targets-unresolved", "no-membership-check", "partial-message-fields", "message-length-unbounded"]
+deviations = ["name-targets-unresolved", "no-membership-check", "partial-message-fields"]
 
 # ---------------------------------------------------------------- planned methods
 # priority: bolt-core = a typical Bolt app hits these; common = frequent in scripts;
 # interactivity = needs Block Kit/interactivity support; socket-mode = M3.
 
 [methods."api.test"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
+tier = 4
+scopes = []
 
 [methods."conversations.info"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+deviations = ["no-membership-check", "partial-conversation-fields"]
 
 [methods."conversations.members"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
+deviations = ["no-membership-check", "limit-clamping", "cursor-format"]
 
 [methods."users.info"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["users:read"]
+deviations = ["partial-user-fields"]
 
 [methods."chat.update"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "partial-message-fields"]
 
 [methods."chat.delete"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "tombstone-shape"]
 
 [methods."chat.postEphemeral"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["chat:write"]
+deviations = ["ephemeral-not-delivered"]
 
 [methods."reactions.add"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["reactions:write"]
+deviations = ["no-membership-check"]
 
 [methods."conversations.join"]
 status = "planned"
@@ -235,9 +228,9 @@ summary = "Private channels and groups."
 deviations = ["no-private-channels"]
 
 [behaviors.block-kit]
-status = "planned"
-summary = "Storing and returning blocks, attachments and message metadata."
-deviations = ["no-blocks"]
+status = "implemented"
+summary = "chat.postMessage stores blocks, attachments and message metadata (JSON strings or JSON values), validates their shape (not Block Kit element schemas), and history/replies return them (metadata only with include_all_metadata). The UI renders text only."
+evidence = "llm"
 
 [behaviors.rate-limiting]
 status = "planned"
@@ -269,12 +262,19 @@ status = "planned"
 summary = "Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate."
 
 [behaviors.call-log]
-status = "planned"
+status = "implemented"
 summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
+evidence = "llm"
+
+[behaviors.state-reset]
+status = "implemented"
+summary = "POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps."
+evidence = "llm"
 
 [behaviors.fault-injection]
-status = "planned"
+status = "implemented"
 summary = "Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults."
+evidence = "llm"
 
 [behaviors.app-manifest]
 status = "planned"
@@ -292,10 +292,6 @@ summary = "Snapshot, restore and diff workspace state; snapshot format doubles a
 # Referenced by id from methods and behaviors above. Keep summaries one sentence: they are
 # published verbatim in docs/COMPATIBILITY.md.
 
-[deviations.no-blocks]
-severity = "high"
-summary = "blocks, attachments and message metadata are ignored, and a blocks-only chat.postMessage returns no_text (Slack accepts it)."
-
 [deviations.any-token-accepted]
 severity = "medium"
 summary = "Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking."
@@ -310,7 +306,7 @@ summary = "The channel param must be an ID: \"#general\" and user IDs as DM targ
 
 [deviations.partial-message-fields]
 severity = "medium"
-summary = "Messages omit bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
+summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users."
 
 [deviations.no-private-channels]
 severity = "medium"
@@ -356,6 +352,10 @@ summary = "Cursors are unpadded base64url of an internal key; Slack's are padded
 severity = "low"
 summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
 
-[deviations.message-length-unbounded]
+[deviations.tombstone-shape]
 severity = "low"
-summary = "There is no maximum message length (Slack returns msg_too_long above roughly 40,000 characters)."
+summary = "Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text \"This message was deleted.\") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording."
+
+[deviations.ephemeral-not-delivered]
+severity = "low"
+summary = "chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart."

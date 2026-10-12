@@ -1,0 +1,24 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs: api.test with error=x fails with x and still echoes args",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/api.test",
+    "params": {
+      "error": "my_error",
+      "foo": "bar"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "my_error",
+      "args": {
+        "error": "my_error",
+        "foo": "bar"
+      }
+    }
+  }
+}

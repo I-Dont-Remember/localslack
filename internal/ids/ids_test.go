@@ -2,6 +2,7 @@ package ids_test
 
 import (
 	"regexp"
+	"sync"
 	"testing"
 
 	"localslack/internal/ids"
@@ -79,4 +80,37 @@ func TestGeneratorUnique(t *testing.T) {
 		}
 		seen[id] = true
 	}
+}
+
+func TestReseedRestartsSequence(t *testing.T) {
+	t.Parallel()
+
+	g := ids.NewGenerator("a")
+	g.User()
+	g.Reseed("b")
+	want := ids.NewGenerator("b").User()
+
+	if got := g.User(); got != want {
+		t.Errorf("User after Reseed(b) = %q, want %q", got, want)
+	}
+}
+
+func TestReseedIsSafeConcurrently(t *testing.T) {
+	t.Parallel()
+
+	g := ids.NewGenerator("a")
+	var wg sync.WaitGroup
+	for i := range 8 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 200 {
+				if i%2 == 0 {
+					g.Reseed("x")
+				}
+				g.Channel()
+			}
+		}()
+	}
+	wg.Wait() // -race flags unsynchronised access
 }

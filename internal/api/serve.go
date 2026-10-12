@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"time"
@@ -22,6 +23,9 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	st := &state{method: chi.URLParam(r, "method")}
 	a.run(rw, r, st)
 	a.rec.Record(st.record(r, rw, start, a.now()))
+	if err := rw.flush(); err != nil {
+		a.log.ErrorContext(r.Context(), "write response", slog.Any("error", err))
+	}
 }
 
 // state is what the stages learn about a call, for the record.
@@ -39,6 +43,7 @@ func (a *API) run(w http.ResponseWriter, r *http.Request, st *state) {
 	sp, ok := a.methods[st.method]
 	if !ok {
 		st.notImplemented = true
+		a.identifyUnknown(r, st)
 		a.fallback(w, r)
 		return
 	}
@@ -63,13 +68,25 @@ func (a *API) run(w http.ResponseWriter, r *http.Request, st *state) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	out, err := sp.fn(ctx, &call{p: p, params: params, baseURL: scheme + "://" + r.Host + "/"})
+	out, err := sp.fn(ctx, &call{p: p, params: params, raw: raw, baseURL: scheme + "://" + r.Host + "/"})
 	if err != nil {
 		a.fail(ctx, w, err)
 		return
 	}
-	out["ok"] = true
+	if _, set := out["ok"]; !set { // api.test reports ok:false itself
+		out["ok"] = true
+	}
 	a.write(ctx, w, http.StatusOK, out)
+}
+
+// identifyUnknown records params and actor for an unknown method (best effort).
+func (a *API) identifyUnknown(r *http.Request, st *state) {
+	params, raw, err := parseParams(r)
+	if err != nil {
+		return
+	}
+	st.params, st.raw = params, raw
+	st.p = a.svc.Identify(r.Context(), bearer(r, params))
 }
 
 // intercept applies a fired fault; true means the response is already written.
@@ -83,8 +100,10 @@ func (a *API) intercept(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	st.faultID = ov.FaultID
 	if ov.Delay > 0 {
+		t := time.NewTimer(ov.Delay)
+		defer t.Stop()
 		select {
-		case <-time.After(ov.Delay):
+		case <-t.C:
 		case <-ctx.Done():
 			return true
 		}
@@ -140,7 +159,7 @@ func (st *state) record(r *http.Request, rw *capture, start, end time.Time) call
 		Status: rw.status, Params: paramMap(st.params, st.raw), FaultID: st.faultID, NotImplemented: st.notImplemented,
 		Actor:      calllog.Actor{UserID: st.p.User.ID, AppID: appID(st.p), TokenKind: tokenKind(st.p)},
 		DurationMS: end.Sub(start).Milliseconds(),
-		Response:   rw.body(),
+		Response:   rw.body(), ResponseTruncated: rw.overflow,
 	}
 	rec.OK, _ = rec.Response["ok"].(bool)
 	rec.Error, _ = rec.Response["error"].(string)

@@ -30,12 +30,15 @@ func (a *API) write(ctx context.Context, w http.ResponseWriter, status int, v an
 	}
 }
 
-// capture tees the status and body so the Recorder can see what was sent.
+// capture holds the status and body until flush, so the Recorder sees the call
+// before the client gets its response (a client that returns from a call can
+// immediately query the call log and find it).
 type capture struct {
 	http.ResponseWriter
-	status   int
-	buf      bytes.Buffer
-	overflow bool
+	status      int
+	wroteHeader bool
+	buf         bytes.Buffer
+	overflow    bool
 }
 
 func newCapture(w http.ResponseWriter) *capture {
@@ -43,17 +46,24 @@ func newCapture(w http.ResponseWriter) *capture {
 }
 
 func (c *capture) WriteHeader(status int) {
-	c.status = status
-	c.ResponseWriter.WriteHeader(status)
+	if c.wroteHeader {
+		return
+	}
+	c.wroteHeader, c.status = true, status
 }
 
 func (c *capture) Write(b []byte) (int, error) {
-	if c.buf.Len()+len(b) > calllog.MaxResponseBytes {
-		c.overflow = true
-	} else {
-		c.buf.Write(b)
-	}
-	return c.ResponseWriter.Write(b)
+	c.wroteHeader = true
+	c.buf.Write(b)
+	c.overflow = c.buf.Len() > calllog.MaxResponseBytes
+	return len(b), nil
+}
+
+// flush sends the held response to the client.
+func (c *capture) flush() error {
+	c.ResponseWriter.WriteHeader(c.status)
+	_, err := c.buf.WriteTo(c.ResponseWriter)
+	return err
 }
 
 // Unwrap lets http.ResponseController reach the real writer.

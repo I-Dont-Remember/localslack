@@ -23,6 +23,7 @@ type call struct {
 	p       service.Principal
 	params  url.Values
 	baseURL string
+	raw     map[string]any // decoded JSON body (nil for form posts)
 }
 
 type method func(ctx context.Context, c *call) (map[string]any, error)
@@ -92,6 +93,7 @@ func (a *API) registry() map[string]spec {
 	for _, part := range []map[string]spec{
 		a.authMethods(), a.conversationMethods(), a.messageMethods(),
 		a.reactionMethods(), a.userMethods(), a.socketMethods(),
+		a.readMethods(), a.writeMethods(),
 	} {
 		maps.Copy(out, part)
 	}

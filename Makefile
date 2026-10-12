@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke e2e test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check review merge wsl-cover
 
 AIR 		  := air
 APP           := localslack
@@ -63,14 +63,18 @@ tools-test:
 	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/conformance/ -v
 
 smoke:
-	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v
+	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v --ignore=tests/smoke/reset_test.py
+
+# Suites that reset global state get their own server (skipped by `smoke`, and by pytest unless the env var is set).
+smoke-reset:
+	LOCALSLACK_RESET_SUITE=1 scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/reset_test.py -v
 
 # Browser tests (Playwright/Chromium). Failure screenshots land in tmp/e2e-artifacts.
 e2e:
 	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/e2e/ -v \
 		--screenshot only-on-failure --output tmp/e2e-artifacts $(E2E_ARGS)
 
-test-all: test conformance tools-test smoke e2e
+test-all: test conformance tools-test smoke smoke-reset e2e
 
 # single "am I done" command
 verify: check test-all

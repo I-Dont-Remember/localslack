@@ -1,0 +1,46 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs (subset: extras we emit are ignored)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-react"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "react to me"
+      },
+      "capture": {
+        "root": "ts"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/reactions.add",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "timestamp": "{{root}}",
+      "name": "eyes"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

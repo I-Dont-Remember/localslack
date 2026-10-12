@@ -1,0 +1,44 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs (subset: extras we emit are ignored)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-eph"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth.test",
+      "token": "xoxb-test",
+      "params": {},
+      "capture": {
+        "me": "user_id"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/chat.postEphemeral",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "user": "{{me}}",
+      "text": "psst"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "message_ts": "<ts>"
+    }
+  }
+}

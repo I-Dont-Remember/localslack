@@ -42,9 +42,11 @@ func (s *Store) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 // MaxTS returns the greatest message ts, or "" if there are no messages.
-func (s *Store) MaxTS(ctx context.Context) (string, error) {
+func (s *Store) MaxTS(ctx context.Context) (string, error) { return maxTS(ctx, s.reader) }
+
+func maxTS(ctx context.Context, q queryer) (string, error) {
 	var ts sql.NullString
-	if err := s.reader.QueryRowContext(ctx, `SELECT max(ts) FROM messages`).Scan(&ts); err != nil {
+	if err := q.QueryRowContext(ctx, `SELECT max(ts) FROM messages`).Scan(&ts); err != nil {
 		return "", fmt.Errorf("max ts: %w", err)
 	}
 	return ts.String, nil

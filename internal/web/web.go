@@ -63,6 +63,8 @@ func (w *Web) Mount(r chi.Router) error {
 	r.Get("/ui/c/{id}/t/{ts}", w.threadPage)
 	r.Get("/ui/c/{id}/t/{ts}/messages", w.threadMessages)
 	r.Post("/ui/c/{id}/t/{ts}/post", w.threadPost)
+	r.Post("/ui/c/{id}/react", w.channelReact)
+	r.Post("/ui/c/{id}/t/{ts}/react", w.threadReact)
 	r.Get("/ui/switch", w.switcher)
 	r.Post("/ui/dm", w.openDM)
 	r.Post("/ui/as", w.actAs)
