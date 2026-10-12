@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 
@@ -52,6 +53,7 @@ type Principal struct {
 type appCache struct {
 	mu      sync.RWMutex
 	byToken map[string]*App
+	list    []App
 }
 
 func (c *appCache) set(apps []App) {
@@ -66,7 +68,15 @@ func (c *appCache) set(apps []App) {
 	}
 	c.mu.Lock()
 	c.byToken = m
+	c.list = apps
 	c.mu.Unlock()
+}
+
+// all returns a copy of the cached apps, in the order they were set.
+func (c *appCache) all() []App {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return slices.Clone(c.list)
 }
 
 func (c *appCache) get(token string) *App {

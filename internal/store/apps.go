@@ -102,6 +102,11 @@ func (t *Tx) DeleteApp(ctx context.Context, id string) error {
 	return nil
 }
 
+// App returns an app by id, seeing this txn's writes.
+func (t *Tx) App(ctx context.Context, id string) (App, error) {
+	return getOne(ctx, t.tx, "app", `SELECT `+appCols+` FROM apps WHERE id = ?`, scanApp, id)
+}
+
 // App returns an app by id.
 func (s *Store) App(ctx context.Context, id string) (App, error) {
 	return getOne(ctx, s.reader, "app", `SELECT `+appCols+` FROM apps WHERE id = ?`, scanApp, id)
