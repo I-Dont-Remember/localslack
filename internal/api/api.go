@@ -93,7 +93,7 @@ func (a *API) registry() map[string]spec {
 	for _, part := range []map[string]spec{
 		a.authMethods(), a.conversationMethods(), a.messageMethods(),
 		a.reactionMethods(), a.userMethods(), a.socketMethods(),
-		a.readMethods(),
+		a.readMethods(), a.writeMethods(),
 	} {
 		maps.Copy(out, part)
 	}

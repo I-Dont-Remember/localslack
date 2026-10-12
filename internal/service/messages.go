@@ -23,7 +23,11 @@ func (s *Service) History(ctx context.Context, _ User, channelID string, o PageO
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return mapPage(paginate(cursorHistory, items, limit, func(m store.Message) string { return m.TS }), msgFrom), nil
+	out := mapPage(paginate(cursorHistory, items, limit, func(m store.Message) string { return m.TS }), msgFrom)
+	if err := s.withReactions(ctx, channelID, out.Items); err != nil {
+		return Page[Message]{}, err
+	}
+	return out, nil
 }
 
 // Replies returns a thread (root first, then replies oldest first).
@@ -53,13 +57,17 @@ func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS strin
 		return Page[Message]{}, err
 	}
 	page := paginate(cursorReplies, items, limit, func(m store.Message) string { return m.TS })
-	return mapPage(page, func(m store.Message) Message {
-		out := msgFrom(m)
+	out := mapPage(page, func(m store.Message) Message {
+		msg := msgFrom(m)
 		if m.ThreadTS != "" {
-			out.ParentUserID = root.UserID
+			msg.ParentUserID = root.UserID
 		}
-		return out
-	}), nil
+		return msg
+	})
+	if err := s.withReactions(ctx, channelID, out.Items); err != nil {
+		return Page[Message]{}, err
+	}
+	return out, nil
 }
 
 func (s *Service) requireChannel(ctx context.Context, channelID string) error {

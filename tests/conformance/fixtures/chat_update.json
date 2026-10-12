@@ -1,0 +1,60 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs (subset: extras we emit are ignored)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-update"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "v1"
+      },
+      "capture": {
+        "root": "ts"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/chat.update",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "ts": "{{root}}",
+      "text": "v2"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "channel": "<id:C>",
+      "ts": "<ts>",
+      "text": "v2",
+      "message": {
+        "type": "message",
+        "user": "<id:U>",
+        "bot_id": "<id:B>",
+        "ts": "<ts>",
+        "text": "v2",
+        "edited": {
+          "user": "<id:U>",
+          "ts": "<ts>"
+        }
+      }
+    }
+  }
+}

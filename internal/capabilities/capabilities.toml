@@ -99,32 +99,28 @@ scopes = ["users:read"]
 deviations = ["partial-user-fields"]
 
 [methods."chat.update"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "partial-message-fields"]
 
 [methods."chat.delete"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "tombstone-shape"]
 
 [methods."chat.postEphemeral"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["chat:write"]
+deviations = ["ephemeral-not-delivered"]
 
 [methods."reactions.add"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["reactions:write"]
+deviations = ["no-membership-check"]
 
 [methods."conversations.join"]
 status = "planned"
@@ -304,7 +300,7 @@ summary = "The channel param must be an ID: \"#general\" and user IDs as DM targ
 
 [deviations.partial-message-fields]
 severity = "medium"
-summary = "Messages omit bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
+summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users."
 
 [deviations.no-private-channels]
 severity = "medium"
@@ -349,3 +345,11 @@ summary = "Cursors are unpadded base64url of an internal key; Slack's are padded
 [deviations.token-in-json-body]
 severity = "low"
 summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
+
+[deviations.tombstone-shape]
+severity = "low"
+summary = "Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text \"This message was deleted.\") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording."
+
+[deviations.ephemeral-not-delivered]
+severity = "low"
+summary = "chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart."

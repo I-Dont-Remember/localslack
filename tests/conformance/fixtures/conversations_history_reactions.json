@@ -1,0 +1,77 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs (subset: extras we emit are ignored)",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-hist-react"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat.postMessage",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "text": "react to me"
+      },
+      "capture": {
+        "root": "ts"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/reactions.add",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}",
+        "timestamp": "{{root}}",
+        "name": "eyes"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.history",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "has_more": false,
+      "messages": [
+        {
+          "type": "message",
+          "user": "<id:U>",
+          "bot_id": "<id:B>",
+          "ts": "<ts>",
+          "text": "react to me",
+          "reactions": [
+            {
+              "name": "eyes",
+              "users": [
+                "<id:U>"
+              ],
+              "count": 1
+            }
+          ]
+        }
+      ]
+    },
+    "ignore": [
+      "pin_count",
+      "response_metadata"
+    ]
+  }
+}
