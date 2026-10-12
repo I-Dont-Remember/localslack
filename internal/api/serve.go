@@ -20,6 +20,7 @@ import (
 func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	start := a.now()
 	rw := newCapture(w)
+	rw.Header().Set("X-Slack-Req-Id", middleware.GetReqID(r.Context()))
 	st := &state{method: chi.URLParam(r, "method")}
 	a.run(rw, r, st)
 	a.rec.Record(st.record(r, rw, start, a.now()))

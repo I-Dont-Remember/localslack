@@ -317,7 +317,7 @@ summary = "Only public channels exist; types=private_channel returns nothing and
 
 [deviations.response-headers-missing]
 severity = "medium"
-summary = "Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset."
+summary = "Responses lack x-oauth-scopes, x-accepted-oauth-scopes and retry-after (x-slack-req-id and the Content-Type charset are sent)."
 
 [deviations.multipart-ignored]
 severity = "medium"
