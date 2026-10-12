@@ -37,7 +37,7 @@ Multiple apps per workspace; each owns a bot user, `bot_id`, tokens, signing sec
 ## Faults (stream D)
 - `POST /_localslack/faults` `{"method":"chat.postMessage"|"*","match":{"channel","app_id"}?,"nth"?,"every"?,"times"?,"once"?,"action":{"status":429,"error":"ratelimited","retry_after":2,"delay_ms":0,"body":{..}}}` → `{"ok","fault":{"id":"f_1",..,"seen":0,"fired":0}}`.
 - `GET /_localslack/faults`; `DELETE /_localslack/faults/{id}`; `DELETE /_localslack/faults`.
-- First firing rule in creation order wins; 429 sets `Retry-After`; `delay_ms` alone delays then runs the real call; faulted calls never run the method and are logged with `fault_id`. Checked after parse, before auth.
+- First firing rule in creation order wins; 429 sets `Retry-After`; `delay_ms` alone delays then runs the real call; faulted calls never run the method and are logged with `fault_id`. Checked after parse and non-failing token identification, before auth enforcement (so `match.app_id` works; a bad token is still faulted).
 
 ## State, snapshots, diff (stream G)
 - Fixture v1 (also the snapshot format and `--scenario` format; JSON/TOML/YAML): `{"version":1,"team":{..},"users":[..],"channels":[..],"dms":[..],"messages":[..],"generate":{"seed","users","channels","messages_per_channel","thread_ratio","private_channels"}}`.
@@ -46,3 +46,16 @@ Multiple apps per workspace; each owns a bot user, `bot_id`, tokens, signing sec
 
 ## Unchanged
 `GET /_localslack/health`, `GET /_localslack/state/conversations` (moves to `internal/admin`).
+
+## Cross-cutting rules (arch-review amendments)
+- Errors: unknown id/name -> 404 `{"ok":false,"error":"not_found"}`; duplicates (app_id, credentials, snapshot name) -> 409 `already_exists`; concurrent reset -> 409 `reset_in_progress`; bad reset combo -> 400 `invalid_reset` (`seed`/`scenario`/`generate` precedence: scenario XOR generate; seed alone ok).
+- `--app-manifest` is an upsert keyed by explicit `app_id`, else deterministic from manifest name; credentials updated in place; safe on every restart.
+- `POST /events` without `app_id`: one `event_id`, one delivery per subscribed app (`delivery_ids` per app). `redeliver` after the event ages out -> 404 `event_not_found`. `paused` holds (queues) events.
+- Delivery config: global default plus per-app override (`PUT /apps/{id}/delivery-config`).
+- Long-poll: `seq` monotonic across DELETE/reset; `next_since` echoes input `since` when empty; responses carry `generation`; parked pollers are woken on reset. Default `limit` 100, cap 1000; truncated responses carry `response_truncated`.
+- Call log: `/_localslack/*` and UI actions not logged; unknown-method fallback is logged; redact `Authorization`, `Cookie`, `token`, `client_secret`, `signing_secret`.
+- Reset: `keep` allow-list may include `apps`, `delivery-config`, `sockets`, `faults`, `calls`, `deliveries`, `snapshots`; response includes `generation`. Apps persist by default.
+- Fixture: JSON canonical (TOML/YAML are loaders only); schema includes ts, `bot_id`, reactions, edited, blocks/attachments/metadata so snapshots round-trip; app bot users excluded from export.
+- Diff accepts `from`/`to` as snapshot names or `current`.
+- Safety: `request_url` must be loopback/private unless `--allow-remote-request-urls`; never follow redirects; WebSocket upgrade checks Origin plus one-time ticket.
+- Default bot (no app) reports a fixed default scope list incl. `chat:write`, `chat:write.public`.

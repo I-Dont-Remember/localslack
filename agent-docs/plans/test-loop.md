@@ -117,6 +117,23 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - Wave 0 is large but is the main conflict-avoidance lever; don't start Wave 1 early.
 - Commits need unsandboxed pre-commit; no literal tokens in repo.
 
+## Arch-review amendments (supersede conflicting text above)
+**Extra/changed Wave 0 steps**
+- 0.2a **Principal**: `service.Principal{User, App *App, TokenKind, Scopes}`; `Identify(token)` (non-failing) + `Authenticate`; in-memory app cache (token->app) invalidated on register/delete/reset; migrate api/web; `state.go` uses an internal service call, not a fake token. Unregistered `xoxb-*` -> default bot (no app: no events, scope gating skipped); add `--strict-tokens` + per-app revoke so `invalid_auth`/`token_revoked` are testable.
+- 0.3 pipeline order: resolve -> parse -> Identify -> Interceptor(faults) -> enforce auth -> call, all inside Recorder (incl. unknown-method fallback). Faulted call with bad token is still faulted and logged.
+- 0.4 depguard as explicit step: deny store from admin/control/events/calllog/faults/scenario/appmanifest/seed; deny api->admin/events/control, web->admin, events->api/web, admin->api/web. `calllog`, `faults`, `scenario` are leaf pkgs (no service import); service consumes `scenario.Fixture` (`svc.Populate`, `svc.Export`). `seed` emits a Fixture, stops importing store.
+- 0.5 migration: goose `WithAllowOutofOrder(true)`; additive DDL only; Wave 0 ships only `apps`, `users.bot_id`, `conversations.is_private`; `reactions` table belongs to B2 (range 20).
+- 0.6 pre-split hot files: `service/{post,edit,react,access}.go`, `store/{messages,reactions,apps,wipe}.go`, `api/methods_*`, `dto_{content,reactions}.go`; stub one-line `emit`/`checkAccess` hooks in `PostMessage`.
+- 0.7 event seam: ordered publish (afterCommit hook in `Store.Write` or mutex spanning commit+enqueue), O(1) non-blocking; events self-contained (full message, channel kind/private/name, target bot user ids; Changed has prev+new; Deleted has message); bounded queue, drop+log+counter; `Subscribe` returns unsubscribe; seed/populate/restore/reset never emit (tested); collector-based tests.
+- 0.8 errors: export constants only; each stream adds mappings in its own `errors_<stream>.go` (map merge) instead of a frozen table.
+- 0.10 define interfaces + noop impls: `Dispatcher{Pause,Reset,Resume}`, CallLog, Faults. `Deps` = optional components list to avoid shared-line edits in `build.go`/`storetest`.
+- 0.11 test hygiene: fixtures restore global control state (faults, delivery-config, paused) on teardown; reset/snapshot suites run against a dedicated second server instance.
+- Add `Store.Read(ctx, fn)` (single read tx) for consistent export/diff/state.
+
+**Reset invariants**: ts `advanceTo` forward-only, inside reset write tx, >= max fixture ts; ids generator behind mutex/`Reseed` in place; team id stable across reset (keep team row) or apps re-stamped; app bot users inserted after populate, populate rejects id collisions with them, snapshot export excludes them; dispatcher reset = stop enqueue, cancel in-flight + timers, trace writes check generation; call/delivery `seq` monotonic across DELETE/reset, parked long-polls woken with `generation` change; reset scope documented (delivery-config -> defaults, sockets persist, UI cookie falls back if user gone); one write tx, batched prepared inserts; concurrent reset -> 409. Reset is global: one test session per server. Documented decisions: apps persist across reset (`keep`/`drop` incl. `apps`); snapshots volatile (lost on restart); single-team coupling is a known deviation (DESIGN_DOC multi-workspace is the eventual answer).
+
+**Extra tests**: concurrent-post event ordering; no events on seed/restore/reset; late delivery after reset not recorded; two-app Principal resolution; export->wipe->import->export identity; populate perf as benchmark + loose bound.
+
 ## Progress
 - [ ] Wave 0 (11 steps)  - [ ] Gate 0
 - [ ] Wave 1: A B1 B2 C D E  - [ ] Gate 1
