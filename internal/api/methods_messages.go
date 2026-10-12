@@ -4,7 +4,7 @@ import "context"
 
 func (a *API) chatPostMessage(ctx context.Context, c *call) (map[string]any, error) {
 	channel := c.params.Get("channel")
-	msg, err := a.svc.PostMessage(ctx, c.user, channel, c.params.Get("text"), c.params.Get("thread_ts"))
+	msg, err := a.svc.PostMessage(ctx, c.p.User, channel, c.params.Get("text"), c.params.Get("thread_ts"))
 	if err != nil {
 		return nil, err
 	}
@@ -12,7 +12,7 @@ func (a *API) chatPostMessage(ctx context.Context, c *call) (map[string]any, err
 }
 
 func (a *API) conversationsArchive(ctx context.Context, c *call) (map[string]any, error) {
-	if err := a.svc.ArchiveChannel(ctx, c.user, c.params.Get("channel")); err != nil {
+	if err := a.svc.ArchiveChannel(ctx, c.p.User, c.params.Get("channel")); err != nil {
 		return nil, err
 	}
 	return map[string]any{}, nil

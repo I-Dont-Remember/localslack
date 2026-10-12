@@ -11,12 +11,12 @@ import (
 // Unauthenticated debug endpoint: LocalSlack is a local-only tool.
 func (h handlers) stateConversations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	bot, err := h.svc.Authenticate(ctx, "xoxb-state")
+	bot, err := h.svc.DefaultBot(ctx)
 	if err != nil {
 		h.internalError(w, r, err)
 		return
 	}
-	states, err := h.svc.Snapshot(ctx, bot)
+	states, err := h.svc.Snapshot(ctx, bot.User)
 	if err != nil {
 		h.internalError(w, r, err)
 		return

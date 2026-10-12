@@ -6,9 +6,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	"localslack/internal/ids"
@@ -31,10 +29,11 @@ const (
 
 // Service implements LocalSlack's behavior over a store.
 type Service struct {
-	st  *store.Store
-	now func() time.Time
-	ids *ids.Generator
-	ts  *tsGen
+	st   *store.Store
+	now  func() time.Time
+	ids  *ids.Generator
+	ts   *tsGen
+	apps appCache
 }
 
 // New builds a Service. idSeed makes new conversation ids deterministic for
@@ -55,27 +54,6 @@ func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed stri
 		}
 	}
 	return &Service{st: st, now: now, ids: ids.NewGenerator(idSeed), ts: gen}, nil
-}
-
-// Authenticate resolves a token to the acting user: "xoxb-..." is the bot,
-// "xoxp-<userID>" is that user.
-func (s *Service) Authenticate(ctx context.Context, token string) (User, error) {
-	switch {
-	case token == "":
-		return User{}, ErrNotAuthed
-	case strings.HasPrefix(token, "xoxb-"):
-		return s.lookupAuth(s.st.BotUser(ctx))
-	case strings.HasPrefix(token, "xoxp-"):
-		return s.lookupAuth(s.st.User(ctx, strings.TrimPrefix(token, "xoxp-")))
-	}
-	return User{}, ErrInvalidAuth
-}
-
-func (s *Service) lookupAuth(u User, err error) (User, error) {
-	if errors.Is(err, store.ErrNotFound) {
-		return User{}, ErrInvalidAuth
-	}
-	return u, err
 }
 
 // Team returns the workspace.

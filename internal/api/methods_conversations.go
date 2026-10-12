@@ -7,7 +7,7 @@ import (
 )
 
 func (a *API) conversationsCreate(ctx context.Context, c *call) (map[string]any, error) {
-	conv, err := a.svc.CreateChannel(ctx, c.user, c.params.Get("name"))
+	conv, err := a.svc.CreateChannel(ctx, c.p.User, c.params.Get("name"))
 	if err != nil {
 		return nil, err
 	}
@@ -15,7 +15,7 @@ func (a *API) conversationsCreate(ctx context.Context, c *call) (map[string]any,
 }
 
 func (a *API) conversationsList(ctx context.Context, c *call) (map[string]any, error) {
-	page, err := a.svc.ListConversations(ctx, c.user, service.ListOpts{
+	page, err := a.svc.ListConversations(ctx, c.p.User, service.ListOpts{
 		Types:           csv(c.params.Get("types")),
 		ExcludeArchived: boolParam(c.params, "exclude_archived"),
 		Cursor:          c.params.Get("cursor"),
@@ -35,9 +35,9 @@ func (a *API) conversationsOpen(ctx context.Context, c *call) (map[string]any, e
 	var conv service.Conversation
 	var err error
 	if id := c.params.Get("channel"); id != "" {
-		conv, err = a.svc.Conversation(ctx, c.user, id)
+		conv, err = a.svc.Conversation(ctx, c.p.User, id)
 	} else {
-		conv, err = a.svc.OpenDM(ctx, c.user, csv(c.params.Get("users")))
+		conv, err = a.svc.OpenDM(ctx, c.p.User, csv(c.params.Get("users")))
 	}
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (a *API) conversationsOpen(ctx context.Context, c *call) (map[string]any, e
 }
 
 func (a *API) conversationsHistory(ctx context.Context, c *call) (map[string]any, error) {
-	page, err := a.svc.History(ctx, c.user, c.params.Get("channel"), service.PageOpts{
+	page, err := a.svc.History(ctx, c.p.User, c.params.Get("channel"), service.PageOpts{
 		Cursor: c.params.Get("cursor"), Limit: intParam(c.params, "limit"),
 		Oldest: c.params.Get("oldest"), Latest: c.params.Get("latest"), Inclusive: boolParam(c.params, "inclusive"),
 	})
@@ -57,7 +57,7 @@ func (a *API) conversationsHistory(ctx context.Context, c *call) (map[string]any
 }
 
 func (a *API) conversationsReplies(ctx context.Context, c *call) (map[string]any, error) {
-	page, err := a.svc.Replies(ctx, c.user, c.params.Get("channel"), c.params.Get("ts"), service.PageOpts{
+	page, err := a.svc.Replies(ctx, c.p.User, c.params.Get("channel"), c.params.Get("ts"), service.PageOpts{
 		Cursor: c.params.Get("cursor"), Limit: intParam(c.params, "limit"),
 	})
 	if err != nil {

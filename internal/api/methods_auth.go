@@ -8,11 +8,11 @@ func (a *API) authTest(ctx context.Context, c *call) (map[string]any, error) {
 		return nil, err
 	}
 	out := map[string]any{
-		"url": c.baseURL, "team": team.Name, "user": c.user.Name,
-		"team_id": team.ID, "user_id": c.user.ID, "is_enterprise_install": false,
+		"url": c.baseURL, "team": team.Name, "user": c.p.User.Name,
+		"team_id": team.ID, "user_id": c.p.User.ID, "is_enterprise_install": false,
 	}
-	if c.user.IsBot {
-		out["bot_id"] = "B" + c.user.ID[1:]
+	if c.p.User.IsBot {
+		out["bot_id"] = "B" + c.p.User.ID[1:]
 	}
 	return out, nil
 }

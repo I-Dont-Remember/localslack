@@ -19,7 +19,7 @@ import (
 
 // call is one authenticated API invocation.
 type call struct {
-	user    service.User
+	p       service.Principal
 	params  url.Values
 	baseURL string
 }
@@ -94,7 +94,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 		a.fail(ctx, w, err)
 		return
 	}
-	user, err := a.svc.Authenticate(ctx, bearer(r, params))
+	p, err := a.svc.Authenticate(ctx, bearer(r, params))
 	if err != nil {
 		a.fail(ctx, w, err)
 		return
@@ -103,7 +103,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	out, err := sp.fn(ctx, &call{user: user, params: params, baseURL: scheme + "://" + r.Host + "/"})
+	out, err := sp.fn(ctx, &call{p: p, params: params, baseURL: scheme + "://" + r.Host + "/"})
 	if err != nil {
 		a.fail(ctx, w, err)
 		return

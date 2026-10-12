@@ -72,8 +72,8 @@ func (w *Web) Mount(r chi.Router) error {
 // actor resolves the acting user from the cookie, defaulting to the first human.
 func (w *Web) actor(ctx context.Context, r *http.Request) (service.User, error) {
 	if c, err := r.Cookie(actorCookie); err == nil {
-		if u, err := w.svc.Authenticate(ctx, "xoxp-"+c.Value); err == nil {
-			return u, nil
+		if p, err := w.svc.Authenticate(ctx, "xoxp-"+c.Value); err == nil {
+			return p.User, nil
 		}
 	}
 	users, err := w.svc.Users(ctx)
@@ -85,7 +85,8 @@ func (w *Web) actor(ctx context.Context, r *http.Request) (service.User, error) 
 			return u, nil
 		}
 	}
-	return w.svc.Authenticate(ctx, "xoxb-ui")
+	p, err := w.svc.DefaultBot(ctx)
+	return p.User, err
 }
 
 func (w *Web) render(rw http.ResponseWriter, r *http.Request, name string, data any) {

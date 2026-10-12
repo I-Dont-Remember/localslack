@@ -73,14 +73,15 @@ func TestAuthenticate(t *testing.T) {
 	tests := []struct {
 		name    string
 		token   string
-		wantID  string
+		want    service.Principal
 		wantErr error
 	}{
-		{"missing", "", "", service.ErrNotAuthed},
-		{"bot token", "xoxb-anything", bot.ID, nil},
-		{"user token", "xoxp-" + human.ID, human.ID, nil},
-		{"unknown user", "xoxp-UNOPE", "", service.ErrInvalidAuth},
-		{"garbage", "hunter2", "", service.ErrInvalidAuth},
+		{"missing", "", service.Principal{}, service.ErrNotAuthed},
+		{"bot token", "xoxb-anything", service.Principal{User: bot, TokenKind: service.TokenBot}, nil},
+		{"user token", "xoxp-" + human.ID, service.Principal{User: human, TokenKind: service.TokenUser}, nil},
+		{"unknown user", "xoxp-UNOPE", service.Principal{}, service.ErrInvalidAuth},
+		{"unregistered app token", "xapp-1-x", service.Principal{}, service.ErrInvalidAuth},
+		{"garbage", "hunter2", service.Principal{}, service.ErrInvalidAuth},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -89,10 +90,83 @@ func TestAuthenticate(t *testing.T) {
 			if !errors.Is(err, tt.wantErr) {
 				t.Fatalf("err = %v, want %v", err, tt.wantErr)
 			}
-			if got.ID != tt.wantID {
-				t.Errorf("user = %q, want %q", got.ID, tt.wantID)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("principal mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestIdentify(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	human, bot := usersOf(t, svc)
+	tests := []struct {
+		name  string
+		token string
+		want  service.Principal
+	}{
+		{"missing", "", service.Principal{}},
+		{"bot", "xoxb-x", service.Principal{User: bot, TokenKind: service.TokenBot}},
+		{"user", "xoxp-" + human.ID, service.Principal{User: human, TokenKind: service.TokenUser}},
+		{"unknown user keeps kind", "xoxp-UNOPE", service.Principal{TokenKind: service.TokenUser}},
+		{"app token", "xapp-1-x", service.Principal{TokenKind: service.TokenApp}},
+		{"garbage", "hunter2", service.Principal{TokenKind: service.TokenInvalid}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if diff := cmp.Diff(tt.want, svc.Identify(t.Context(), tt.token)); diff != "" {
+				t.Errorf("principal mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestRegisteredApps(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	human, bot := usersOf(t, svc)
+	// Apps point at existing users; per-app bot users arrive with the registry.
+	app := service.App{ID: "A1", Name: "one", BotToken: "xoxb-app1", AppToken: "xapp-app1", BotUserID: human.ID, Scopes: []string{"chat:write"}}
+	svc.SetApps(app)
+	ctx := t.Context()
+
+	got, err := svc.Authenticate(ctx, "xoxb-app1")
+	want := service.Principal{User: human, App: &app, TokenKind: service.TokenBot, Scopes: []string{"chat:write"}}
+	if err != nil || cmp.Diff(want, got) != "" {
+		t.Errorf("registered bot = %+v, %v; want %+v", got, err, want)
+	}
+	got, err = svc.Authenticate(ctx, "xapp-app1")
+	want = service.Principal{App: &app, TokenKind: service.TokenApp, Scopes: []string{"chat:write"}}
+	if err != nil || cmp.Diff(want, got) != "" {
+		t.Errorf("app token = %+v, %v; want %+v", got, err, want)
+	}
+	got, err = svc.Authenticate(ctx, "xoxb-other")
+	if err != nil || got.App != nil || got.User != bot {
+		t.Errorf("unregistered bot = %+v, %v; want default bot, no app", got, err)
+	}
+
+	svc.InvalidateApps()
+	got, err = svc.Authenticate(ctx, "xoxb-app1")
+	if err != nil || got.App != nil || got.User != bot {
+		t.Errorf("after invalidate = %+v, %v; want default bot, no app", got, err)
+	}
+	if _, err := svc.Authenticate(ctx, "xapp-app1"); !errors.Is(err, service.ErrInvalidAuth) {
+		t.Errorf("app token after invalidate err = %v, want ErrInvalidAuth", err)
+	}
+}
+
+func TestDefaultBot(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	_, bot := usersOf(t, svc)
+	got, err := svc.DefaultBot(t.Context())
+	if want := (service.Principal{User: bot, TokenKind: service.TokenBot}); err != nil || cmp.Diff(want, got) != "" {
+		t.Errorf("DefaultBot = %+v, %v; want %+v", got, err, want)
 	}
 }
 
