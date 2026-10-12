@@ -80,6 +80,11 @@ func (c Components) apiOptions() []api.Option {
 	return opts
 }
 
+// inspector hands the UI inspector its read/act seams (all non-nil after newComponents).
+func (c Components) inspector() web.Inspector {
+	return web.Inspector{Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control}
+}
+
 // Close stops event delivery.
 func (c Components) Close() error {
 	if c.unsubscribe != nil {
@@ -109,12 +114,12 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 		_ = st.Close()
 		return nil, err
 	}
-	ui, err := web.New(svc, log)
+	comps := newComponents(cfg, svc, log, opts...)
+	ui, err := web.New(svc, log, web.WithInspector(comps.inspector()))
 	if err != nil {
-		_ = st.Close()
+		_ = errors.Join(comps.Close(), st.Close())
 		return nil, err
 	}
-	comps := newComponents(cfg, svc, log, opts...)
 	if err := registerManifests(ctx, log, cfg, svc, comps.Events); err != nil {
 		_ = errors.Join(comps.Close(), st.Close())
 		return nil, err

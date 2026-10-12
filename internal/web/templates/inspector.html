@@ -1,0 +1,220 @@
+{{define "inspector"}}<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LocalSlack inspector</title>
+<script src="/ui/static/htmx.min.js"></script>
+<style>
+  :root { color-scheme: light dark; --bg:#fff; --fg:#1d1c1d; --accent:#1264a3; --line:#ddd; --muted:#616061; --panel:#f6f6f6; --ok:#1a7f37; --bad:#c0262d; --warn:#9a6700; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#1a1d21; --fg:#d1d2d3; --line:#383b40; --muted:#9a9b9e; --accent:#4aa3e0; --panel:#22252a; --ok:#3fb950; --bad:#f85149; --warn:#d29922; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.4 system-ui,sans-serif; background:var(--bg); color:var(--fg); }
+  header.top { display:flex; gap:16px; align-items:baseline; padding:10px 16px; border-bottom:1px solid var(--line); }
+  header.top h1 { font-size:18px; margin:0; }
+  a { color:var(--accent); }
+  main { padding:12px 16px; display:grid; gap:16px; grid-template-columns:repeat(auto-fit,minmax(480px,1fr)); }
+  section { border:1px solid var(--line); border-radius:6px; background:var(--panel); padding:10px 12px; min-width:0; }
+  section.wide { grid-column:1 / -1; }
+  h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; margin:0 0 8px; color:var(--muted); }
+  .muted { color:var(--muted); font-size:12px; }
+  form.inline, .row-form { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:4px 0; }
+  input, select, button { font:inherit; padding:3px 6px; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:4px; }
+  input[type=number] { width:90px; } input.wide { width:260px; }
+  button { cursor:pointer; } button.danger { color:var(--bad); } button.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  details { border-top:1px solid var(--line); padding:3px 0; }
+  summary { cursor:pointer; display:flex; flex-wrap:wrap; gap:10px; align-items:baseline; }
+  summary .t { color:var(--muted); font-size:12px; min-width:84px; font-family:ui-monospace,monospace; }
+  summary .m { font-weight:600; font-family:ui-monospace,monospace; }
+  pre { margin:4px 0; padding:6px; background:var(--bg); border:1px solid var(--line); border-radius:4px; overflow:auto; max-height:260px; font-size:12px; }
+  .badge { font-size:11px; padding:0 6px; border-radius:8px; border:1px solid currentColor; }
+  .ok { color:var(--ok); } .bad { color:var(--bad); } .warn { color:var(--warn); }
+  table { border-collapse:collapse; width:100%; font-size:13px; } td, th { text-align:left; padding:2px 8px 2px 0; vertical-align:top; }
+  .list { max-height:520px; overflow:auto; }
+  .note { font-style:italic; color:var(--muted); }
+  dl.kv { display:grid; grid-template-columns:max-content 1fr; gap:2px 12px; margin:6px 0; } dl.kv dt { color:var(--muted); } dl.kv dd { margin:0; word-break:break-all; }
+</style>
+<script>
+  // Keep polling from clobbering a field being edited, and keep expanded rows open across swaps.
+  function inspBusy(id) {
+    const el = document.getElementById(id), a = document.activeElement;
+    return !!el && el.contains(a) && a.matches('input,select,textarea');
+  }
+  const openKeys = new Map();
+  document.addEventListener('htmx:beforeSwap', (e) => {
+    openKeys.set(e.target.id, [...e.target.querySelectorAll('details[open][data-key]')].map((d) => d.dataset.key));
+  });
+  document.addEventListener('htmx:afterSwap', (e) => {
+    for (const k of openKeys.get(e.target.id) || []) {
+      const d = [...e.target.querySelectorAll('details[data-key]')].find((x) => x.dataset.key === k);
+      if (d) d.open = true;
+    }
+  });
+  // "event_id" links filter the deliveries panel to that event.
+  document.addEventListener('click', (e) => {
+    const a = e.target.closest('a[data-event-filter]');
+    if (!a) return;
+    e.preventDefault();
+    const f = document.getElementById('deliveries-filter');
+    f.elements.event_id.value = a.dataset.eventFilter;
+    htmx.trigger(f, 'change');
+  });
+</script>
+</head>
+<body>
+<header class="top">
+  <h1>LocalSlack inspector</h1>
+  <a href="/" data-testid="back-to-chat">&larr; Chat</a>
+  <span class="muted">live: refreshes every second, newest first, last 100 rows</span>
+</header>
+<main>
+  <section class="wide" data-testid="inspector-calls">
+    <h2>API calls</h2>
+    <form class="inline" id="calls-filter" hx-get="/ui/inspector/calls" hx-target="#calls-list" hx-trigger="input delay:300ms, change" data-testid="calls-filter">
+      <input name="method" placeholder="method e.g. chat.postMessage" class="wide">
+      <input name="channel" placeholder="channel id">
+      <select name="ok"><option value="">any result</option><option value="true">ok</option><option value="false">errors</option></select>
+    </form>
+    <div id="calls-list" class="list" data-testid="calls-list" hx-get="/ui/inspector/calls" hx-include="#calls-filter" hx-trigger="load, every 1s [!inspBusy('calls-filter')]" hx-swap="innerHTML"></div>
+  </section>
+
+  <section class="wide" data-testid="inspector-deliveries">
+    <h2>Event deliveries</h2>
+    <form class="inline" id="deliveries-filter" hx-get="/ui/inspector/deliveries" hx-target="#deliveries-list" hx-trigger="input delay:300ms, change" data-testid="deliveries-filter">
+      <input name="event_id" placeholder="event id" class="wide">
+      <input name="event_type" placeholder="event type">
+      <select name="state"><option value="">any state</option><option>pending</option><option>retrying</option><option>delivered</option><option>failed</option></select>
+    </form>
+    <div id="deliveries-list" class="list" data-testid="deliveries-list" hx-get="/ui/inspector/deliveries" hx-include="#deliveries-filter" hx-trigger="load, every 1s [!inspBusy('deliveries-list') &amp;&amp; !inspBusy('deliveries-filter')]" hx-swap="innerHTML"></div>
+  </section>
+
+  <section data-testid="inspector-apps">
+    <h2>Apps</h2>
+    <div id="apps-list" data-testid="apps-list" hx-get="/ui/inspector/apps" hx-trigger="load, every 1s [!inspBusy('apps-list')]" hx-swap="innerHTML"></div>
+  </section>
+
+  <section data-testid="inspector-faults">
+    <h2>Faults</h2>
+    <form class="row-form" hx-post="/ui/inspector/faults" hx-target="#faults-list" data-testid="fault-form">
+      <input name="method" placeholder="method or *" required>
+      <input name="channel" placeholder="channel (opt.)">
+      <input name="status" type="number" placeholder="status">
+      <input name="error" placeholder="error code">
+      <input name="retry_after" type="number" placeholder="retry_after s">
+      <input name="delay_ms" type="number" placeholder="delay ms">
+      <input name="nth" type="number" placeholder="nth">
+      <input name="every" type="number" placeholder="every">
+      <input name="times" type="number" placeholder="times">
+      <label><input name="once" type="checkbox" value="1"> once</label>
+      <button type="submit" data-testid="fault-add">Add fault</button>
+    </form>
+    <div class="muted">Give status and/or error and/or delay. A faulted call never runs the real method.</div>
+    <div id="faults-list" data-testid="faults-list" hx-get="/ui/inspector/faults" hx-trigger="load, every 1s" hx-swap="innerHTML"></div>
+  </section>
+
+  <section data-testid="inspector-controls">
+    <h2>Controls</h2>
+    <div id="controls-state" data-testid="controls-state" hx-get="/ui/inspector/controls" hx-trigger="load, every 1s" hx-swap="innerHTML"></div>
+    <form class="row-form" hx-post="/ui/inspector/config" hx-target="#controls-state">
+      <input name="timeout_ms" type="number" min="1" placeholder="timeout ms" data-testid="timeout-input">
+      <button type="submit">Set timeout</button>
+    </form>
+    <h2 style="margin-top:12px">Reset</h2>
+    <form class="row-form" hx-post="/ui/inspector/reset" hx-target="#reset-result" hx-confirm="Reset workspace data (users, channels, messages), call log, deliveries and faults? Apps are kept.">
+      <input name="seed" placeholder="seed (optional)" data-testid="reset-seed">
+      <button type="submit" class="danger" data-testid="reset-partial">Reset</button>
+    </form>
+    <form class="row-form" hx-post="/ui/inspector/reset" hx-target="#reset-result" hx-confirm="Reset EVERYTHING including registered apps (reset --all)?">
+      <input type="hidden" name="all" value="true">
+      <input name="seed" placeholder="seed (optional)">
+      <button type="submit" class="danger" data-testid="reset-all">Reset --all (also removes apps)</button>
+    </form>
+    <div id="reset-result" data-testid="reset-result-slot"></div>
+  </section>
+
+  <section data-testid="inspector-sockets">
+    <h2>Socket Mode connections</h2>
+    <p class="note">Socket connections are available when Socket Mode is enabled on this server.</p>
+  </section>
+
+  <section data-testid="inspector-snapshots">
+    <h2>Snapshots and diff</h2>
+    <p class="note">Snapshots and diff are available when snapshots are enabled on this server.</p>
+  </section>
+</main>
+</body>
+</html>
+{{end}}
+
+{{define "inspector-calls"}}{{if .Missing}}<p class="note">Call log is not enabled on this server.</p>{{else}}{{range .Rows}}<details data-key="call-{{.Seq}}" data-testid="call-row" data-method="{{.Method}}">
+  <summary>
+    <span class="t">{{.Time}}</span><span class="m" data-testid="call-method">{{.Method}}</span>
+    <span class="{{if .OK}}ok{{else}}bad{{end}}" data-testid="call-status">{{.Status}} {{if .OK}}ok{{else}}{{.Error}}{{end}}</span>
+    <span class="muted">{{.DurationMS}} ms</span><span class="muted">{{.Actor}}</span>
+    {{if .FaultID}}<span class="badge warn" data-testid="badge-fault" title="answered by fault rule">fault {{.FaultID}}</span>{{end}}
+    {{if .NotImplemented}}<span class="badge bad" data-testid="badge-not-implemented">not implemented</span>{{end}}
+  </summary>
+  <div class="muted">params</div><pre>{{.Params}}</pre>
+  <div class="muted">response{{if .Truncated}} (over 64KB, dropped){{end}}</div><pre>{{.Response}}</pre>
+</details>{{else}}<p class="muted">No calls yet. Point a Slack SDK at this server and they show up here.</p>{{end}}{{end}}{{end}}
+
+{{define "inspector-deliveries"}}{{if .Missing}}<p class="note">Event delivery is not enabled on this server.</p>{{else}}{{if .Message}}<p class="bad" data-testid="deliveries-error">{{.Message}}</p>{{end}}{{range .Rows}}<details data-key="delivery-{{.ID}}" data-testid="delivery-row" data-event-id="{{.EventID}}">
+  <summary>
+    <span class="m">{{.EventType}}</span>
+    <span class="muted">app {{.AppID}}</span><span class="muted">{{.Transport}}</span>
+    <span class="badge {{if eq .State "delivered"}}ok{{else if eq .State "failed"}}bad{{else}}warn{{end}}" data-testid="delivery-state">{{.State}}</span>
+    <span class="muted">{{len .Attempts}} attempt(s)</span>{{if .Injected}}<span class="badge muted">injected</span>{{end}}
+    <a href="#" data-event-filter="{{.EventID}}" data-testid="event-link">{{.EventID}}</a>
+  </summary>
+  {{if .Attempts}}<table><tr><th>#</th><th>time</th><th>status</th><th>latency</th><th>retry reason</th><th>signature</th><th>error</th></tr>
+  {{range .Attempts}}<tr data-testid="attempt"><td>{{.N}}</td><td>{{.Time}}</td><td>{{.Status}}</td><td>{{.LatencyMS}} ms</td><td>{{.RetryReason}}</td><td>{{.SignatureMode}}</td><td>{{.Error}}</td></tr>{{end}}</table>{{else}}<p class="muted">No attempts yet (queued or paused).</p>{{end}}
+  <form class="inline" hx-post="/ui/inspector/deliveries/{{.ID}}/redeliver" hx-target="#deliveries-list">
+    <select name="signature"><option>valid</option><option>invalid</option><option>stale</option><option>missing</option></select>
+    <button type="submit" data-testid="redeliver">Redeliver</button>
+  </form>
+  <div class="muted">payload</div><pre>{{.Payload}}</pre>
+</details>{{else}}<p class="muted">No deliveries. Register an app, post a message, or inject an event.</p>{{end}}{{end}}{{end}}
+
+{{define "inspector-apps"}}{{if .Message}}<p class="bad" data-testid="apps-error">{{.Message}}</p>{{end}}{{range .Rows}}<div data-testid="app-row" data-app-id="{{.ID}}" style="border-top:1px solid var(--line);padding:6px 0">
+  <strong>{{.Name}}</strong> <span class="muted">{{.ID}}</span>
+  {{if .SocketMode}}<span class="badge muted" data-state="socket">socket mode</span>{{else if .Ready}}<span class="badge ok" data-state="ready" data-testid="app-state">ready</span>{{else}}<span class="badge bad" data-state="blocked" data-testid="app-state">blocked</span>{{end}}
+  <span class="badge {{if .Verified}}ok{{else}}muted{{end}}" data-testid="app-verified">{{if .Verified}}verified{{else}}not verified{{end}}</span>
+  <dl class="kv">
+    <dt>bot user</dt><dd>{{.BotUserID}} <span class="muted">({{.BotID}})</span></dd>
+    {{if not .SocketMode}}<dt>request URL</dt><dd data-testid="app-url">{{if .Ready}}{{.EffectiveURL}}{{else}}<span class="bad">{{.BlockedReason}}</span>{{end}}</dd>{{end}}
+    {{if .ManifestURL}}<dt>manifest URL</dt><dd>{{.ManifestURL}}</dd>{{end}}
+    {{if .VerifyError}}<dt>verification</dt><dd class="warn">{{.VerifyError}}</dd>{{end}}
+    <dt>subscriptions</dt><dd>{{range .Events}}<code>{{.}}</code> {{else}}<span class="muted">none</span>{{end}}</dd>
+    <dt>scopes</dt><dd>{{range .Scopes}}<code>{{.}}</code> {{else}}<span class="muted">none</span>{{end}}</dd>
+  </dl>
+  {{if not .SocketMode}}<form class="inline" hx-post="/ui/inspector/apps/{{.ID}}/deliver_to" hx-target="#apps-list">
+    <label class="muted" for="dt-{{.ID}}">deliver_to</label>
+    <input id="dt-{{.ID}}" name="deliver_to" value="{{.DeliverTo}}" placeholder="http://localhost:3000" class="wide" data-testid="deliver-to">
+    <button type="submit" data-testid="deliver-to-save">Save</button>
+  </form>{{end}}
+  <details data-key="creds-{{.ID}}"><summary data-testid="reveal-credentials">credentials (click to reveal)</summary>
+    <dl class="kv" data-testid="credentials">
+      <dt>bot token</dt><dd>{{.BotToken}}</dd><dt>app token</dt><dd>{{.AppToken}}</dd>
+      <dt>signing secret</dt><dd>{{.SigningSecret}}</dd><dt>verification token</dt><dd>{{.VerificationToken}}</dd>
+    </dl>
+  </details>
+</div>{{else}}<p class="muted">No apps registered. POST a manifest to /_localslack/apps or start with --app-manifest.</p>{{end}}{{end}}
+
+{{define "inspector-faults"}}{{if .Missing}}<p class="note">Fault injection is not enabled on this server.</p>{{else}}{{if .Message}}<p class="bad" data-testid="fault-error">{{.Message}}</p>{{end}}{{if .Rows}}<table>
+<tr><th>id</th><th>method</th><th>match</th><th>when</th><th>action</th><th>seen</th><th>fired</th><th></th></tr>
+{{range .Rows}}<tr data-testid="fault-row" data-fault-id="{{.ID}}"><td>{{.ID}}</td><td>{{.Method}}</td><td>{{.Match}}</td><td>{{.Limits}}</td><td>{{.Action}}</td>
+<td data-testid="fault-seen">{{.Seen}}</td><td data-testid="fault-fired">{{.Fired}}</td>
+<td>{{if .Spent}}<span class="badge muted">spent</span> {{end}}<button type="button" class="danger" data-testid="fault-delete" hx-post="/ui/inspector/faults/{{.ID}}/delete" hx-target="#faults-list">Delete</button></td></tr>{{end}}
+</table>{{else}}<p class="muted">No faults.</p>{{end}}{{end}}{{end}}
+
+{{define "inspector-controls"}}{{if .Missing}}<p class="note">Event delivery is not enabled on this server.</p>{{else}}{{if .Error}}<p class="bad" data-testid="controls-error">{{.Error}}</p>{{end}}
+<div>Signature mode:
+  {{range $m := .Signatures}}<button type="button" class="{{if eq $m $.Signature}}on{{end}}" data-testid="sig-{{$m}}" hx-post="/ui/inspector/config" hx-vals='{"signature": "{{$m}}"}' hx-target="#controls-state">{{$m}}</button> {{end}}
+</div>
+<div style="margin-top:6px">Delivery: <strong data-testid="paused-state">{{if .Paused}}paused (events queue){{else}}running{{end}}</strong>
+  <button type="button" data-testid="toggle-pause" hx-post="/ui/inspector/config" hx-vals='{"paused": "{{if .Paused}}false{{else}}true{{end}}"}' hx-target="#controls-state">{{if .Paused}}Resume{{else}}Pause{{end}}</button></div>
+<div style="margin-top:6px" class="muted">timeout <span data-testid="timeout-ms">{{.TimeoutMS}}</span> ms · stale after {{.StaleSeconds}} s</div>
+<div style="margin-top:6px">Events dropped (full queue): <strong data-testid="events-dropped" class="{{if .EventsDropped}}bad{{end}}">{{.EventsDropped}}</strong></div>
+{{end}}{{end}}
+
+{{define "inspector-reset"}}{{if .Error}}<p class="bad" data-testid="reset-error">{{.Error}}</p>{{else}}<p class="ok" data-testid="reset-result">Reset ({{.Mode}}) done in {{.TookMS}} ms. Seed <code>{{.Seed}}</code>: {{.Users}} users, {{.Channels}} channels, {{.Messages}} messages.</p>{{end}}{{end}}

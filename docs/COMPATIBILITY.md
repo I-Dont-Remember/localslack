@@ -68,6 +68,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
 | `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
+| `inspector-ui` | implemented | — | llm | Browser inspector at /ui/inspector: live API calls (filters, fault and not-implemented badges), event deliveries (attempts, redeliver), apps (delivery readiness, editable deliver_to, credentials), faults, delivery-config toggles and reset. Socket connections and snapshots/diff panels appear once those backends are wired. | — |
 | `membership-enforcement` | planned | — | — | not_in_channel / channel_not_found for non-members reading or posting in channels and DMs. | `no-membership-check` |
 | `message-ts` | implemented | — | llm | Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts. | — |
 | `multipart-bodies` | planned | — | — | multipart/form-data requests (file uploads). | `multipart-ignored` |

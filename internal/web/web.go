@@ -37,15 +37,20 @@ type Web struct {
 	svc  *service.Service
 	log  *slog.Logger
 	tmpl *template.Template
+	insp Inspector
 }
 
 // New parses templates once at startup so a bad template fails fast.
-func New(svc *service.Service, log *slog.Logger) (*Web, error) {
+func New(svc *service.Service, log *slog.Logger, opts ...Option) (*Web, error) {
 	t, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
-	return &Web{svc: svc, log: log, tmpl: t}, nil
+	w := &Web{svc: svc, log: log, tmpl: t}
+	for _, o := range opts {
+		o(w)
+	}
+	return w, nil
 }
 
 // Mount registers the UI routes.
@@ -68,6 +73,7 @@ func (w *Web) Mount(r chi.Router) error {
 	r.Get("/ui/switch", w.switcher)
 	r.Post("/ui/dm", w.openDM)
 	r.Post("/ui/as", w.actAs)
+	w.mountInspector(r)
 	return nil
 }
 
