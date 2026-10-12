@@ -108,7 +108,7 @@ func indexOf(fx Fixture) index {
 		if len(d.Members) > 2 {
 			kind = "mpim"
 		}
-		ix.convs[d.ID] = Conversation{ID: d.ID, Kind: kind}
+		ix.convs[d.ID] = Conversation{ID: d.ID, Kind: kind, Creator: d.Creator, Created: d.Created}
 		ix.addMembers(d.ID, d.Members)
 	}
 	for _, m := range fx.Messages {

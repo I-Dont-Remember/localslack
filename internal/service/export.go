@@ -12,11 +12,13 @@ import (
 // --scenario format), read in ONE store read transaction so concurrent writes
 // can never tear it.
 //
-// App bot users are excluded from Users and Channel/DM Members: apps persist
-// across reset and restore, which re-creates and re-joins their bot users, so a
-// fixture must not carry them. Messages and reactions they authored stay (they
-// are history), so a fixture references those user ids without defining them;
-// only a workspace that still has the apps resolves them.
+// App bot users are never defined in Users: apps persist across reset and
+// restore, which re-create their bot users. Their membership of public,
+// unarchived channels is omitted too, because restore re-joins them there; their
+// membership of private or archived channels and of DMs, and the messages and
+// reactions they authored, stay so a restore loses nothing. Such a fixture
+// references app bot ids without defining them, so only a workspace that still
+// has the apps accepts it.
 //
 // Thread roots carry no ThreadTS (only replies do), reply counts are derived.
 func (s *Service) Export(ctx context.Context) (scenario.Fixture, error) {
@@ -82,15 +84,18 @@ func exportConversations(ctx context.Context, r *store.Reader, appBots map[strin
 		return err
 	}
 	for _, c := range convs {
-		m := slices.DeleteFunc(slices.Clone(members[c.ID]), func(u string) bool { return appBots[u] })
+		m := slices.Clone(members[c.ID])
 		if c.Kind == KindChannel {
+			if !c.IsPrivate && !c.IsArchived { // restore re-joins app bots here
+				m = slices.DeleteFunc(m, func(u string) bool { return appBots[u] })
+			}
 			fx.Channels = append(fx.Channels, scenario.Channel{
 				ID: c.ID, Name: c.Name, Creator: c.Creator, Created: c.Created,
 				IsArchived: c.IsArchived, IsPrivate: c.IsPrivate, Members: m,
 			})
 			continue
 		}
-		fx.DMs = append(fx.DMs, scenario.DM{ID: c.ID, Members: m})
+		fx.DMs = append(fx.DMs, scenario.DM{ID: c.ID, Creator: c.Creator, Created: c.Created, Members: m})
 	}
 	return nil
 }

@@ -49,6 +49,8 @@ type Channel struct {
 // DM is a direct or group message between Members.
 type DM struct {
 	ID      string   `json:"id,omitempty"`
+	Creator string   `json:"creator,omitempty"`
+	Created int64    `json:"created,omitempty"`
 	Members []string `json:"members"`
 }
 

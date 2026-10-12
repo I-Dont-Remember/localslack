@@ -289,6 +289,10 @@ func (v *validator) dms(dms []DM) {
 			letters = "DG"
 		}
 		v.convID(at, d.ID, letters)
+		v.user(ptr("dms", i, "creator"), d.Creator)
+		if d.Created < 0 {
+			v.add(ptr("dms", i, "created"), "created must not be negative")
+		}
 		v.members(ptr("dms", i, "members"), d.Members, false)
 		if len(d.Members) == 0 {
 			v.add(ptr("dms", i, "members"), "need at least one member")

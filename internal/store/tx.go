@@ -23,14 +23,20 @@ type Tx struct {
 func (t *Tx) AfterCommit(fn func()) { t.after = append(t.after, fn) }
 
 func (t *Tx) exec(ctx context.Context, what, q string, args ...any) error {
-	if _, err := t.tx.ExecContext(ctx, q, args...); err != nil {
-		var se *sqlite.Error
-		if errors.As(err, &se) && (se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE || se.Code() == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY) {
-			return fmt.Errorf("%s: %w", what, ErrDuplicate)
-		}
-		return fmt.Errorf("%s: %w", what, err)
+	_, err := t.tx.ExecContext(ctx, q, args...)
+	return execErr(what, err)
+}
+
+// execErr names the failed statement and maps unique violations to ErrDuplicate.
+func execErr(what string, err error) error {
+	if err == nil {
+		return nil
 	}
-	return nil
+	var se *sqlite.Error
+	if errors.As(err, &se) && (se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE || se.Code() == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY) {
+		return fmt.Errorf("%s: %w", what, ErrDuplicate)
+	}
+	return fmt.Errorf("%s: %w", what, err)
 }
 
 // InsertTeam adds a team.

@@ -22,7 +22,7 @@ func validFixture() scenario.Fixture {
 			{ID: "C1", Name: "general", Creator: "U1", Created: 10, Members: []string{"U1", "W2"}},
 			{ID: "G1", Name: "secret", Created: 11, IsPrivate: true, Members: []string{"U1"}},
 		},
-		DMs: []scenario.DM{{ID: "D1", Members: []string{"U1", "W2"}}, {ID: "G2", Members: []string{"U1", "W2", "U3"}}},
+		DMs: []scenario.DM{{ID: "D1", Creator: "U1", Created: 12, Members: []string{"U1", "W2"}}, {ID: "G2", Creator: "U1", Created: 12, Members: []string{"U1", "W2", "U3"}}},
 		Messages: []scenario.Message{
 			{Channel: "C1", TS: "100.000001", User: "U1", Text: "root"},
 			{Channel: "C1", TS: "100.000002", User: "W2", Text: "reply", ThreadTS: "100.000001"},

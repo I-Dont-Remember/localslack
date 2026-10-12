@@ -17,20 +17,21 @@ type IDSource interface {
 }
 
 // Resolve returns fx with the conveniences of hand-written files made explicit:
-// missing team/user/bot/channel/DM ids are drawn from src (in that order, so the
+// a missing team becomes LocalSlack, missing team/user/bot/channel/DM ids are drawn from src (in that order, so the
 // result is deterministic per src), channel and user references given by name
 // ("general", "#general", "ann", "@ann") become ids, a zero channel created
 // becomes now, and a root message's thread_ts equal to its own ts is dropped.
 // References that match nothing are left for Validate to report. fx is not modified.
 func Resolve(fx Fixture, src IDSource, now time.Time) Fixture {
 	out := fx
+	t := Team{Name: "LocalSlack", Domain: "localslack"}
 	if fx.Team != nil {
-		t := *fx.Team
-		if t.ID == "" {
-			t.ID = src.Team()
-		}
-		out.Team = &t
+		t = *fx.Team
 	}
+	if t.ID == "" {
+		t.ID = src.Team()
+	}
+	out.Team = &t
 	out.Users = slices.Clone(fx.Users)
 	for i := range out.Users {
 		u := &out.Users[i]
@@ -43,7 +44,7 @@ func Resolve(fx Fixture, src IDSource, now time.Time) Fixture {
 	}
 	r := newRefs(out.Users)
 	out.Channels = resolveChannels(fx.Channels, r, src, now)
-	out.DMs = resolveDMs(fx.DMs, r, src)
+	out.DMs = resolveDMs(fx.DMs, r, src, now)
 	r.addConversations(out.Channels, out.DMs)
 	out.Messages = resolveMessages(fx.Messages, r)
 	return out
@@ -124,11 +125,15 @@ func resolveChannels(in []Channel, r *refs, src IDSource, now time.Time) []Chann
 	return out
 }
 
-func resolveDMs(in []DM, r *refs, src IDSource) []DM {
+func resolveDMs(in []DM, r *refs, src IDSource, now time.Time) []DM {
 	out := slices.Clone(in)
 	for i := range out {
 		d := &out[i]
 		d.Members = r.userList(d.Members)
+		d.Creator = r.user(d.Creator)
+		if d.Created == 0 {
+			d.Created = now.Unix()
+		}
 		switch {
 		case d.ID != "":
 		case len(d.Members) > 2:

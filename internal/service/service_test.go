@@ -762,7 +762,7 @@ func TestListAll(t *testing.T) {
 	}
 }
 
-func TestSnapshotGroupsMessagesByConversation(t *testing.T) {
+func TestExportGroupsMessagesByConversation(t *testing.T) {
 	t.Parallel()
 
 	svc, _ := newSvc(t)
@@ -772,21 +772,21 @@ func TestSnapshotGroupsMessagesByConversation(t *testing.T) {
 	if _, err := svc.PostMessage(ctx, caller, service.PostOpts{Channel: ch, Content: service.Content{Text: "snap me"}}); err != nil {
 		t.Fatalf("post: %v", err)
 	}
-	got, err := svc.Snapshot(ctx)
+	got, err := svc.Export(ctx)
 	if err != nil {
-		t.Fatalf("Snapshot: %v", err)
+		t.Fatalf("Export: %v", err)
 	}
 	var found bool
-	for _, c := range got {
-		for _, m := range c.Messages {
-			if m.ChannelID != c.ID {
-				t.Errorf("message %s in conversation %s, want %s", m.TS, c.ID, m.ChannelID)
+	for _, m := range got.Messages {
+		if m.Text == "snap me" {
+			found = true
+			if m.Channel != ch {
+				t.Errorf("message in %s, want %s", m.Channel, ch)
 			}
-			found = found || m.Text == "snap me"
 		}
 	}
 	if !found {
-		t.Error("posted message missing from snapshot")
+		t.Error("posted message missing from export")
 	}
 }
 

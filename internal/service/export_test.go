@@ -79,9 +79,15 @@ func TestExportCoversEverythingButAppBotUsers(t *testing.T) {
 	if i < 0 {
 		t.Fatalf("channel G1 missing in %+v", got.Channels)
 	}
-	wantCh := scenario.Channel{ID: "G1", Name: "vault", Creator: caller.ID, Created: 42, IsArchived: true, IsPrivate: true, Members: []string{caller.ID}}
+	wantCh := scenario.Channel{ID: "G1", Name: "vault", Creator: caller.ID, Created: 42, IsArchived: true, IsPrivate: true, Members: slices.Sorted(slices.Values([]string{caller.ID, app.BotUserID}))}
 	if diff := cmp.Diff(wantCh, got.Channels[i]); diff != "" {
 		t.Errorf("channel G1 (-want +got):\n%s", diff)
+	}
+
+	for _, c := range got.Channels {
+		if !c.IsPrivate && !c.IsArchived && slices.Contains(c.Members, app.BotUserID) {
+			t.Errorf("public channel %s exports app bot %s; restore re-joins it", c.Name, app.BotUserID)
+		}
 	}
 
 	var msgs []scenario.Message
@@ -111,13 +117,13 @@ func TestExportCoversEverythingButAppBotUsers(t *testing.T) {
 func TestExportSplitsChannelsFromDMs(t *testing.T) {
 	t.Parallel()
 
-	svc, _ := newSvc(t)
-	snap, err := svc.Snapshot(t.Context())
+	svc, st := newSvc(t)
+	convs, err := st.Conversations(t.Context())
 	if err != nil {
-		t.Fatalf("Snapshot: %v", err)
+		t.Fatalf("Conversations: %v", err)
 	}
 	var wantCh, wantDM int
-	for _, c := range snap {
+	for _, c := range convs {
 		if c.Kind == service.KindChannel {
 			wantCh++
 		} else {

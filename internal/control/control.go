@@ -109,9 +109,3 @@ func (c *Control) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 		TookMS: c.now().Sub(start).Milliseconds(),
 	}, nil
 }
-
-// Snapshot returns every conversation with members and messages. Shell: the
-// snapshot stream swaps this for the Fixture export.
-func (c *Control) Snapshot(ctx context.Context) ([]service.ConversationState, error) {
-	return c.svc.Snapshot(ctx)
-}

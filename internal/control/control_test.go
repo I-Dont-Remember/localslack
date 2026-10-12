@@ -73,11 +73,11 @@ func TestResetWipesDispatcherOnlyAfterDataCommits(t *testing.T) {
 	}
 	markerAtDispatcherReset, markerAtHook := true, true
 	has := func() bool {
-		snap, err := app.Service.Snapshot(ctx)
+		fx, err := app.Service.Export(ctx)
 		if err != nil {
-			t.Fatalf("Snapshot: %v", err)
+			t.Fatalf("Export: %v", err)
 		}
-		for _, c := range snap {
+		for _, c := range fx.Channels {
 			if c.Name == "marker" {
 				return true
 			}
@@ -157,24 +157,5 @@ func TestConcurrentResetIsRejected(t *testing.T) {
 	}
 	if err := <-done; err != nil {
 		t.Errorf("first Reset: %v", err)
-	}
-}
-
-func TestSnapshotDelegatesToService(t *testing.T) {
-	t.Parallel()
-
-	app := storetest.NewApp(t)
-	c := control.New(app.Service, events.Noop{})
-
-	got, err := c.Snapshot(t.Context())
-	want, werr := app.Service.Snapshot(t.Context())
-	if err != nil || werr != nil {
-		t.Fatalf("Snapshot err = %v / %v", err, werr)
-	}
-	if len(got) == 0 {
-		t.Fatal("snapshot has no conversations")
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("snapshot (-service +control):\n%s", diff)
 	}
 }
