@@ -64,7 +64,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `call-log` | planned | — | — | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
 | `event-delivery-controls` | planned | — | — | Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace. | — |
 | `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
-| `fault-injection` | planned | — | — | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
+| `fault-injection` | implemented | — | llm | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
 | `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |

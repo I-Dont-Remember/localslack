@@ -273,8 +273,9 @@ status = "planned"
 summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
 
 [behaviors.fault-injection]
-status = "planned"
+status = "implemented"
 summary = "Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults."
+evidence = "llm"
 
 [behaviors.app-manifest]
 status = "planned"

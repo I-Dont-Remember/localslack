@@ -83,8 +83,10 @@ func (a *API) intercept(ctx context.Context, w http.ResponseWriter, r *http.Requ
 	}
 	st.faultID = ov.FaultID
 	if ov.Delay > 0 {
+		t := time.NewTimer(ov.Delay)
+		defer t.Stop()
 		select {
-		case <-time.After(ov.Delay):
+		case <-t.C:
 		case <-ctx.Done():
 			return true
 		}
