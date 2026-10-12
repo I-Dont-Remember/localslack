@@ -29,3 +29,9 @@ func (r *Reader) AllMessages(ctx context.Context) ([]Message, error) {
 
 // Apps returns all apps ordered by id.
 func (r *Reader) Apps(ctx context.Context) ([]App, error) { return appsOf(ctx, r.tx) }
+
+// AllReactions returns every reaction ordered by channel, ts, then the order added.
+func (r *Reader) AllReactions(ctx context.Context) ([]Reaction, error) {
+	return query(ctx, r.tx, "reactions",
+		`SELECT `+reactionCols+` FROM reactions ORDER BY channel_id, ts, created, rowid`, scanReaction)
+}

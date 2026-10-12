@@ -69,4 +69,4 @@ Two modes, no knobs. Reset is global: one test session per server.
 - `GET /_localslack/diff?from=<name|current>&to=<name|current>` -> `{"users|conversations|members|messages|reactions":{"added":[],"removed":[],"changed":[{"id"|"channel+ts","fields":{"f":{"from","to"}}}]}}`.
 
 ## Misc
-`GET /_localslack/health` -> 200 `{"status":"ok"}`; `GET /_localslack/state/conversations` (existing). Default bot (no app) reports the fixed default scope list `chat:write`, `chat:write.public` (`service.DefaultBotScopes`, also given to apps whose manifest lists none).
+`GET /_localslack/health` -> 200 `{"status":"ok"}`; `GET /_localslack/state/conversations` (existing; a thin debug view of the same single-transaction export that snapshots use, so it omits app bot users). Default bot (no app) reports the fixed default scope list `chat:write`, `chat:write.public` (`service.DefaultBotScopes`, also given to apps whose manifest lists none).
