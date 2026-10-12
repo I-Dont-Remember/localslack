@@ -960,3 +960,71 @@ func TestEnginePerAppOverridesAreSparseAndInheritLive(t *testing.T) {
 		t.Errorf("reset kept per-app override %+v", o)
 	}
 }
+
+func TestEngineDeliversToOneAppInPublishOrder(t *testing.T) {
+	t.Parallel()
+
+	const n = 25
+	app := newFakeApp(t, "s")
+	var inFlight, maxInFlight atomic.Int32
+	app.respond = func(w http.ResponseWriter, r *http.Request) {
+		cur := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for old := maxInFlight.Load(); cur > old && !maxInFlight.CompareAndSwap(old, cur); old = maxInFlight.Load() {
+		}
+		body, _ := io.ReadAll(r.Body)
+		if strings.Contains(string(body), `"text":"m0"`) {
+			time.Sleep(30 * time.Millisecond) // a slow first delivery must not let later ones overtake it
+		}
+		w.WriteHeader(http.StatusOK)
+	}
+	src := &fakeSource{apps: []service.App{app.appDef("A1", "UBOT1", "message.channels")}}
+	e := newEngine(t, src, engineOpts{queue: 2 * n})
+
+	var want []string
+	for i := range n {
+		text := "m" + strconv.Itoa(i)
+		want = append(want, text)
+		e.Publish(posted(text, "UBOT1"))
+	}
+	waitState(t, e, events.StateDelivered, n)
+
+	var got []string
+	for _, r := range app.requests() {
+		var env struct{ Event struct{ Text string } }
+		if err := json.Unmarshal([]byte(r.Body), &env); err != nil {
+			t.Fatalf("body: %v", err)
+		}
+		got = append(got, env.Event.Text)
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("arrival order at the app (-published +arrived):\n%s", diff)
+	}
+	if m := maxInFlight.Load(); m != 1 {
+		t.Errorf("max concurrent requests to one app = %d, want 1 (serialized)", m)
+	}
+}
+
+func TestEngineDifferentAppsDeliverConcurrently(t *testing.T) {
+	t.Parallel()
+
+	slow, fast := newFakeApp(t, "s"), newFakeApp(t, "s")
+	release := make(chan struct{})
+	slow.respond = func(w http.ResponseWriter, _ *http.Request) {
+		<-release
+		w.WriteHeader(http.StatusOK)
+	}
+	src := &fakeSource{apps: []service.App{
+		slow.appDef("A1", "UBOT1", "message.channels"), fast.appDef("A2", "UBOT2", "message.channels"),
+	}}
+	e := newEngine(t, src, engineOpts{})
+
+	e.Publish(posted("both", "UBOT1", "UBOT2"))
+	got := waitState(t, e, events.StateDelivered, 1) // A2 completes while A1 is still blocked
+	close(release)
+	waitState(t, e, events.StateDelivered, 2)
+
+	if got[0].AppID != "A2" {
+		t.Errorf("first delivered app = %s, want the fast one (apps must not block each other)", got[0].AppID)
+	}
+}

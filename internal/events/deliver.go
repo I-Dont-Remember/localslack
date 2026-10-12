@@ -99,10 +99,79 @@ func (e *Engine) failLocked(id, msg string) {
 	})
 }
 
+// lane is one app's FIFO of first attempts. Its drain goroutine runs them one
+// at a time, so an app sees its events in publish order and never concurrently.
+// Retries leave the lane (see retry): their timers are independent, so a retry
+// may overtake or trail later events.
+type lane struct {
+	queue   []laneItem
+	running bool
+}
+
+type laneItem struct {
+	ctx context.Context
+	j   *job
+}
+
 func (e *Engine) startLocked(j *job) {
-	ctx := e.ctx
+	ln := e.lanes[j.appID]
+	if ln == nil {
+		ln = &lane{}
+		e.lanes[j.appID] = ln
+	}
+	ln.queue = append(ln.queue, laneItem{ctx: e.ctx, j: j})
+	if !ln.running {
+		ln.running = true
+		e.wg.Add(1)
+		go e.drain(ln)
+	}
+}
+
+// drain runs ln's first attempts in order until the lane is empty.
+func (e *Engine) drain(ln *lane) {
+	defer e.wg.Done()
+	for {
+		e.mu.Lock()
+		if len(ln.queue) == 0 {
+			ln.running = false
+			e.mu.Unlock()
+			return
+		}
+		it := ln.queue[0]
+		ln.queue = ln.queue[1:]
+		e.mu.Unlock()
+		if it.ctx.Err() != nil {
+			continue // reset or shutdown while queued
+		}
+		if again, reason := e.attempt(it.ctx, it.j, 0, it.j.baseReason); again {
+			e.startRetry(it.ctx, it.j, 1, reason)
+		}
+	}
+}
+
+func (e *Engine) startRetry(ctx context.Context, j *job, n int, reason string) {
 	e.wg.Add(1)
-	go e.run(ctx, j)
+	go func() {
+		defer e.wg.Done()
+		e.retry(ctx, j, n, reason)
+	}()
+}
+
+// retry waits out each configured delay and tries again until delivered or out of retries.
+func (e *Engine) retry(ctx context.Context, j *job, n int, reason string) {
+	delays := j.cfg.RetryDelays()
+	for ; ; n++ {
+		select {
+		case <-e.clock.After(delays[n-1]):
+		case <-ctx.Done():
+			return
+		}
+		again, next := e.attempt(ctx, j, n, reason)
+		if !again {
+			return
+		}
+		reason = next
+	}
 }
 
 // flushHeldLocked starts held deliveries whose app is no longer paused.
@@ -118,49 +187,37 @@ func (e *Engine) flushHeldLocked() {
 	e.held = keep
 }
 
-// run delivers j: the first attempt plus a retry per configured delay.
-func (e *Engine) run(ctx context.Context, j *job) {
-	defer e.wg.Done()
+// attempt makes attempt number n (0-based) at j and records it. It reports
+// whether another attempt follows and the retry reason to send with it.
+func (e *Engine) attempt(ctx context.Context, j *job, n int, reason string) (again bool, nextReason string) {
 	select {
 	case e.sem <- struct{}{}:
 		defer func() { <-e.sem }()
 	case <-ctx.Done():
-		return
+		return false, ""
 	}
-	delays := j.cfg.RetryDelays()
-	reason := j.baseReason
-	for n := 0; ; n++ {
-		spec := j.spec
-		spec.RetryNum, spec.RetryReason = j.baseRetry+n, reason
-		actx, cancel := context.WithTimeout(ctx, j.cfg.Timeout())
-		att := j.tr.Deliver(actx, Delivery{Payload: j.payload, Spec: spec})
-		cancel()
-		if ctx.Err() != nil {
-			return // reset or shutdown: a late result must not be recorded
-		}
-		att.N, att.At = n+1, e.clock.Now()
-		final := att.OK() || att.NoRetry || n >= len(delays)
-		state := StateRetrying
-		switch {
-		case att.OK():
-			state = StateDelivered
-		case final:
-			state = StateFailed
-		}
-		e.trace.Update(j.id, func(d *Delivery) {
-			d.Attempts = append(d.Attempts, att)
-			d.State = state
-		})
-		if final {
-			return
-		}
-		reason = att.FailReason
-		select {
-		case <-e.clock.After(delays[n]):
-		case <-ctx.Done():
-			return
-		}
+	spec := j.spec
+	spec.RetryNum, spec.RetryReason = j.baseRetry+n, reason
+	actx, cancel := context.WithTimeout(ctx, j.cfg.Timeout())
+	att := j.tr.Deliver(actx, Delivery{Payload: j.payload, Spec: spec})
+	cancel()
+	if ctx.Err() != nil {
+		return false, "" // reset or shutdown: a late result must not be recorded
 	}
+	att.N, att.At = n+1, e.clock.Now()
+	final := att.OK() || att.NoRetry || n >= len(j.cfg.RetryDelays())
+	state := StateRetrying
+	switch {
+	case att.OK():
+		state = StateDelivered
+	case final:
+		state = StateFailed
+	}
+	e.trace.Update(j.id, func(d *Delivery) {
+		d.Attempts = append(d.Attempts, att)
+		d.State = state
+	})
+	return !final, att.FailReason
 }
 
 const idAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"

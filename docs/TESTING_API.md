@@ -36,7 +36,7 @@ Multiple apps per workspace; each owns a bot user, `bot_id`, tokens, signing sec
   - Global `/delivery-config`: `GET`; `PUT` = full replace (omitted fields return to the server's defaults); `PATCH` = merge (omitted fields keep their value). Invalid -> 422 `invalid_delivery_config`.
   - Per app `/apps/{id}/delivery-config`: stored as a sparse **override**; fields not overridden follow the global config live. `GET` -> the effective config plus `"override":{..only the overridden fields..}`. `PUT` replaces the override with exactly the given fields, `PATCH` adds to it, `DELETE` (204) drops it.
   - `reset` (partial or `all`) drops all per-app overrides and restores the global defaults; deleting an app drops its override.
-- Delivery: signed `POST`; `X-Slack-Request-Timestamp`, `X-Slack-Signature: v0=hex(HMAC_SHA256(secret,"v0:"+ts+":"+body))`, retries add `X-Slack-Retry-Num`, `X-Slack-Retry-Reason`; 2xx = ack; `X-Slack-No-Retry: 1` stops retries. Your service just receives HTTP like it would from Slack: no polling needed.
+- Delivery: signed `POST`; `X-Slack-Request-Timestamp`, `X-Slack-Signature: v0=hex(HMAC_SHA256(secret,"v0:"+ts+":"+body))`, retries add `X-Slack-Retry-Num`, `X-Slack-Retry-Reason`; 2xx = ack; `X-Slack-No-Retry: 1` stops retries. Ordering: first attempts to one app are made one at a time in publish order (a slow app delays its later events, never another app's); retries run on their own timers, so a retry may arrive after later events. Your service just receives HTTP like it would from Slack: no polling needed.
 
 ## Socket Mode (stream S)
 - Slack method `apps.connections.open` (xapp- token) -> `{"ok":true,"url":"ws://host/_localslack/socket?ticket=..&app_id=A.."}` (Slack-shaped); ticket one-time, 30s; WS upgrade checks Origin.

@@ -68,6 +68,7 @@ type Engine struct {
 	cfg       DeliveryConfig
 	overrides map[string]ConfigPatch
 	held      []*job
+	lanes     map[string]*lane // per-app first-attempt FIFOs
 	sent      *eventStore
 	verifyErr map[string]string
 	warned    map[string]bool
@@ -104,7 +105,7 @@ func New(o Options) *Engine {
 		src: o.Source, tr: o.Transport, sock: o.Socket, clock: o.Clock, policy: o.Policy, log: o.Log,
 		defaults: o.Config, trace: NewTrace(o.TraceSize), queue: make(chan queued, o.QueueSize),
 		sem: make(chan struct{}, maxInFlight), root: root, rootStop: stop, loopDone: make(chan struct{}),
-		cfg: o.Config, overrides: map[string]ConfigPatch{}, sent: newEventStore(o.TraceSize),
+		cfg: o.Config, overrides: map[string]ConfigPatch{}, lanes: map[string]*lane{}, sent: newEventStore(o.TraceSize),
 		verifyErr: map[string]string{}, warned: map[string]bool{},
 	}
 	e.ctx, e.cancel = context.WithCancel(root)
@@ -148,6 +149,7 @@ func (e *Engine) Reset() {
 	e.gen.Add(1)
 	e.ctx, e.cancel = context.WithCancel(e.root)
 	e.held = nil
+	e.lanes = map[string]*lane{} // queued first attempts die with their (cancelled) context
 	e.sent = newEventStore(e.sent.cap)
 	e.cfg = e.defaults
 	e.overrides = map[string]ConfigPatch{}
