@@ -9,7 +9,7 @@ import (
 func (a *API) chatPostMessage(ctx context.Context, c *call) (map[string]any, error) {
 	channel := c.params.Get("channel")
 	msg, err := a.svc.PostMessage(ctx, c.p.User, service.PostOpts{
-		Channel: channel, ThreadTS: c.params.Get("thread_ts"), Content: service.Content{Text: c.params.Get("text")},
+		Channel: channel, ThreadTS: c.params.Get("thread_ts"), Content: contentParams(c),
 	})
 	if err != nil {
 		return nil, err

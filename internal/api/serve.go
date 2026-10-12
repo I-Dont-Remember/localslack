@@ -63,7 +63,7 @@ func (a *API) run(w http.ResponseWriter, r *http.Request, st *state) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	out, err := sp.fn(ctx, &call{p: p, params: params, baseURL: scheme + "://" + r.Host + "/"})
+	out, err := sp.fn(ctx, &call{p: p, params: params, raw: raw, baseURL: scheme + "://" + r.Host + "/"})
 	if err != nil {
 		a.fail(ctx, w, err)
 		return

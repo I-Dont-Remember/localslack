@@ -23,6 +23,7 @@ type call struct {
 	p       service.Principal
 	params  url.Values
 	baseURL string
+	raw     map[string]any // decoded JSON body (nil for form posts)
 }
 
 type method func(ctx context.Context, c *call) (map[string]any, error)

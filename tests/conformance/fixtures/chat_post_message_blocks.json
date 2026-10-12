@@ -1,0 +1,51 @@
+{
+  "state": "passing",
+  "note": "blocks-only post, shape from memory of the Slack docs, unverified. blocks echo back in message.",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-blocks"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/chat.postMessage",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "blocks": "[{\"type\": \"section\", \"text\": {\"type\": \"mrkdwn\", \"text\": \"hello *blocks*\"}}]"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "channel": "<id:C>",
+      "ts": "<ts>",
+      "message": {
+        "type": "message",
+        "user": "<id:U>",
+        "bot_id": "<id:B>",
+        "text": "",
+        "ts": "<ts>",
+        "blocks": [
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "hello *blocks*"
+            }
+          }
+        ]
+      }
+    }
+  }
+}
