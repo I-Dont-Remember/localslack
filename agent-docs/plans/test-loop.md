@@ -144,7 +144,7 @@ Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
 
 ## Progress
 - [x] Wave 0 (11 steps)  - [ ] Gate 0
-- [ ] Wave 1: A B1 B2 C D E  - [ ] Gate 1
+- [x] Wave 1: A B1 B2 C D E (merged, make verify green)  - [ ] Gate 1 (owner QA + arch review)
 - [ ] Wave 2: S X F G I  - [ ] Gate 2
 - [ ] Wave 3
 
