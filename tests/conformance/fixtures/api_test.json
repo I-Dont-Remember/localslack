@@ -1,0 +1,21 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs: api.test echoes params, needs no token",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/api.test",
+    "params": {
+      "foo": "bar"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "args": {
+        "foo": "bar"
+      }
+    }
+  }
+}

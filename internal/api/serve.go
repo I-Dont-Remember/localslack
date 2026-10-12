@@ -68,7 +68,9 @@ func (a *API) run(w http.ResponseWriter, r *http.Request, st *state) {
 		a.fail(ctx, w, err)
 		return
 	}
-	out["ok"] = true
+	if _, set := out["ok"]; !set { // api.test reports ok:false itself
+		out["ok"] = true
+	}
 	a.write(ctx, w, http.StatusOK, out)
 }
 

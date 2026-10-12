@@ -1,0 +1,39 @@
+{
+  "state": "passing",
+  "note": "shape from memory of the Slack docs, unverified",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-read"
+      },
+      "capture": {
+        "cid": "channel.id",
+        "uid": "channel.creator"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.members",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{cid}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "members": [
+        "<id:U>"
+      ],
+      "response_metadata": {
+        "next_cursor": ""
+      }
+    }
+  }
+}
