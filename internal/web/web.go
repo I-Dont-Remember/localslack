@@ -103,15 +103,12 @@ func (w *Web) render(rw http.ResponseWriter, r *http.Request, name string, data 
 
 // fail maps domain errors to HTTP statuses (the UI's analogue of Slack error codes).
 func (w *Web) fail(rw http.ResponseWriter, r *http.Request, err error) {
-	switch {
-	case errors.Is(err, service.ErrChannelNotFound), errors.Is(err, service.ErrThreadNotFound), errors.Is(err, service.ErrUserNotFound):
-		http.Error(rw, "not found", http.StatusNotFound)
-	case errors.Is(err, service.ErrIsArchived):
-		http.Error(rw, "channel is archived", http.StatusConflict)
-	default:
-		w.log.ErrorContext(r.Context(), "web error", slog.Any("error", err))
-		http.Error(rw, "internal error", http.StatusInternalServerError)
+	if status, text, ok := statusFor(err); ok {
+		http.Error(rw, text, status)
+		return
 	}
+	w.log.ErrorContext(r.Context(), "web error", slog.Any("error", err))
+	http.Error(rw, "internal error", http.StatusInternalServerError)
 }
 
 func (w *Web) home(rw http.ResponseWriter, r *http.Request) {
