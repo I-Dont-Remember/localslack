@@ -27,6 +27,8 @@ type App struct {
 	Config  config.Config
 	Store   *store.Store
 	Service *service.Service
+	// Components are the optional seams (call log, faults, dispatcher, control).
+	Components server.Components
 }
 
 // NewApp starts an isolated app (temp DB, pinned seed) and stops it on cleanup.
@@ -50,7 +52,7 @@ func NewApp(t *testing.T) *App {
 	})
 	srv := httptest.NewServer(built.Handler)
 	t.Cleanup(srv.Close)
-	return &App{URL: srv.URL, Config: cfg, Store: built.Store, Service: built.Service}
+	return &App{URL: srv.URL, Config: cfg, Store: built.Store, Service: built.Service, Components: built.Components}
 }
 
 // NewStore opens a seeded (pinned seed and clock) temp-file store, closed on cleanup.

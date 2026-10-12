@@ -26,6 +26,8 @@ type Deps struct {
 	Web *web.Web
 	// ListenAddr is the configured bind address; it drives the Host allowlist.
 	ListenAddr string
+	// Components are the optional seams (call log, faults, dispatcher, control); zero is fine.
+	Components Components
 }
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
@@ -35,9 +37,10 @@ func NewRouter(d Deps) http.Handler {
 		return guard(d.Log, d.ListenAddr, next)
 	})
 	h := handlers{log: d.Log}
-	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc})
+	c := d.Components
+	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc, Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control})
 	if d.Svc != nil {
-		api.Mount(r, d.Svc, d.Log, h.notImplemented)
+		api.Mount(r, d.Svc, d.Log, h.notImplemented, c.apiOptions()...)
 	}
 	if d.Web != nil {
 		if err := d.Web.Mount(r); err != nil {

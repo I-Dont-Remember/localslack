@@ -10,7 +10,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"localslack/internal/calllog"
 	"localslack/internal/constants"
+	"localslack/internal/control"
+	"localslack/internal/events"
+	"localslack/internal/faults"
 	"localslack/internal/service"
 )
 
@@ -18,6 +22,11 @@ import (
 type Deps struct {
 	Log *slog.Logger
 	Svc *service.Service
+	// Optional components; nil when unwired. Streams read the one they own.
+	Calls   *calllog.Log
+	Faults  *faults.Set
+	Events  events.Dispatcher
+	Control *control.Control
 }
 
 // Mount registers every /_localslack route.

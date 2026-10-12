@@ -22,8 +22,6 @@ linters:
   settings:
     depguard:
       rules:
-        # Add rules for events, control, scenario, appmanifest when those pkgs
-        # land: deny store from all; api -> events/control; events -> api/web.
         api:
           files: ["**/internal/api/**", "!$test"]
           deny:
@@ -33,6 +31,10 @@ linters:
               desc: api and web must not import each other
             - pkg: localslack/internal/admin
               desc: api must not import admin
+            - pkg: localslack/internal/events
+              desc: api must not import events
+            - pkg: localslack/internal/control
+              desc: api must not import control
         web:
           files: ["**/internal/web/**", "!$test"]
           deny:
@@ -51,6 +53,28 @@ linters:
               desc: admin must not import api
             - pkg: localslack/internal/web
               desc: admin must not import web
+        events:
+          files: ["**/internal/events/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: events talks to service, never store
+            - pkg: localslack/internal/api
+              desc: events must not import api
+            - pkg: localslack/internal/web
+              desc: events must not import web
+            - pkg: localslack/internal/admin
+              desc: events must not import admin
+        control:
+          files: ["**/internal/control/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: control talks to service, never store
+            - pkg: localslack/internal/api
+              desc: control must not import api
+            - pkg: localslack/internal/web
+              desc: control must not import web
+            - pkg: localslack/internal/admin
+              desc: control must not import admin
         leaf:
           files: ["**/internal/calllog/**", "**/internal/faults/**", "**/internal/scenario/**", "**/internal/appmanifest/**", "!$test"]
           deny:
