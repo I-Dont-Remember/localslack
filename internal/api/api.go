@@ -3,17 +3,18 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"log/slog"
 	"maps"
 	"net/http"
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
-	"localslack/internal/constants"
+	"localslack/internal/calllog"
+	"localslack/internal/faults"
 	"localslack/internal/service"
 )
 
@@ -49,11 +50,26 @@ type API struct {
 	log      *slog.Logger
 	fallback http.HandlerFunc
 	methods  map[string]spec
+	rec      calllog.Recorder
+	icpt     faults.Interceptor
+	now      func() time.Time
 }
 
+// Option customises Mount.
+type Option func(*API)
+
+// WithRecorder sets the call recorder (default: discard).
+func WithRecorder(r calllog.Recorder) Option { return func(a *API) { a.rec = r } }
+
+// WithInterceptor sets the fault interceptor (default: never fires).
+func WithInterceptor(i faults.Interceptor) Option { return func(a *API) { a.icpt = i } }
+
 // Mount registers /api/{method} (GET and POST). Unknown methods go to fallback.
-func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.HandlerFunc) {
-	a := &API{svc: svc, log: log, fallback: fallback}
+func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.HandlerFunc, opts ...Option) {
+	a := &API{svc: svc, log: log, fallback: fallback, rec: calllog.Noop{}, icpt: faults.Noop{}, now: time.Now}
+	for _, o := range opts {
+		o(a)
+	}
 	a.methods = a.registry()
 	r.Get("/api/{method}", a.serve)
 	r.Post("/api/{method}", a.serve)
@@ -82,58 +98,9 @@ func (a *API) registry() map[string]spec {
 	return out
 }
 
-func (a *API) serve(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	sp, ok := a.methods[chi.URLParam(r, "method")]
-	if !ok {
-		a.fallback(w, r)
-		return
-	}
-	params, err := parseParams(r)
-	if err != nil {
-		a.fail(ctx, w, err)
-		return
-	}
-	p, err := a.svc.Authenticate(ctx, bearer(r, params))
-	if err != nil {
-		a.fail(ctx, w, err)
-		return
-	}
-	scheme := "http"
-	if r.TLS != nil {
-		scheme = "https"
-	}
-	out, err := sp.fn(ctx, &call{p: p, params: params, baseURL: scheme + "://" + r.Host + "/"})
-	if err != nil {
-		a.fail(ctx, w, err)
-		return
-	}
-	out["ok"] = true
-	a.write(ctx, w, http.StatusOK, out)
-}
-
 func bearer(r *http.Request, params url.Values) string {
 	if h, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer "); ok {
 		return strings.TrimSpace(h)
 	}
 	return params.Get("token")
-}
-
-// fail renders a domain error as Slack does: HTTP 200 with ok:false.
-// Unmapped errors are real faults and return 500.
-func (a *API) fail(ctx context.Context, w http.ResponseWriter, err error) {
-	if code, ok := ErrorCode(err); ok {
-		a.write(ctx, w, http.StatusOK, map[string]any{"ok": false, "error": code})
-		return
-	}
-	a.log.ErrorContext(ctx, "api error", slog.Any("error", err))
-	a.write(ctx, w, http.StatusInternalServerError, map[string]any{"ok": false, "error": "internal_error"})
-}
-
-func (a *API) write(ctx context.Context, w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", constants.ContentTypeJSON)
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(v); err != nil {
-		a.log.ErrorContext(ctx, "encode response", slog.Any("error", err))
-	}
 }
