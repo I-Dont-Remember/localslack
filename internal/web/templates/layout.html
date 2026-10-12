@@ -29,6 +29,10 @@
   form.composer { display:flex; gap:6px; padding:10px 16px; border-top:1px solid var(--line); }
   form.composer input[type=text] { flex:1; padding:8px; font:inherit; background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:6px; }
   form.composer button { padding:8px 14px; font:inherit; }
+  .reactions { display:flex; flex-wrap:wrap; align-items:center; gap:4px; margin-top:2px; }
+  .reactions button { font:inherit; font-size:13px; padding:0 6px; border:1px solid var(--line); border-radius:10px; background:transparent; color:var(--fg); cursor:pointer; }
+  .react-picker summary { cursor:pointer; list-style:none; color:var(--muted); font-size:13px; padding:0 6px; border:1px solid var(--line); border-radius:10px; }
+  .react-picker[open] { display:inline-flex; gap:4px; align-items:center; }
   section.thread { width:340px; border-left:1px solid var(--line); display:flex; flex-direction:column; flex-shrink:0; }
 </style>
 </head>
@@ -58,7 +62,7 @@
 <main>
   <header class="bar" data-testid="channel-title">{{.Title}}</header>
   <div class="scroll">
-    <div id="messages" data-testid="messages" hx-get="/ui/c/{{.ChannelID}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Messages}}</div>
+    <div id="messages" class="msgs" data-testid="messages" hx-get="/ui/c/{{.ChannelID}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Messages}}</div>
   </div>
   <form class="composer" hx-post="/ui/c/{{.ChannelID}}/post" hx-target="#messages" hx-swap="innerHTML"
         hx-on::after-request="if (event.detail.successful) this.reset()">
@@ -69,7 +73,7 @@
 {{if .Thread}}<section class="thread" id="thread-pane" data-testid="thread-pane">
   <header class="bar">Thread <a href="/ui/c/{{.ChannelID}}" class="muted">close</a></header>
   <div class="scroll">
-    <div id="thread-messages" data-testid="thread-messages" hx-get="/ui/c/{{.ChannelID}}/t/{{.Thread.RootTS}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Thread.Messages}}</div>
+    <div id="thread-messages" class="msgs" data-testid="thread-messages" hx-get="/ui/c/{{.ChannelID}}/t/{{.Thread.RootTS}}/messages" hx-trigger="every 2s" hx-swap="innerHTML">{{template "messages" .Thread.Messages}}</div>
   </div>
   <form class="composer" hx-post="/ui/c/{{.ChannelID}}/t/{{.Thread.RootTS}}/post" hx-target="#thread-messages" hx-swap="innerHTML"
         hx-on::after-request="if (event.detail.successful) this.reset()">
@@ -94,9 +98,10 @@
 </html>
 {{end}}
 
-{{define "messages"}}{{range .}}<div class="msg" data-testid="message" data-ts="{{.TS}}">
+{{define "messages"}}{{range .}}{{$m := .}}<div class="msg" data-testid="message" data-ts="{{.TS}}">
   <span class="who">{{.User}}</span><span class="time">{{.Time}}</span>
   <div class="text">{{.Text}}</div>
+  <div class="reactions">{{range .Reactions}}<button type="button" data-testid="reaction" data-name="{{.Name}}" hx-post="/ui/c/{{$m.ChannelID}}{{if $m.Root}}/t/{{$m.Root}}{{end}}/react" hx-vals='{"message": "{{$m.TS}}", "name": "{{.Name}}"}' hx-target="closest .msgs" hx-swap="innerHTML">{{.Glyph}} {{.Count}}</button>{{end}}<details class="react-picker"><summary data-testid="react-button" title="Add reaction">&#9786;</summary>{{range .Picker}}<button type="button" data-testid="react-option-{{.Name}}" title=":{{.Name}}:" hx-post="/ui/c/{{$m.ChannelID}}{{if $m.Root}}/t/{{$m.Root}}{{end}}/react" hx-vals='{"message": "{{$m.TS}}", "name": "{{.Name}}"}' hx-target="closest .msgs" hx-swap="innerHTML">{{.Glyph}}</button>{{end}}</details></div>
   {{if .InThread}}{{else if .ReplyCount}}<a data-testid="thread-link" href="/ui/c/{{.ChannelID}}/t/{{.TS}}">{{.RepliesLabel}}</a>{{else}}<a data-testid="thread-link" class="muted" href="/ui/c/{{.ChannelID}}/t/{{.TS}}">Reply</a>{{end}}
 </div>{{else}}<p class="muted">No messages yet.</p>{{end}}{{end}}
 
