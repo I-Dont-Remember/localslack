@@ -13,3 +13,5 @@ Layering (M1): `store` (SQL only) -> `service` (rules, typed domain errors) -> `
 - `store` (SQL only, writer+reader pools), `ids`, `seed` (deterministic demo data).
 - `service`: rules (auth, names, ts, threads, DMs); owns `Conversation`/`Message`; `Team`/`User` are aliases of store rows.
 - `api`: Slack Web API (/api/{method}), DTO mappers, error-code table. `web`: htmx UI (/ui, cookie "acting as"). Neither imports `store` or each other.
+
+Per-dir conventions: `admin/CLAUDE.md` (/_localslack response shape, route-contract test), `api/CLAUDE.md` (Slack-shaped responses).
