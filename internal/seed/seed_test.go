@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	"localslack/internal/seed"
 	"localslack/internal/store"
@@ -180,5 +181,36 @@ func TestApplyOnlyWhenEmpty(t *testing.T) {
 	}
 	if diff := cmp.Diff(before, read(t, s)); diff != "" {
 		t.Errorf("second Apply changed data (-before +after):\n%s", diff)
+	}
+}
+
+func TestPopulateKeepsGivenTeamAndSeededData(t *testing.T) {
+	t.Parallel()
+
+	_, want := seeded(t, "42")
+	s := openStore(t)
+	keep := store.Team{ID: "TKEEP", Name: "kept", Domain: "kept"}
+	err := s.Write(t.Context(), func(tx *store.Tx) error {
+		if err := tx.InsertTeam(t.Context(), keep); err != nil {
+			return err
+		}
+		return seed.Populate(t.Context(), tx, seed.Options{Seed: "42", Now: fixedNow()}, &keep)
+	})
+	if err != nil {
+		t.Fatalf("Populate: %v", err)
+	}
+
+	got := read(t, s)
+
+	if diff := cmp.Diff(want, got, cmpopts.IgnoreFields(store.User{}, "TeamID"), cmpopts.IgnoreFields(store.Conversation{}, "TeamID")); diff != "" {
+		t.Errorf("ids and content must match a fresh seed (-want +got):\n%s", diff)
+	}
+	for _, u := range got.Users {
+		if u.TeamID != "TKEEP" {
+			t.Errorf("user %s team = %q, want TKEEP", u.ID, u.TeamID)
+		}
+	}
+	if teams, err := s.Team(t.Context()); err != nil || teams.ID != "TKEEP" {
+		t.Errorf("team = %+v, %v; want TKEEP only", teams, err)
 	}
 }

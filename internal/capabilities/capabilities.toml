@@ -273,6 +273,11 @@ status = "implemented"
 summary = "Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls."
 evidence = "llm"
 
+[behaviors.state-reset]
+status = "implemented"
+summary = "POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps."
+evidence = "llm"
+
 [behaviors.fault-injection]
 status = "planned"
 summary = "Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults."

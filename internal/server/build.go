@@ -48,9 +48,21 @@ func newComponents(cfg config.Config, svc *service.Service, opts ...Option) Comp
 	for _, o := range opts {
 		o(&c)
 	}
-	c.Control = control.New(svc, c.Events)
+	c.Control = control.New(svc, c.Events, control.WithSeed(cfg.Seed), control.WithOnReset(c.resetHooks()...))
 	c.unsubscribe = svc.Subscribe(c.Events.Publish)
 	return c
+}
+
+// resetHooks clear the in-memory state a reset must drop (streams add theirs here).
+func (c Components) resetHooks() []func() {
+	var fns []func()
+	if c.CallLog != nil {
+		fns = append(fns, c.CallLog.Clear)
+	}
+	if c.Faults != nil {
+		fns = append(fns, c.Faults.Clear)
+	}
+	return fns
 }
 
 // apiOptions are the API seams backed by these components.
