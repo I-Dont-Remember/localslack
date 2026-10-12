@@ -41,3 +41,16 @@ type Noop struct{}
 
 // Intercept implements Interceptor.
 func (Noop) Intercept(context.Context, Request) (Override, bool) { return Override{}, false }
+
+// Set holds fault rules and implements Interceptor. Skeleton: the faults stream
+// adds rule storage and matching; until then no fault ever fires.
+type Set struct{}
+
+// NewSet returns an empty Set.
+func NewSet() *Set { return &Set{} }
+
+// Intercept implements Interceptor: no rules, no override.
+func (*Set) Intercept(context.Context, Request) (Override, bool) { return Override{}, false }
+
+// Clear drops all rules (reset hook; nothing to drop yet).
+func (*Set) Clear() {}

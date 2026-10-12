@@ -52,7 +52,7 @@ linters:
             - pkg: localslack/internal/web
               desc: admin must not import web
         leaf:
-          files: ["**/internal/calllog/**", "**/internal/faults/**", "!$test"]
+          files: ["**/internal/calllog/**", "**/internal/faults/**", "**/internal/scenario/**", "**/internal/appmanifest/**", "!$test"]
           deny:
             - pkg: localslack/internal/store
               desc: leaf packages must not import store
