@@ -87,6 +87,9 @@ func (s *Service) resetTx(ctx context.Context, tx *store.Tx, all bool, seedStr s
 			}
 			return store.Counts{}, err
 		}
+		if err := JoinBotToPublicChannels(ctx, tx, u.ID); err != nil {
+			return store.Counts{}, err
+		}
 	}
 	maxTS, err := tx.MaxTS(ctx)
 	if err != nil {

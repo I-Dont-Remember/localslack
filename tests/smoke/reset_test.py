@@ -12,8 +12,10 @@ import time
 
 import httpx
 import pytest
+from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
+from bolt_http import BoltServer
 from localslack_admin import AdminError
 
 pytestmark = pytest.mark.skipif(
@@ -142,6 +144,30 @@ def test_partial_reset_keeps_apps_and_all_removes_them(admin):
     assert admin.apps() == []
     gone = app_client.post("/api/auth.test").json()
     assert gone.get("user_id") != app["bot_user_id"]
+
+
+def test_event_is_delivered_to_a_kept_app_after_reset(admin, client, unique):
+    server = BoltServer()  # no Bolt app: handshake only; any 404 still records the delivery attempt
+    manifest = {
+        **MANIFEST,
+        "display_information": {"name": f"rejoin-{unique}"},
+        "settings": {
+            "event_subscriptions": {"request_url": server.url, "bot_events": ["message.channels"]}
+        },
+    }
+    try:
+        app = admin.register_app(manifest)
+        admin.reset(seed=f"rejoin-{unique}")
+        human = next(u["id"] for u in client.users_list()["members"] if not u["is_bot"])
+        poster = WebClient(token=f"xoxp-{human}", base_url=client.base_url)
+
+        poster.chat_postMessage(channel=general(client), text="after reset")
+
+        got = admin.wait_deliveries(1, app_id=app["id"], event_type="message")
+        assert got[0]["app_id"] == app["id"]
+    finally:
+        admin.delete_app(app["id"])
+        server.close()
 
 
 def test_reset_clears_faults(admin, client):

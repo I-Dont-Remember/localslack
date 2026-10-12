@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"errors"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -249,5 +250,69 @@ func TestResetDuringConcurrentPosts(t *testing.T) {
 	caller, _ := usersOf(t, svc)
 	if _, err := svc.PostMessage(ctx, caller, service.PostOpts{Channel: generalID(t, svc, caller), Content: service.Content{Text: "alive"}}); err != nil {
 		t.Errorf("post after storm: %v", err)
+	}
+}
+
+func TestResetRejoinsKeptAppBotsToPublicChannels(t *testing.T) {
+	t.Parallel()
+
+	svc, st := newSvc(t)
+	ctx := t.Context()
+	app, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsed(t, "Rejoiner", "", "message.channels")})
+	if err != nil {
+		t.Fatalf("RegisterApp: %v", err)
+	}
+	var got []service.Event
+	var mu sync.Mutex
+	svc.Subscribe(func(e service.Event) { mu.Lock(); got = append(got, e); mu.Unlock() })
+
+	if _, err := svc.Reset(ctx, service.ResetOpts{Seed: "rejoin"}); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	convs, err := st.Conversations(ctx)
+	if err != nil {
+		t.Fatalf("Conversations: %v", err)
+	}
+	var wantIn, wantOut []string
+	for _, c := range convs {
+		if c.Kind == service.KindChannel && !c.IsPrivate && !c.IsArchived {
+			wantIn = append(wantIn, c.ID)
+		} else {
+			wantOut = append(wantOut, c.ID)
+		}
+	}
+	members, err := st.MembersOf(ctx, append(slices.Clone(wantIn), wantOut...))
+	if err != nil {
+		t.Fatalf("MembersOf: %v", err)
+	}
+	if len(wantIn) == 0 {
+		t.Fatal("seed has no public channels")
+	}
+	for _, id := range wantIn {
+		if !slices.Contains(members[id], app.BotUserID) {
+			t.Errorf("bot not a member of public channel %s after reset", id)
+		}
+	}
+	for _, id := range wantOut {
+		if slices.Contains(members[id], app.BotUserID) {
+			t.Errorf("bot joined non-joinable conversation %s", id)
+		}
+	}
+
+	caller, _ := usersOf(t, svc)
+	if _, err := svc.PostMessage(ctx, caller, service.PostOpts{Channel: wantIn[0], Content: service.Content{Text: "hi"}}); err != nil {
+		t.Fatalf("PostMessage: %v", err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	var posted []service.MessagePosted
+	for _, e := range got {
+		if p, ok := e.(service.MessagePosted); ok {
+			posted = append(posted, p)
+		}
+	}
+	if len(posted) != 1 || !slices.Contains(posted[0].Targets, app.BotUserID) {
+		t.Errorf("MessagePosted after reset = %+v, want one event targeting %s", posted, app.BotUserID)
 	}
 }

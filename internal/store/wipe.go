@@ -45,6 +45,10 @@ func (t *Tx) WipeWorkspace(ctx context.Context, keep ...string) error {
 func (t *Tx) Team(ctx context.Context) (Team, error) { return teamOf(ctx, t.tx) }
 
 // Apps returns all apps ordered by id, seeing this txn's writes.
+func (t *Tx) Conversations(ctx context.Context) ([]Conversation, error) {
+	return conversationsOf(ctx, t.tx)
+}
+
 func (t *Tx) Apps(ctx context.Context) ([]App, error) { return appsOf(ctx, t.tx) }
 
 // MaxTS returns the greatest message ts, or "" if there are none.

@@ -94,12 +94,8 @@ func (s *Service) RegisterApp(ctx context.Context, in RegisterInput) (App, error
 	if err != nil {
 		return App{}, err
 	}
-	channels, err := s.joinableChannels(ctx)
-	if err != nil {
-		return App{}, err
-	}
 	err = s.st.Write(ctx, func(tx *store.Tx) error {
-		if err := ensureBotUser(ctx, tx, team.ID, row, m.Features.BotUser.DisplayName, channels); err != nil {
+		if err := ensureBotUser(ctx, tx, team.ID, row, m.Features.BotUser.DisplayName); err != nil {
 			return err
 		}
 		if found {
@@ -151,24 +147,28 @@ func pick(explicit, stored, derived string) string {
 	return ""
 }
 
-// joinableChannels are the public, live channels a new bot joins.
-func (s *Service) joinableChannels(ctx context.Context) ([]string, error) {
-	convs, err := s.st.Conversations(ctx)
+// JoinBotToPublicChannels adds botUserID to every public, unarchived channel
+// in the tx. Reusable by anything that repopulates the workspace while apps
+// persist (partial reset today; scenario populate / snapshot restore later):
+// call it inside the same write tx, after the new channels exist. Idempotent.
+func JoinBotToPublicChannels(ctx context.Context, tx *store.Tx, botUserID string) error {
+	convs, err := tx.Conversations(ctx)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var out []string
 	for _, c := range convs {
 		if c.Kind == KindChannel && !c.IsPrivate && !c.IsArchived {
-			out = append(out, c.ID)
+			if err := tx.AddMember(ctx, c.ID, botUserID); err != nil {
+				return err
+			}
 		}
 	}
-	return out, nil
+	return nil
 }
 
-// ensureBotUser creates the app's bot user and joins it to channels if it does
-// not exist yet; an existing bot user is left alone.
-func ensureBotUser(ctx context.Context, tx *store.Tx, teamID string, app store.App, display string, channels []string) error {
+// ensureBotUser creates the app's bot user and joins it to public channels if it
+// does not exist yet; an existing bot user is left alone.
+func ensureBotUser(ctx context.Context, tx *store.Tx, teamID string, app store.App, display string) error {
 	_, err := tx.User(ctx, app.BotUserID)
 	if err == nil {
 		return nil
@@ -183,12 +183,7 @@ func ensureBotUser(ctx context.Context, tx *store.Tx, teamID string, app store.A
 	if err := tx.InsertUser(ctx, bot); err != nil {
 		return err
 	}
-	for _, ch := range channels {
-		if err := tx.AddMember(ctx, ch, bot.ID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return JoinBotToPublicChannels(ctx, tx, bot.ID)
 }
 
 // DeleteApp removes an app and revokes its tokens. Its bot user and messages stay.
