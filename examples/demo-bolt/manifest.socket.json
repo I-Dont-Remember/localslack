@@ -1,0 +1,11 @@
+{
+  "display_information": {"name": "Demo Bolt"},
+  "features": {"bot_user": {"display_name": "demo-bolt", "always_online": true}},
+  "oauth_config": {
+    "scopes": {"bot": ["app_mentions:read", "chat:write", "chat:write.public", "channels:history", "reactions:read", "reactions:write"]}
+  },
+  "settings": {
+    "event_subscriptions": {"bot_events": ["app_mention", "message.channels", "reaction_added"]},
+    "socket_mode_enabled": true
+  }
+}
