@@ -59,11 +59,11 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | Behavior | Status | Milestone | Evidence | Summary | Deviations |
 |---|---|---|---|---|---|
 | `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `unknown-method-404`, `collapsed-errors` |
-| `app-manifest` | planned | — | — | Register multiple apps from Slack app manifests (JSON/YAML) via flag or /_localslack/apps. | — |
+| `app-manifest` | implemented | — | llm | Register multiple apps from Slack app manifests (JSON/YAML) via --app-manifest or /_localslack/apps; each gets a bot user, bot_id and deterministic credentials. | — |
 | `block-kit` | implemented | — | llm | chat.postMessage stores blocks, attachments and message metadata (JSON strings or JSON values), validates their shape (not Block Kit element schemas), and history/replies return them (metadata only with include_all_metadata). The UI renders text only. | — |
 | `call-log` | implemented | — | llm | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
-| `event-delivery-controls` | planned | — | — | Test controls for event delivery: inject, redeliver, bad/stale signatures, pause, delivery trace. | — |
-| `events-api-http` | planned | M2 | — | Events API delivery over HTTP with url_verification and X-Slack-Signature signing. | — |
+| `event-delivery-controls` | implemented | — | llm | Test controls for event delivery: inject, redeliver, bad/stale/missing signatures, pause, per-app delivery config and a delivery trace with long-poll. | — |
+| `events-api-http` | implemented | — | llm | Events API delivery over HTTP to one or more registered apps: url_verification, v0 HMAC signing, per-app event_callback envelopes, retries with X-Slack-Retry-Num/-Reason, X-Slack-No-Retry, and request URL resolution (deliver_to) that refuses remote hosts by default. | `event-subset`, `permissive-url-verification` |
 | `fault-injection` | implemented | — | llm | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists. | `token-in-json-body` |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
@@ -87,6 +87,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | Deviation | Severity | What differs | Affects | Red test |
 |---|---|---|---|---|
 | `any-token-accepted` | medium | Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking. | `auth.test`, `oauth-scopes` | — |
+| `event-subset` | medium | Only message (channels/groups/im/mpim, incl. message_changed and message_deleted), app_mention and reaction_added events are emitted; other subscriptions are accepted with a warning and never fire (inject them with POST /_localslack/events). | `events-api-http` | — |
 | `multipart-ignored` | medium | multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text). | `multipart-bodies` | yes |
 | `name-targets-unresolved` | medium | The channel param must be an ID: "#general" and user IDs as DM targets return channel_not_found (Slack resolves both). | `chat.postMessage` | yes |
 | `no-membership-check` | medium | Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership. | `chat.delete`, `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.info`, `conversations.members`, `conversations.replies`, `membership-enforcement`, `reactions.add` | yes |
@@ -99,6 +100,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `limit-clamping` | low | Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method. | `conversations.history`, `conversations.list`, `conversations.members`, `conversations.replies`, `opaque-cursor-pagination` | — |
 | `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.info`, `conversations.list`, `conversations.open` | — |
 | `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.info`, `users.list` | — |
+| `permissive-url-verification` | low | A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text. | `events-api-http` | — |
 | `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` | yes |
 | `tombstone-shape` | low | Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text "This message was deleted.") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording. | `chat.delete` | — |
 | `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` | yes |
