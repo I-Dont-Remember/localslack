@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
@@ -21,13 +22,21 @@ const (
 	TokenInvalid TokenKind = "invalid" // unrecognised
 )
 
-// App is a registered Slack app. Stub: filled by the app-registry stream.
+// App is a registered Slack app.
 type App struct {
 	ID, Name           string
 	BotToken, AppToken string
 	BotUserID, BotID   string
 	Scopes             []string
 	SocketMode         bool
+
+	SigningSecret, VerificationToken string
+	// RequestURL is the manifest's request_url; DeliverTo overrides where events go.
+	RequestURL, DeliverTo string
+	BotEvents             []string
+	Verified              bool
+	Manifest              json.RawMessage
+	Created               int64
 }
 
 // Principal is who a token acts as. User is zero when the token does not
