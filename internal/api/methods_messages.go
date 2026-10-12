@@ -17,3 +17,7 @@ func (a *API) conversationsArchive(ctx context.Context, c *call) (map[string]any
 	}
 	return map[string]any{}, nil
 }
+
+func (a *API) messageMethods() map[string]spec {
+	return map[string]spec{"chat.postMessage": tok(a.chatPostMessage)}
+}

@@ -76,3 +76,14 @@ func messagesBody(page service.Page[service.Message]) map[string]any {
 		"response_metadata": cursorMeta(page.NextCursor),
 	}
 }
+
+func (a *API) conversationMethods() map[string]spec {
+	return map[string]spec{
+		"conversations.create":  tok(a.conversationsCreate),
+		"conversations.list":    tok(a.conversationsList),
+		"conversations.open":    tok(a.conversationsOpen),
+		"conversations.history": tok(a.conversationsHistory),
+		"conversations.replies": tok(a.conversationsReplies),
+		"conversations.archive": tok(a.conversationsArchive),
+	}
+}

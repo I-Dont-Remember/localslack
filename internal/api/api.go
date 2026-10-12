@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log/slog"
+	"maps"
 	"net/http"
 	"net/url"
 	"slices"
@@ -25,12 +26,29 @@ type call struct {
 
 type method func(ctx context.Context, c *call) (map[string]any, error)
 
+// authMode says which credential a method requires.
+type authMode int
+
+const (
+	authToken authMode = iota // bot/user token (default)
+	authNone                  // no credential
+	authApp                   // app-level (xapp-) token
+)
+
+type spec struct {
+	fn   method
+	auth authMode
+}
+
+// tok wraps a method needing the default token auth.
+func tok(fn method) spec { return spec{fn: fn} }
+
 // API serves Slack methods.
 type API struct {
 	svc      *service.Service
 	log      *slog.Logger
 	fallback http.HandlerFunc
-	methods  map[string]method
+	methods  map[string]spec
 }
 
 // Mount registers /api/{method} (GET and POST). Unknown methods go to fallback.
@@ -52,23 +70,21 @@ func MethodNames() []string {
 	return names
 }
 
-func (a *API) registry() map[string]method {
-	return map[string]method{
-		"auth.test":             a.authTest,
-		"users.list":            a.usersList,
-		"conversations.create":  a.conversationsCreate,
-		"conversations.list":    a.conversationsList,
-		"conversations.open":    a.conversationsOpen,
-		"conversations.history": a.conversationsHistory,
-		"conversations.replies": a.conversationsReplies,
-		"conversations.archive": a.conversationsArchive,
-		"chat.postMessage":      a.chatPostMessage,
+// registry merges every file's methods; streams add a funcs-per-file, not lines here.
+func (a *API) registry() map[string]spec {
+	out := map[string]spec{}
+	for _, part := range []map[string]spec{
+		a.authMethods(), a.conversationMethods(), a.messageMethods(),
+		a.reactionMethods(), a.userMethods(), a.socketMethods(),
+	} {
+		maps.Copy(out, part)
 	}
+	return out
 }
 
 func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	m, ok := a.methods[chi.URLParam(r, "method")]
+	sp, ok := a.methods[chi.URLParam(r, "method")]
 	if !ok {
 		a.fallback(w, r)
 		return
@@ -87,7 +103,7 @@ func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	if r.TLS != nil {
 		scheme = "https"
 	}
-	out, err := m(ctx, &call{user: user, params: params, baseURL: scheme + "://" + r.Host + "/"})
+	out, err := sp.fn(ctx, &call{user: user, params: params, baseURL: scheme + "://" + r.Host + "/"})
 	if err != nil {
 		a.fail(ctx, w, err)
 		return
