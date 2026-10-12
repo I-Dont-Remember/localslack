@@ -82,6 +82,13 @@ demo:
 demo-check:
 	scripts/demo.sh --check
 
+# Same demo over Socket Mode (apps connect out to LocalSlack; no request URLs).
+demo-socket:
+	DEMO_MODE=socket scripts/demo.sh
+
+demo-check-socket:
+	DEMO_MODE=socket scripts/demo.sh --check
+
 test-all: test conformance tools-test smoke smoke-reset e2e
 
 # single "am I done" command

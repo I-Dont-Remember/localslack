@@ -81,6 +81,13 @@ if [ "$mode" = "http" ]; then
 	for app in $(curl -sf "$url/_localslack/apps" | jq -r '.items[].id'); do
 		curl -sf -X POST "$url/_localslack/apps/$app/verify" | jq -r '"  verified=\(.verified) \(.name)"'
 	done
+else
+	# Socket Mode: events only flow once each app has opened its WebSocket.
+	for _ in $(seq 1 150); do
+		[ "$(curl -sf "$url/_localslack/socket/connections" | jq '.items | length')" -ge 2 ] && break
+		sleep 0.2
+	done
+	curl -sf "$url/_localslack/socket/connections" | jq -r '.items[] | "  socket \(.app_id) connected \(.id)"'
 fi
 
 echo
@@ -89,6 +96,9 @@ echo
 echo "LocalSlack UI:  $url/ui"
 echo "Inspector:      $url/ui/inspector   (may not exist yet)"
 echo "Try, in #general: @demo-bolt ping  |  hello  |  echo hi  |  add a reaction"
+if [ "$mode" = "socket" ]; then
+	echo "Force a reconnect: curl -X POST $url/_localslack/socket/disconnect -d '{\"reason\":\"refresh_requested\"}'"
+fi
 echo "Logs: $tmp (removed on exit)"
 
 if [ -n "$check" ]; then
