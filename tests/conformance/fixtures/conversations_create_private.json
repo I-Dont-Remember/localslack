@@ -1,0 +1,38 @@
+{
+  "state": "passing",
+  "note": "Slack: is_private=true makes a private channel (legacy group shape); unverified",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.create",
+    "token": "xoxb-test",
+    "params": {
+      "name": "fx-priv",
+      "is_private": "true"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "channel": {
+        "id": "<id:C>",
+        "name": "fx-priv",
+        "is_channel": false,
+        "is_group": true,
+        "is_private": true,
+        "is_archived": false,
+        "is_member": true
+      }
+    },
+    "ignore": [
+      "created",
+      "creator",
+      "is_im",
+      "is_mpim",
+      "num_members",
+      "name_normalized",
+      "is_general"
+    ]
+  }
+}

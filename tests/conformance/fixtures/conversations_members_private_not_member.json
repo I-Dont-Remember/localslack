@@ -1,0 +1,42 @@
+{
+  "state": "passing",
+  "note": "Slack: a non-member of a private channel gets channel_not_found",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/users.list",
+      "token": "xoxb-test",
+      "capture": {
+        "human": "members.0.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "name": "fx-mem-priv",
+        "is_private": "true"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.members",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "channel_not_found"
+    }
+  }
+}
