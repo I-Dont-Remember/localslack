@@ -20,27 +20,34 @@ func TestResetCmdRun(t *testing.T) {
 		status     int
 		reply      string
 		wantBody   map[string]any
+		wantQuery  string
 		wantOut    string
 		wantErrSub string
 	}{
 		{
-			name: "plain reset", status: 200, reply: `{"ok":true,"seed":"s"}`,
-			wantBody: map[string]any{}, wantOut: `{"ok":true,"seed":"s"}`,
+			name: "plain reset", status: 200, reply: `{"mode":"partial","seed":"s"}`,
+			wantBody: map[string]any{}, wantOut: `{"mode":"partial","seed":"s"}`,
 		},
 		{
-			name: "seed and scenario", cmd: ResetCmd{Seed: "7", Scenario: "acme.json"}, status: 200, reply: `{"ok":true}`,
-			wantBody: map[string]any{"seed": "7", "scenario": "acme.json"}, wantOut: `{"ok":true}`,
+			name: "all", cmd: ResetCmd{All: true}, status: 200, reply: `{"mode":"all"}`,
+			wantBody: map[string]any{}, wantQuery: "all=true", wantOut: `{"mode":"all"}`,
 		},
-		{name: "endpoint missing", status: 404, reply: `{"ok":false,"error":"not_implemented"}`, wantBody: map[string]any{}, wantErrSub: "not supported by this server"},
-		{name: "server error code", status: 409, reply: `{"ok":false,"error":"reset_in_progress"}`, wantBody: map[string]any{}, wantErrSub: "reset_in_progress"},
+		{
+			name: "seed and scenario", cmd: ResetCmd{Seed: "7", Scenario: "acme.json"}, status: 200, reply: `{"mode":"partial"}`,
+			wantBody: map[string]any{"seed": "7", "scenario": "acme.json"}, wantOut: `{"mode":"partial"}`,
+		},
+		{name: "endpoint missing", status: 404, reply: `{"error":{"code":"not_implemented","message":"x"}}`, wantBody: map[string]any{}, wantErrSub: "not supported by this server"},
+		{name: "server error code", status: 409, reply: `{"error":{"code":"reset_in_progress","message":"reset already running"}}`, wantBody: map[string]any{}, wantErrSub: "reset_in_progress: reset already running"},
+		{name: "non-json error", status: 502, reply: `bad gateway`, wantBody: map[string]any{}, wantErrSub: "HTTP 502"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var gotBody map[string]any
-			var gotPath string
+			var gotPath, gotQuery string
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotPath = r.Method + " " + r.URL.Path
+				gotQuery = r.URL.RawQuery
 				_ = json.NewDecoder(r.Body).Decode(&gotBody)
 				w.WriteHeader(tt.status)
 				_, _ = w.Write([]byte(tt.reply))
@@ -53,6 +60,9 @@ func TestResetCmdRun(t *testing.T) {
 
 			if gotPath != "POST /_localslack/reset" {
 				t.Errorf("request = %q, want POST /_localslack/reset", gotPath)
+			}
+			if gotQuery != tt.wantQuery {
+				t.Errorf("query = %q, want %q", gotQuery, tt.wantQuery)
 			}
 			if diff := cmp.Diff(tt.wantBody, gotBody); diff != "" {
 				t.Errorf("request body (-want +got):\n%s", diff)

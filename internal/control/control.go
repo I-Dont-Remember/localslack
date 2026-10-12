@@ -27,6 +27,8 @@ func New(svc *service.Service, disp events.Dispatcher) *Control {
 
 // ResetOpts selects what a reset repopulates; extended by the reset stream.
 type ResetOpts struct {
+	// All also removes apps (blank server); default keeps them.
+	All  bool
 	Seed string
 }
 

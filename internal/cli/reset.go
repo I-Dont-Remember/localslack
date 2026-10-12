@@ -20,6 +20,7 @@ const resetTimeout = 30 * time.Second
 // ResetCmd asks a running server to reset its state (POST /_localslack/reset).
 type ResetCmd struct {
 	Addr     string `help:"Server address (default 127.0.0.1:3232)." env:"LOCALSLACK_ADDR"`
+	All      bool   `help:"Also remove apps (blank server). Default keeps apps."`
 	Seed     string `help:"Re-seed generated data with this seed."`
 	Scenario string `help:"Scenario fixture file to populate."`
 }
@@ -51,7 +52,11 @@ func (c *ResetCmd) run(ctx context.Context, out io.Writer) error {
 	if err != nil {
 		return fmt.Errorf("encode reset request: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+addr+"/_localslack/reset", bytes.NewReader(payload))
+	url := "http://" + addr + "/_localslack/reset"
+	if c.All {
+		url += "?all=true"
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(payload))
 	if err != nil {
 		return fmt.Errorf("build reset request: %w", err)
 	}
@@ -73,9 +78,11 @@ func report(out io.Writer, status int, reply []byte) error {
 	case status == http.StatusNotFound:
 		return errors.New("reset not supported by this server (POST /_localslack/reset returned 404)")
 	case status >= http.StatusMultipleChoices:
-		var e struct{ Error string }
-		if json.Unmarshal(reply, &e) == nil && e.Error != "" {
-			return fmt.Errorf("reset failed: %s (HTTP %d)", e.Error, status)
+		var e struct {
+			Error struct{ Code, Message string }
+		}
+		if json.Unmarshal(reply, &e) == nil && e.Error.Code != "" {
+			return fmt.Errorf("reset failed: %s: %s (HTTP %d)", e.Error.Code, e.Error.Message, status)
 		}
 		return fmt.Errorf("reset failed: HTTP %d", status)
 	}
