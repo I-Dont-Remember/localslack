@@ -85,7 +85,7 @@ def general_id(client: WebClient) -> str:
 
 
 ERROR_CASES = {
-    "invalid_name": lambda c, u: c.conversations_create(name="Bad Name!"),
+    "invalid_name_specials": lambda c, u: c.conversations_create(name="Bad Name!"),
     "name_taken": lambda c, u: (
         c.conversations_create(name=f"dup-{u}"),
         c.conversations_create(name=f"dup-{u}"),

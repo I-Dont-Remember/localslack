@@ -86,7 +86,6 @@ def test_messages_carry_team_field(client, unique):
     assert message.get("team")
 
 
-@deviation("collapsed-errors")
 def test_empty_channel_name_has_its_own_error(client):
     status, error = error_of(lambda: client.conversations_create(name=""))
     assert (status, error) == (200, "invalid_name_required")

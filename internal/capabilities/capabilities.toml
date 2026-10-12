@@ -38,7 +38,7 @@ deviations = ["no-private-channels", "partial-conversation-fields", "limit-clamp
 status = "implemented"
 tier = 2
 scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
-deviations = ["collapsed-errors", "no-private-channels"]
+deviations = ["no-private-channels"]
 
 [methods."conversations.open"]
 status = "implemented"
@@ -321,7 +321,7 @@ summary = "multipart/form-data bodies are silently ignored, so their params are 
 
 [deviations.collapsed-errors]
 severity = "low"
-summary = "Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments."
+summary = "Some distinct Slack errors are merged: unparseable bodies become invalid_arguments, and several methods fold finer-grained failures into one code."
 
 [deviations.partial-conversation-fields]
 severity = "low"
