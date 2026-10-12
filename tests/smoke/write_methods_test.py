@@ -86,3 +86,24 @@ def test_delete_errors(client, human_client, chan):
             "channel_not_found": lambda: client.chat_delete(channel="C00000000", ts=ts),
         }
     )
+
+
+def test_post_ephemeral_is_not_in_history(client, chan, unique):
+    me = client.auth_test()["user_id"]
+    resp = client.chat_postEphemeral(channel=chan, user=me, text=f"psst {unique}")
+    assert resp["message_ts"]
+    assert client.conversations_history(channel=chan)["messages"] == []
+
+
+def test_post_ephemeral_errors(client, chan):
+    me = client.auth_test()["user_id"]
+    assert_errors(
+        {
+            "user_not_in_channel": lambda: client.chat_postEphemeral(
+                channel=chan, user="UNOTAMEMBER", text="x"
+            ),
+            "channel_not_found": lambda: client.chat_postEphemeral(
+                channel="C00000000", user=me, text="x"
+            ),
+        }
+    )

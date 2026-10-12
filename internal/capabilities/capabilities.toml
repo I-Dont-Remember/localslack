@@ -114,11 +114,10 @@ scopes = ["chat:write"]
 deviations = ["no-membership-check", "tombstone-shape"]
 
 [methods."chat.postEphemeral"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 4
 scopes = ["chat:write"]
+deviations = ["ephemeral-not-delivered"]
 
 [methods."reactions.add"]
 status = "in_progress"
@@ -357,6 +356,10 @@ summary = "A token field inside a JSON body is accepted; Slack only accepts it i
 [deviations.tombstone-shape]
 severity = "low"
 summary = "Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text \"This message was deleted.\") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording."
+
+[deviations.ephemeral-not-delivered]
+severity = "low"
+summary = "chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart."
 
 [deviations.message-length-unbounded]
 severity = "low"

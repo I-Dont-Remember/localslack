@@ -53,9 +53,24 @@ func (a *API) chatDelete(ctx context.Context, c *call) (map[string]any, error) {
 	return map[string]any{"channel": channel, "ts": ts}, nil
 }
 
+func (a *API) chatPostEphemeral(ctx context.Context, c *call) (map[string]any, error) {
+	content, err := writeContent(c.params)
+	if err != nil {
+		return nil, err
+	}
+	ts, err := a.svc.PostEphemeral(ctx, c.p.User, service.EphemeralOpts{
+		Channel: c.params.Get("channel"), User: c.params.Get("user"), ThreadTS: c.params.Get("thread_ts"), Content: content,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{"message_ts": ts}, nil
+}
+
 func (a *API) writeMethods() map[string]spec {
 	return map[string]spec{
-		"chat.update": tok(a.chatUpdate),
-		"chat.delete": tok(a.chatDelete),
+		"chat.postEphemeral": tok(a.chatPostEphemeral),
+		"chat.update":        tok(a.chatUpdate),
+		"chat.delete":        tok(a.chatDelete),
 	}
 }

@@ -3,11 +3,13 @@ package api_test
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"localslack/internal/constants"
+	"localslack/internal/service"
 	"localslack/internal/storetest"
 )
 
@@ -25,6 +27,51 @@ func TestChatUpdateJSONBodyKeepsBlocksArray(t *testing.T) {
 	blocks, _ := msg["blocks"].([]any)
 	if got["ok"] != true || len(blocks) != 2 {
 		t.Errorf("chat.update JSON body = %v, want ok with 2 blocks", got)
+	}
+}
+
+func TestChatPostEphemeral(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	general := generalID(t, app)
+	human, _ := humanAndBot(t, app)
+	var mu sync.Mutex
+	var events []service.Event
+	app.Service.Subscribe(func(e service.Event) { mu.Lock(); events = append(events, e); mu.Unlock() })
+
+	tests := []struct {
+		name   string
+		params map[string]string
+		want   string // error code, "" for success
+	}{
+		{"ok", map[string]string{"channel": general, "user": human.ID, "text": "psst"}, ""},
+		{"blocks only", map[string]string{"channel": general, "user": human.ID, "blocks": `[{"type":"divider"}]`}, ""},
+		{"user not in channel", map[string]string{"channel": general, "user": "UNOPE", "text": "x"}, "user_not_in_channel"},
+		{"no channel", map[string]string{"channel": "CNOPE", "user": human.ID, "text": "x"}, "channel_not_found"},
+		{"no content", map[string]string{"channel": general, "user": human.ID}, "no_text"},
+	}
+	for _, tt := range tests {
+		_, b := call(t, app, "chat.postEphemeral", botToken, tt.params)
+		if tt.want != "" {
+			if b["ok"] != false || b["error"] != tt.want {
+				t.Errorf("%s: body %v, want error %s", tt.name, b, tt.want)
+			}
+		} else if ts, _ := b["message_ts"].(string); b["ok"] != true || ts == "" {
+			t.Errorf("%s: body %v, want ok with message_ts", tt.name, b)
+		}
+	}
+
+	_, hist := call(t, app, "conversations.history", botToken, map[string]string{"channel": general, "limit": "100"})
+	for _, m := range items(t, hist, "messages") {
+		if m["text"] == "psst" {
+			t.Errorf("ephemeral appeared in history: %v", m)
+		}
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(events) != 0 || len(app.Service.Ephemerals()) != 2 {
+		t.Errorf("events %v, ring %d; want no events and 2 remembered", events, len(app.Service.Ephemerals()))
 	}
 }
 
