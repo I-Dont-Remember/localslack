@@ -89,3 +89,6 @@ func (h *Hub) Prune(keep func(appID string) bool) {
 		c.close()
 	}
 }
+
+// CloseApp closes every connection of appID (the app was deleted) and forgets its tickets.
+func (h *Hub) CloseApp(appID string) { h.Prune(func(id string) bool { return id != appID }) }

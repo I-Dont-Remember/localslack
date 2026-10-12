@@ -136,7 +136,7 @@ func (a *API) enforce(ctx context.Context, mode authMode, token string, p servic
 	if _, err := a.svc.Authenticate(ctx, token); err != nil {
 		return p, err
 	}
-	return p, service.ErrInvalidAuth
+	return p, service.ErrNotAllowedTokenType // a valid token of the wrong kind
 }
 
 func appID(p service.Principal) string {

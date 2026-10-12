@@ -6,7 +6,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 **Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
 
-**Methods:** 16 implemented, 1 partial, 1 in_progress, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 17 llm, 0 none.
+**Methods:** 17 implemented, 1 partial, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 18 llm, 0 none.
 
 ## How to read the evidence column
 
@@ -24,6 +24,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | Method | Status | Evidence | Tier | Scopes | SDK-called | Deviations |
 |---|---|---|---|---|---|---|
 | `api.test` | implemented | llm | 4 | — | yes | — |
+| `apps.connections.open` | implemented | llm (errors only) | 1 | — | — | `socket-url-local` |
 | `auth.test` | implemented | llm | 3 | — | yes | `any-token-accepted` |
 | `chat.delete` | implemented | llm | 3 | `chat:write` | yes | `no-membership-check`, `tombstone-shape` |
 | `chat.postEphemeral` | implemented | llm | 4 | `chat:write` | yes | `ephemeral-not-delivered` |
@@ -52,7 +53,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `users.conversations` | planned | common | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | — |
 | `views.open` | planned | interactivity | 4 | — | — |
 | `views.publish` | planned | interactivity | 4 | — | — |
-| `apps.connections.open` | in_progress | socket-mode | 1 | — | agent-docs/plans/test-loop.md |
 
 ## Behaviors and quirks
 
@@ -78,7 +78,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `response-headers` | planned | — | — | Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type. | `response-headers-missing` |
 | `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | — |
-| `socket-mode` | planned | M3 | — | Socket Mode: xapp- tokens, apps.connections.open and a WebSocket event/ack channel. | — |
+| `socket-mode` | implemented | — | llm | Socket Mode: apps.connections.open (xapp- token, one-time ticket URL), WebSocket hello/events_api envelopes/ack/disconnect, round-robin across an app's connections, retries through the shared delivery engine, and /_localslack/socket/{connections,disconnect} controls. | `socket-url-local`, `socket-events-only` |
 | `state-reset` | implemented | — | llm | POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps. | — |
 | `state-snapshot` | planned | — | — | Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture. | — |
 
@@ -94,6 +94,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `no-private-channels` | medium | Only public channels exist; types=private_channel returns nothing and is_private is never true for channels. | `conversations.create`, `conversations.list`, `private-channels` | yes |
 | `partial-message-fields` | medium | Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users. | `chat.postMessage`, `chat.update`, `conversations.history`, `conversations.replies` | yes |
 | `response-headers-missing` | medium | Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset. | `response-headers` | yes |
+| `socket-events-only` | medium | Socket Mode carries events_api envelopes only; slash_commands and interactive envelopes are never sent, and accepts_response_payload is always false. Hello and disconnect debug_info fields are placeholders. | `socket-mode` | — |
 | `collapsed-errors` | low | Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments. | `api-errors-http-200`, `conversations.archive`, `conversations.create` | yes |
 | `cursor-format` | low | Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque. | `conversations.history`, `conversations.members`, `conversations.replies`, `opaque-cursor-pagination` | — |
 | `ephemeral-not-delivered` | low | chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart. | `chat.postEphemeral` | — |
@@ -101,6 +102,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.info`, `conversations.list`, `conversations.open` | — |
 | `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.info`, `users.list` | — |
 | `permissive-url-verification` | low | A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text. | `events-api-http` | — |
+| `socket-url-local` | low | apps.connections.open returns ws://<this server>/_localslack/socket?ticket=..&app_id=.. instead of a wss://wss-primary.slack.com URL; debug_reconnects is ignored, any registered app can connect (socket_mode_enabled is not required) and the connection count is not capped at 10. | `apps.connections.open`, `socket-mode` | — |
 | `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` | yes |
 | `tombstone-shape` | low | Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text "This message was deleted.") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording. | `chat.delete` | — |
 | `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` | yes |
