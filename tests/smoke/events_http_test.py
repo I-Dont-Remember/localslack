@@ -134,9 +134,12 @@ def test_redeliver_sends_a_duplicate_with_retry_headers(admin, bolt, human):
 
     both = admin.wait_deliveries(2, app_id=app_id, event_type="app_mention", state="delivered")
     assert {d["event_id"] for d in both} == {first["event_id"]}
-    last = bolt.server.requests[-1]["headers"]
-    assert last["X-Slack-Retry-Num"] == "1"
-    assert last["X-Slack-Retry-Reason"] == "http_timeout"
+    # Unrelated message events may 404 in Bolt (no listener) and be retried, so match by event id.
+    mine = [r["headers"] for r in bolt.server.requests if first["event_id"] in r["body"]]
+    retried = [h for h in mine if "X-Slack-Retry-Num" in h]
+    assert len(mine) == 2 and len(retried) == 1, "only the redelivery carries retry headers"
+    assert retried[0]["X-Slack-Retry-Num"] == "1"
+    assert retried[0]["X-Slack-Retry-Reason"] == "http_timeout"
 
 
 def test_injected_event_with_stale_signature_is_rejected(admin, bolt):
