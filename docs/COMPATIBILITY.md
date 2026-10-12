@@ -39,7 +39,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `conversations.replies` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `no-membership-check`, `partial-message-fields`, `limit-clamping`, `cursor-format` |
 | `reactions.add` | implemented | llm | 3 | `reactions:write` | yes | `no-membership-check` |
 | `users.info` | implemented | llm | 4 | `users:read` | yes | `partial-user-fields` |
-| `users.list` | implemented | llm | 2 | `users:read` | yes | `users-list-unpaginated`, `partial-user-fields` |
+| `users.list` | implemented | llm | 2 | `users:read` | yes | `partial-user-fields` |
 
 ### Planned and in progress
 
@@ -101,7 +101,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.info`, `users.list` | — |
 | `permissive-url-verification` | low | A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text. | `events-api-http` | — |
 | `tombstone-shape` | low | Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text "This message was deleted.") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording. | `chat.delete` | — |
-| `users-list-unpaginated` | low | users.list ignores limit and cursor and always returns every user with an empty next_cursor. | `users.list` | yes |
 
 ## Clients verified
 

@@ -59,7 +59,6 @@ def test_multipart_form_post_is_understood(api_url, unique):
     assert resp.json()["ok"] is True
 
 
-@deviation("users-list-unpaginated")
 def test_users_list_honors_limit(client):
     page = client.users_list(limit=1)
     assert len(page["members"]) == 1

@@ -26,7 +26,7 @@ deviations = ["any-token-accepted"]
 status = "implemented"
 tier = 2
 scopes = ["users:read"]
-deviations = ["users-list-unpaginated", "partial-user-fields"]
+deviations = ["partial-user-fields"]
 
 [methods."conversations.list"]
 status = "implemented"
@@ -329,10 +329,6 @@ summary = "Conversations omit topic, purpose, previous_names, is_shared/is_ext_s
 [deviations.partial-user-fields]
 severity = "low"
 summary = "Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile."
-
-[deviations.users-list-unpaginated]
-severity = "low"
-summary = "users.list ignores limit and cursor and always returns every user with an empty next_cursor."
 
 [deviations.limit-clamping]
 severity = "low"
