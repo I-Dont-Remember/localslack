@@ -33,13 +33,13 @@ type Components struct {
 // Option overrides a component before wiring (tests, later streams).
 type Option func(*Components)
 
-// WithDispatcher replaces the event dispatcher (default: events.Noop).
+// WithDispatcher replaces the event dispatcher (default: the real events.Engine).
 func WithDispatcher(d events.Dispatcher) Option { return func(c *Components) { c.Events = d } }
 
 // newComponents builds the defaults, applies opts, and subscribes the
 // dispatcher to service events.
-func newComponents(cfg config.Config, svc *service.Service, opts ...Option) Components {
-	c := Components{Faults: faults.NewSet(), Events: events.Noop{}}
+func newComponents(cfg config.Config, svc *service.Service, log *slog.Logger, opts ...Option) Components {
+	c := Components{Faults: faults.NewSet()}
 	size := cfg.CallLogSize
 	if size <= 0 {
 		size = config.DefaultCallLogSize
@@ -47,6 +47,9 @@ func newComponents(cfg config.Config, svc *service.Service, opts ...Option) Comp
 	c.CallLog = calllog.New(size)
 	for _, o := range opts {
 		o(&c)
+	}
+	if c.Events == nil {
+		c.Events = newEngine(cfg, svc, log)
 	}
 	c.Control = control.New(svc, c.Events)
 	c.unsubscribe = svc.Subscribe(c.Events.Publish)
@@ -99,7 +102,11 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 		_ = st.Close()
 		return nil, err
 	}
-	comps := newComponents(cfg, svc, opts...)
+	comps := newComponents(cfg, svc, log, opts...)
+	if err := registerManifests(ctx, log, cfg, svc, comps.Events); err != nil {
+		_ = errors.Join(comps.Close(), st.Close())
+		return nil, err
+	}
 	router := NewRouter(Deps{Log: log, Svc: svc, Web: ui, ListenAddr: cfg.Addr, Components: comps})
 	return &App{Handler: router, Store: st, Service: svc, Components: comps}, nil
 }
