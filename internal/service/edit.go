@@ -94,6 +94,9 @@ func (s *Service) DeleteMessage(ctx context.Context, actor User, channelID, ts s
 		if err := removeMessage(ctx, tx, cur); err != nil {
 			return err
 		}
+		if err := tx.DeleteReactions(ctx, channelID, ts); err != nil {
+			return err
+		}
 		scope, err := scopeOf(ctx, tx, conv)
 		if err != nil {
 			return err

@@ -120,11 +120,10 @@ scopes = ["chat:write"]
 deviations = ["ephemeral-not-delivered"]
 
 [methods."reactions.add"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["reactions:write"]
+deviations = ["no-membership-check"]
 
 [methods."conversations.join"]
 status = "planned"
@@ -307,7 +306,7 @@ summary = "The channel param must be an ID: \"#general\" and user IDs as DM targ
 
 [deviations.partial-message-fields]
 severity = "medium"
-summary = "Messages omit bot_profile, team, app_id, client_msg_id, edited, reactions, subtype and reply_users."
+summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users."
 
 [deviations.no-private-channels]
 severity = "medium"

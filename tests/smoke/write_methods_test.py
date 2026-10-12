@@ -95,6 +95,40 @@ def test_post_ephemeral_is_not_in_history(client, chan, unique):
     assert client.conversations_history(channel=chan)["messages"] == []
 
 
+def test_reaction_shows_in_history_and_replies(client, human_client, chan):
+    root = client.chat_postMessage(channel=chan, text="root")["ts"]
+    reply = client.chat_postMessage(channel=chan, text="reply", thread_ts=root)["ts"]
+    me = client.auth_test()["user_id"]
+    client.reactions_add(channel=chan, timestamp=root, name="eyes")
+    human_client.reactions_add(channel=chan, timestamp=root, name="eyes")
+    client.reactions_add(channel=chan, timestamp=reply, name="tada")
+
+    head = client.conversations_history(channel=chan)["messages"][0]
+    assert [(r["name"], r["count"]) for r in head["reactions"]] == [("eyes", 2)]
+    assert head["reactions"][0]["users"][0] == me
+    thread = client.conversations_replies(channel=chan, ts=root)["messages"]
+    assert [m.get("reactions", [{}])[0].get("name") for m in thread] == ["eyes", "tada"]
+
+
+def test_reaction_errors(client, chan):
+    ts = client.chat_postMessage(channel=chan, text="react to me")["ts"]
+    client.reactions_add(channel=chan, timestamp=ts, name="eyes")
+    assert_errors(
+        {
+            "already_reacted": lambda: client.reactions_add(
+                channel=chan, timestamp=ts, name="eyes"
+            ),
+            "invalid_name": lambda: client.reactions_add(channel=chan, timestamp=ts, name=":eyes:"),
+            "message_not_found": lambda: client.reactions_add(
+                channel=chan, timestamp="1.000001", name="eyes"
+            ),
+            "channel_not_found": lambda: client.reactions_add(
+                channel="C00000000", timestamp=ts, name="eyes"
+            ),
+        }
+    )
+
+
 def test_post_ephemeral_errors(client, chan):
     me = client.auth_test()["user_id"]
     assert_errors(
