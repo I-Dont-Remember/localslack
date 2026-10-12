@@ -189,7 +189,7 @@ deviations = ["token-in-json-body"]
 status = "implemented"
 summary = "API errors are HTTP 200 with ok:false and an error code, as Slack does."
 evidence = "llm"
-deviations = ["unknown-method-404", "collapsed-errors"]
+deviations = ["collapsed-errors"]
 
 [behaviors.opaque-cursor-pagination]
 status = "implemented"
@@ -318,10 +318,6 @@ summary = "Only public channels exist; types=private_channel returns nothing and
 [deviations.multipart-ignored]
 severity = "medium"
 summary = "multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text)."
-
-[deviations.unknown-method-404]
-severity = "low"
-summary = "Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method."
 
 [deviations.collapsed-errors]
 severity = "low"

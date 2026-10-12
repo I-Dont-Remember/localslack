@@ -139,8 +139,8 @@ func TestUnknownMethodFallsThrough(t *testing.T) {
 	app := storetest.NewApp(t)
 	for _, token := range []string{"", "xoxb-test"} {
 		status, body := call(t, app, "no.such.method", token, nil)
-		if status != http.StatusNotFound || body["error"] != "not_implemented" {
-			t.Errorf("token %q: status %d body %v, want 404 not_implemented", token, status, body)
+		if status != http.StatusOK || body["error"] != "unknown_method" {
+			t.Errorf("token %q: status %d body %v, want 200 unknown_method", token, status, body)
 		}
 	}
 }

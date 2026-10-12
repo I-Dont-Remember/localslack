@@ -2,7 +2,7 @@
 
 > Generated from `internal/capabilities/capabilities.toml`, the conformance fixtures and the smoke tests by `make docs`. Do not edit by hand.
 
-What LocalSlack supports, how well each piece is verified against real Slack, and where it knowingly differs. Anything not listed as implemented returns `404 not_implemented`.
+What LocalSlack supports, how well each piece is verified against real Slack, and where it knowingly differs. Anything not listed as implemented returns `200 unknown_method` with an `X-LocalSlack-Not-Implemented: 1` header.
 
 **Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
 
@@ -58,7 +58,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 | Behavior | Status | Milestone | Evidence | Summary | Deviations |
 |---|---|---|---|---|---|
-| `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `unknown-method-404`, `collapsed-errors` |
+| `api-errors-http-200` | implemented | — | llm | API errors are HTTP 200 with ok:false and an error code, as Slack does. | `collapsed-errors` |
 | `app-manifest` | implemented | — | llm | Register multiple apps from Slack app manifests (JSON/YAML) via --app-manifest or /_localslack/apps; each gets a bot user, bot_id and deterministic credentials. | — |
 | `block-kit` | implemented | — | llm | chat.postMessage stores blocks, attachments and message metadata (JSON strings or JSON values), validates their shape (not Block Kit element schemas), and history/replies return them (metadata only with include_all_metadata). The UI renders text only. | — |
 | `call-log` | implemented | — | llm | Every API call recorded (params, actor, response, timing, fault id) and queryable via /_localslack/calls. | — |
@@ -102,7 +102,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `permissive-url-verification` | low | A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text. | `events-api-http` | — |
 | `token-in-json-body` | low | A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params. | `form-and-json-bodies` | yes |
 | `tombstone-shape` | low | Deleting a thread root that has replies leaves a tombstone (subtype tombstone, text "This message was deleted.") that keeps the original user; Slack's carries different fields (user USLACKBOT, hidden). The shape is unverified against a recording. | `chat.delete` | — |
-| `unknown-method-404` | low | Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method. | `api-errors-http-200` | yes |
 | `users-list-unpaginated` | low | users.list ignores limit and cursor and always returns every user with an empty next_cursor. | `users.list` | yes |
 
 ## Clients verified

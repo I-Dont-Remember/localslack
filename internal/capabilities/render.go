@@ -15,7 +15,7 @@ func Render(r Report) string {
 	b.WriteString("# Compatibility\n\n")
 	b.WriteString("> Generated from `internal/capabilities/capabilities.toml`, the conformance fixtures and the smoke tests by `make docs`. Do not edit by hand.\n\n")
 	b.WriteString("What LocalSlack supports, how well each piece is verified against real Slack, and where it knowingly differs. ")
-	b.WriteString("Anything not listed as implemented returns `404 not_implemented`.\n\n")
+	b.WriteString("Anything not listed as implemented returns `200 unknown_method` with an `X-LocalSlack-Not-Implemented: 1` header.\n\n")
 	b.WriteString("**Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. ")
 	b.WriteString("Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; ")
 	b.WriteString("this page says honestly what is verified and what is a best guess.\n\n")

@@ -44,6 +44,11 @@ func TestSlackResponseHeaders(t *testing.T) {
 			"X-Accepted-Oauth-Scopes": "users:read",
 			"X-Oauth-Scopes":          "chat:write,chat:write.public",
 		}},
+		{"unknown method is flagged", "no.such", "xoxb-test", map[string]string{
+			"X-Localslack-Not-Implemented": "1",
+			"Content-Type":                 "application/json; charset=utf-8",
+		}},
+		{"known method is not flagged", "auth.test", "xoxb-test", map[string]string{"X-Localslack-Not-Implemented": ""}},
 		{"invalid auth has no scopes", "auth.test", "bogus", map[string]string{
 			"Content-Type":   "application/json; charset=utf-8",
 			"X-Oauth-Scopes": "",

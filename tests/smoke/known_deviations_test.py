@@ -39,7 +39,6 @@ def test_non_member_cannot_read_a_dm(api_url, client, unique):
     assert (status, error) == (200, "channel_not_found")
 
 
-@deviation("unknown-method-404")
 def test_unknown_method_is_200_unknown_method(client):
     assert error_of(lambda: client.api_call("does.notExist")) == (200, "unknown_method")
 
