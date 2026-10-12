@@ -16,6 +16,14 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - Execution: integration branch `test-loop`; parallel subagents in worktrees per wave; orchestrator merges + `make verify`; **pause for owner review at each gate**.
 - Out of scope: item 11 (owner recordings), Tier 3+.
 
+## Contract decisions (owner, 2026-10-12)
+Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
+- `/_localslack/*` uses real HTTP statuses (2xx resource body, no `ok` wrapper; errors `{"error":{"code","message","details"?}}`); `/api/*` stays Slack-shaped (`200 + ok:false`).
+- Reset has two modes: partial (default; keeps apps + sockets) and `?all=true` / `localslack reset --all` (also removes apps). No `keep` list, no `--keep-logs`.
+- Request URL resolution: per-app `deliver_to` > global `LOCALSLACK_DELIVER_TO` / `--deliver-to` > manifest `request_url` only if loopback/private; otherwise the app is `delivery: "blocked"`. Host-only override keeps the manifest path. Remote hosts only with `--allow-remote-request-urls`. No redirects.
+- CLI: `localslack apps add|list|set-url|env`; `PATCH /_localslack/apps/{id}` sets `deliver_to`.
+- Config fields `DeliverTo`, `AllowRemoteRequestURLs` exist (stream A consumes them).
+
 ## Design facts that shape the plan
 1. Bolt self-filters by `bot_id` from `auth.test`. Messages carry no `bot_id` today (`fabricated-bot-id` deviation) → store real `bot_id` on users/messages in Wave 0, or demo bot loops on its own replies.
 2. Membership enforcement breaks current flows (xoxp-created channel lacks bot; SDK-created channel lacks UI actor) → audit smoke/e2e in stream X.
@@ -78,7 +86,7 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - **C Call log + reset** — `internal/calllog`, `admin/{calls,reset}.go`, `control/reset.go`, `service/reset.go`, `store/wipe.go`, `cli/reset.go`.
   - Record: seq, time, request_id, method, status, ok, error, params (raw JSON; token/secret redacted), actor `{user_id, app_id, token_kind}`, response (≤64KB), duration, `fault_id`, `not_implemented`.
   - `GET /_localslack/calls?method=&channel=&app_id=&ok=&error=&since=&limit=&min=&timeout_ms=`; `DELETE`.
-  - `POST /_localslack/reset {seed?, scenario?, generate?, keep?[]}` → pause dispatcher, wipe+repopulate in one tx (keep apps; re-create app bot users), `ts.advanceTo`, reseed runtime id gen, clear calls/deliveries/faults unless kept, resume. CLI `localslack reset`.
+  - `POST /_localslack/reset[?all=true] {seed?, scenario?, generate?}` → pause dispatcher, wipe+repopulate in one tx (partial keeps apps and re-creates app bot users; `all` drops apps), `ts.advanceTo`, reseed runtime id gen, clear calls/deliveries/faults, resume. CLI `localslack reset [--all]`.
   - Tests: reset during concurrent posts (race), ts monotonic, redaction, filters, long-poll, ring wrap.
 - **D Faults** — `internal/faults`, `admin/faults.go`. Rule `{method|"*", match{channel,app_id}?, nth?, every?, times?, once?, action{status, error, retry_after, delay_ms, body}}`; first match in creation order wins; 429 sets `Retry-After`; `delay_ms` alone = slow then real call. CRUD endpoints. Smoke: SDK `RateLimitErrorRetryHandler`, `ServerErrorRetryHandler`, timeout, nth=3.
 - **E Blocks/attachments/metadata** — `service/content.go`, `addContent`. Accept JSON strings or decoded values; validate; blocks-only accepted; stored in `messages.data`; metadata only with `include_all_metadata`. Flips `no-blocks` red tests.
@@ -130,7 +138,7 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - 0.11 test hygiene: fixtures restore global control state (faults, delivery-config, paused) on teardown; reset/snapshot suites run against a dedicated second server instance.
 - Add `Store.Read(ctx, fn)` (single read tx) for consistent export/diff/state.
 
-**Reset invariants**: ts `advanceTo` forward-only, inside reset write tx, >= max fixture ts; ids generator behind mutex/`Reseed` in place; team id stable across reset (keep team row) or apps re-stamped; app bot users inserted after populate, populate rejects id collisions with them, snapshot export excludes them; dispatcher reset = stop enqueue, cancel in-flight + timers, trace writes check generation; call/delivery `seq` monotonic across DELETE/reset, parked long-polls woken with `generation` change; reset scope documented (delivery-config -> defaults, sockets persist, UI cookie falls back if user gone); one write tx, batched prepared inserts; concurrent reset -> 409. Reset is global: one test session per server. Documented decisions: apps persist across reset (`keep`/`drop` incl. `apps`); snapshots volatile (lost on restart); single-team coupling is a known deviation (DESIGN_DOC multi-workspace is the eventual answer).
+**Reset invariants**: ts `advanceTo` forward-only, inside reset write tx, >= max fixture ts; ids generator behind mutex/`Reseed` in place; team id stable across reset (keep team row) or apps re-stamped; app bot users inserted after populate, populate rejects id collisions with them, snapshot export excludes them; dispatcher reset = stop enqueue, cancel in-flight + timers, trace writes check generation; call/delivery `seq` monotonic across DELETE/reset, parked long-polls woken with `generation` change; reset scope documented (delivery-config -> defaults, sockets persist, UI cookie falls back if user gone); one write tx, batched prepared inserts; concurrent reset -> 409. Reset is global: one test session per server. Documented decisions: apps persist across partial reset, `?all=true` drops them (no `keep` list); snapshots volatile (lost on restart); single-team coupling is a known deviation (DESIGN_DOC multi-workspace is the eventual answer).
 
 **Extra tests**: concurrent-post event ordering; no events on seed/restore/reset; late delivery after reset not recorded; two-app Principal resolution; export->wipe->import->export identity; populate perf as benchmark + loose bound.
 
