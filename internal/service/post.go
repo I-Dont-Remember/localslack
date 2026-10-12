@@ -7,8 +7,8 @@ import (
 	"localslack/internal/store"
 )
 
-// Content is a message body. Text is required today; blocks-only posts arrive with
-// the content stream.
+// Content is a message body; see ValidateContent for the rules (text may be empty
+// when blocks or attachments exist).
 type Content struct {
 	Text                          string
 	Blocks, Attachments, Metadata json.RawMessage
@@ -23,8 +23,8 @@ type PostOpts struct {
 
 // PostMessage stores a message authored by author.
 func (s *Service) PostMessage(ctx context.Context, author User, o PostOpts) (Message, error) {
-	if o.Content.Text == "" {
-		return Message{}, ErrNoText
+	if err := ValidateContent(o.Content); err != nil {
+		return Message{}, err
 	}
 	var out Message
 	err := s.st.Write(ctx, func(tx *store.Tx) error {

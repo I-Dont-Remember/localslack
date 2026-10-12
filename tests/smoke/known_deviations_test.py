@@ -19,22 +19,6 @@ def new_channel(client: WebClient, name: str) -> str:
     return client.conversations_create(name=name)["channel"]["id"]
 
 
-@deviation("no-blocks")
-def test_blocks_only_message_is_accepted(client, unique):
-    channel = new_channel(client, f"blk-{unique}")
-    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hello *blocks*"}}]
-    assert client.chat_postMessage(channel=channel, blocks=blocks)["ok"]
-
-
-@deviation("no-blocks")
-def test_blocks_round_trip_through_history(client, unique):
-    channel = new_channel(client, f"blk2-{unique}")
-    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": "hello *blocks*"}}]
-    client.chat_postMessage(channel=channel, text="fallback", blocks=blocks)
-    message = client.conversations_history(channel=channel)["messages"][0]
-    assert message.get("blocks") == blocks
-
-
 @deviation("name-targets-unresolved")
 def test_post_by_channel_name(client):
     assert client.chat_postMessage(channel="#general", text="by name")["ok"]
@@ -82,13 +66,6 @@ def test_users_list_honors_limit(client):
     page = client.users_list(limit=1)
     assert len(page["members"]) == 1
     assert page["response_metadata"]["next_cursor"]
-
-
-@deviation("message-length-unbounded")
-def test_overlong_message_is_rejected(client, unique):
-    channel = new_channel(client, f"long-{unique}")
-    status, error = error_of(lambda: client.chat_postMessage(channel=channel, text="x" * 50_000))
-    assert (status, error) == (200, "msg_too_long")
 
 
 @deviation("no-private-channels")

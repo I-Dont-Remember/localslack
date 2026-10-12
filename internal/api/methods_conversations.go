@@ -53,7 +53,7 @@ func (a *API) conversationsHistory(ctx context.Context, c *call) (map[string]any
 	if err != nil {
 		return nil, err
 	}
-	return messagesBody(page), nil
+	return messagesBody(c, page), nil
 }
 
 func (a *API) conversationsReplies(ctx context.Context, c *call) (map[string]any, error) {
@@ -63,14 +63,15 @@ func (a *API) conversationsReplies(ctx context.Context, c *call) (map[string]any
 	if err != nil {
 		return nil, err
 	}
-	return messagesBody(page), nil
+	return messagesBody(c, page), nil
 }
 
-func messagesBody(page service.Page[service.Message]) map[string]any {
+func messagesBody(c *call, page service.Page[service.Message]) map[string]any {
 	msgs := make([]map[string]any, 0, len(page.Items))
 	for _, m := range page.Items {
 		msgs = append(msgs, messageDTO(m))
 	}
+	withoutMetadata(c, msgs)
 	return map[string]any{
 		"messages": msgs, "has_more": page.NextCursor != "", "pin_count": 0,
 		"response_metadata": cursorMeta(page.NextCursor),

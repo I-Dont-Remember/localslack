@@ -69,7 +69,7 @@ deviations = ["collapsed-errors"]
 status = "partial"
 tier = 0 # special: roughly 1 message/second/channel
 scopes = ["chat:write", "chat:write.public"]
-deviations = ["no-blocks", "name-targets-unresolved", "no-membership-check", "partial-message-fields", "message-length-unbounded"]
+deviations = ["name-targets-unresolved", "no-membership-check", "partial-message-fields"]
 
 # ---------------------------------------------------------------- planned methods
 # priority: bolt-core = a typical Bolt app hits these; common = frequent in scripts;
@@ -235,9 +235,9 @@ summary = "Private channels and groups."
 deviations = ["no-private-channels"]
 
 [behaviors.block-kit]
-status = "planned"
-summary = "Storing and returning blocks, attachments and message metadata."
-deviations = ["no-blocks"]
+status = "implemented"
+summary = "chat.postMessage stores blocks, attachments and message metadata (JSON strings or JSON values), validates their shape (not Block Kit element schemas), and history/replies return them (metadata only with include_all_metadata). The UI renders text only."
+evidence = "llm"
 
 [behaviors.rate-limiting]
 status = "planned"
@@ -291,10 +291,6 @@ summary = "Snapshot, restore and diff workspace state; snapshot format doubles a
 # ---------------------------------------------------------------- known deviations
 # Referenced by id from methods and behaviors above. Keep summaries one sentence: they are
 # published verbatim in docs/COMPATIBILITY.md.
-
-[deviations.no-blocks]
-severity = "high"
-summary = "blocks, attachments and message metadata are ignored, and a blocks-only chat.postMessage returns no_text (Slack accepts it)."
 
 [deviations.any-token-accepted]
 severity = "medium"
@@ -355,7 +351,3 @@ summary = "Cursors are unpadded base64url of an internal key; Slack's are padded
 [deviations.token-in-json-body]
 severity = "low"
 summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
-
-[deviations.message-length-unbounded]
-severity = "low"
-summary = "There is no maximum message length (Slack returns msg_too_long above roughly 40,000 characters)."
