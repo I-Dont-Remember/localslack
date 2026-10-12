@@ -4,7 +4,8 @@ Layering (M1): `store` (SQL only) -> `service` (rules, typed domain errors) -> `
 
 - `cli`: CLI command utilities.
 - `config`: env-driven settings (`Load(getenv)`).
-- `server`: `Build` (the single wiring point), router (`Deps`), `Run`, middleware, `guard` (Host/Origin/body limits), `/_localslack` health + state.
+- `server`: `Build` (the single wiring point), router (`Deps`), `Run`, middleware, `guard` (Host/Origin/body limits), routing.
+- `admin`: `/_localslack/*` control API, one file per feature (health, state real; rest stubs). `calllog`, `faults`: leaf seams (Recorder, Interceptor) for api; depguard keeps them off store/service.
 - `storetest`: `NewApp(t)` isolated app (temp DB, pinned seed) for tests.
 - `capabilities`: embedded `capabilities.toml` manifest (methods, behaviors, deviations) + tests that keep it in sync with `api.MethodNames()`.
 - `xdg`, `constants`: paths and shared constants.

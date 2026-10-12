@@ -97,6 +97,12 @@ func (s *Store) Messages(ctx context.Context, channelID string) ([]Message, erro
 		`SELECT `+msgCols+` FROM messages WHERE channel_id = ? ORDER BY ts`, scanMsg, channelID)
 }
 
+// AllMessages returns every message in every channel, ordered by channel then ts.
+func (s *Store) AllMessages(ctx context.Context) ([]Message, error) {
+	return query(ctx, s.reader, "messages",
+		`SELECT `+msgCols+` FROM messages ORDER BY channel_id, ts`, scanMsg)
+}
+
 func userByID(ctx context.Context, q queryer, id string) (User, error) {
 	return getOne(ctx, q, "user", `SELECT `+userCols+` FROM users WHERE id = ?`, scanUser, id)
 }

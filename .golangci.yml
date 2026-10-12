@@ -22,6 +22,8 @@ linters:
   settings:
     depguard:
       rules:
+        # Add rules for events, control, scenario, appmanifest when those pkgs
+        # land: deny store from all; api -> events/control; events -> api/web.
         api:
           files: ["**/internal/api/**", "!$test"]
           deny:
@@ -29,6 +31,8 @@ linters:
               desc: api talks to service, never store
             - pkg: localslack/internal/web
               desc: api and web must not import each other
+            - pkg: localslack/internal/admin
+              desc: api must not import admin
         web:
           files: ["**/internal/web/**", "!$test"]
           deny:
@@ -36,6 +40,24 @@ linters:
               desc: web talks to service, never store
             - pkg: localslack/internal/api
               desc: api and web must not import each other
+            - pkg: localslack/internal/admin
+              desc: web must not import admin
+        admin:
+          files: ["**/internal/admin/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: admin talks to service, never store
+            - pkg: localslack/internal/api
+              desc: admin must not import api
+            - pkg: localslack/internal/web
+              desc: admin must not import web
+        leaf:
+          files: ["**/internal/calllog/**", "**/internal/faults/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: leaf packages must not import store
+            - pkg: localslack/internal/service
+              desc: leaf packages must not import service
     revive:
       rules:
         - name: blank-imports

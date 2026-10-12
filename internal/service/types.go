@@ -53,17 +53,22 @@ func (s *Service) enrich(ctx context.Context, caller User, cs []store.Conversati
 	out := make([]Conversation, 0, len(cs))
 	for _, c := range cs {
 		m := members[c.ID]
-		conv := Conversation{
-			ID: c.ID, TeamID: c.TeamID, Name: c.Name, Kind: c.Kind, Creator: c.Creator,
-			Created: c.Created, IsArchived: c.IsArchived,
-			IsMember: slices.Contains(m, caller.ID), NumMembers: len(m),
-		}
+		conv := convFrom(c, m)
+		conv.IsMember = slices.Contains(m, caller.ID)
 		if c.Kind == store.KindIM {
 			conv.Peer = peerOf(m, caller.ID)
 		}
 		out = append(out, conv)
 	}
 	return out, nil
+}
+
+// convFrom is the caller-independent part of a Conversation.
+func convFrom(c store.Conversation, members []string) Conversation {
+	return Conversation{
+		ID: c.ID, TeamID: c.TeamID, Name: c.Name, Kind: c.Kind, Creator: c.Creator,
+		Created: c.Created, IsArchived: c.IsArchived, NumMembers: len(members),
+	}
 }
 
 func peerOf(members []string, self string) string {
@@ -99,13 +104,10 @@ type ConversationState struct {
 	Messages []Message // oldest first, thread replies included
 }
 
-// Snapshot returns every conversation with its members and messages.
-func (s *Service) Snapshot(ctx context.Context, caller User) ([]ConversationState, error) {
+// Snapshot returns every conversation with its members and messages. It is
+// caller-free: Peer and IsMember are unset.
+func (s *Service) Snapshot(ctx context.Context) ([]ConversationState, error) {
 	rows, err := s.st.Conversations(ctx)
-	if err != nil {
-		return nil, err
-	}
-	convs, err := s.enrich(ctx, caller, rows)
 	if err != nil {
 		return nil, err
 	}
@@ -117,17 +119,21 @@ func (s *Service) Snapshot(ctx context.Context, caller User) ([]ConversationStat
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ConversationState, 0, len(convs))
-	for _, c := range convs {
-		msgs, err := s.st.Messages(ctx, c.ID)
-		if err != nil {
-			return nil, err
+	all, err := s.st.AllMessages(ctx)
+	if err != nil {
+		return nil, err
+	}
+	byChan := make(map[string][]Message, len(rows))
+	for _, m := range all {
+		byChan[m.ChannelID] = append(byChan[m.ChannelID], msgFrom(m))
+	}
+	out := make([]ConversationState, 0, len(rows))
+	for _, c := range rows {
+		msgs := byChan[c.ID]
+		if msgs == nil {
+			msgs = []Message{}
 		}
-		st := ConversationState{Conversation: c, Members: members[c.ID], Messages: make([]Message, 0, len(msgs))}
-		for _, m := range msgs {
-			st.Messages = append(st.Messages, msgFrom(m))
-		}
-		out = append(out, st)
+		out = append(out, ConversationState{Conversation: convFrom(c, members[c.ID]), Members: members[c.ID], Messages: msgs})
 	}
 	return out, nil
 }

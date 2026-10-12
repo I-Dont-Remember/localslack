@@ -1,31 +1,36 @@
-package server
+package admin
 
 import (
 	"log/slog"
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"localslack/internal/service"
 )
 
-// stateConversations dumps every conversation with members and messages.
-// Unauthenticated debug endpoint: LocalSlack is a local-only tool.
-func (h handlers) stateConversations(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	bot, err := h.svc.DefaultBot(ctx)
-	if err != nil {
-		h.internalError(w, r, err)
+func mountState(r chi.Router, d Deps) {
+	if d.Svc == nil {
 		return
 	}
-	states, err := h.svc.Snapshot(ctx, bot.User)
+	r.Get("/_localslack/state/conversations", d.stateConversations)
+}
+
+// stateConversations dumps every conversation with members and messages.
+// Unauthenticated debug endpoint: LocalSlack is a local-only tool.
+func (d Deps) stateConversations(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	states, err := d.Svc.Snapshot(ctx)
 	if err != nil {
-		h.internalError(w, r, err)
+		d.Log.ErrorContext(ctx, "state endpoint", slog.Any("error", err))
+		writeJSON(ctx, d.Log, w, http.StatusInternalServerError, errorBody("internal_error"))
 		return
 	}
 	out := make([]map[string]any, 0, len(states))
 	for _, c := range states {
 		out = append(out, stateConversation(c))
 	}
-	writeJSON(ctx, h.log, w, http.StatusOK, map[string]any{"ok": true, "conversations": out})
+	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{"ok": true, "conversations": out})
 }
 
 func stateConversation(c service.ConversationState) map[string]any {
@@ -39,9 +44,4 @@ func stateConversation(c service.ConversationState) map[string]any {
 		"id": c.ID, "name": c.Name, "kind": c.Kind, "is_archived": c.IsArchived,
 		"members": c.Members, "messages": msgs,
 	}
-}
-
-func (h handlers) internalError(w http.ResponseWriter, r *http.Request, err error) {
-	h.log.ErrorContext(r.Context(), "state endpoint", slog.Any("error", err))
-	writeJSON(r.Context(), h.log, w, http.StatusInternalServerError, errorBody("internal_error"))
 }

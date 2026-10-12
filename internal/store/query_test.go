@@ -238,3 +238,31 @@ func TestDMBetween(t *testing.T) {
 		})
 	}
 }
+
+func TestAllMessages(t *testing.T) {
+	t.Parallel()
+
+	s := queryFixture(t)
+	ctx := t.Context()
+	want := []Message{
+		{ChannelID: "C1", TS: "1.000001", UserID: "U1", Text: "a"},
+		{ChannelID: "C1", TS: "3.000001", UserID: "U2", Text: "c"},
+		{ChannelID: "D1", TS: "2.000001", UserID: "U1", Text: "b"},
+	}
+	err := s.Write(ctx, func(tx *Tx) error {
+		// inserted out of order on purpose
+		return errors.Join(
+			tx.InsertMessage(ctx, want[2]), tx.InsertMessage(ctx, want[1]), tx.InsertMessage(ctx, want[0]),
+		)
+	})
+	if err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+	got, err := s.AllMessages(ctx)
+	if err != nil {
+		t.Fatalf("AllMessages: %v", err)
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("AllMessages mismatch (-want +got):\n%s", diff)
+	}
+}

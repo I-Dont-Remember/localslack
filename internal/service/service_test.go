@@ -759,3 +759,31 @@ func TestListAll(t *testing.T) {
 		t.Errorf("ListAll dms = %+v, %v; want one im with peer %s", dms, err, other.ID)
 	}
 }
+
+func TestSnapshotGroupsMessagesByConversation(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	caller, _ := usersOf(t, svc)
+	ctx := t.Context()
+	ch := generalID(t, svc, caller)
+	if _, err := svc.PostMessage(ctx, caller, ch, "snap me", ""); err != nil {
+		t.Fatalf("post: %v", err)
+	}
+	got, err := svc.Snapshot(ctx)
+	if err != nil {
+		t.Fatalf("Snapshot: %v", err)
+	}
+	var found bool
+	for _, c := range got {
+		for _, m := range c.Messages {
+			if m.ChannelID != c.ID {
+				t.Errorf("message %s in conversation %s, want %s", m.TS, c.ID, m.ChannelID)
+			}
+			found = found || m.Text == "snap me"
+		}
+	}
+	if !found {
+		t.Error("posted message missing from snapshot")
+	}
+}
