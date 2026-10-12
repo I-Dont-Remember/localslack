@@ -77,7 +77,7 @@ def calls_since(admin: Admin):
     def fetch(min: int | None = None, timeout_ms: int = 5000, **filters):
         if min:
             return admin.wait_calls(min, timeout_ms, since=cursor, **filters)
-        return admin.calls(since=cursor, **filters)["calls"]
+        return admin.calls(since=cursor, **filters)["items"]
 
     return fetch
 
@@ -92,13 +92,9 @@ def faults(admin: Admin):
     yield admin
     for cleanup in (
         admin.delete_faults,
-        lambda: saved and admin.put_delivery_config(**_config(saved)),
+        lambda: saved and admin.put_delivery_config(**saved),
     ):
         try:
             cleanup()
         except AdminError:
             pass
-
-
-def _config(saved: dict) -> dict:
-    return {k: v for k, v in saved.items() if k != "ok"}

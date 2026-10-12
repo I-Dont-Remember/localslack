@@ -14,7 +14,7 @@ def make_admin(reply=None, status=200):
 
     def handler(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(status, json=reply if reply is not None else {"ok": True})
+        return httpx.Response(status, json=reply if reply is not None else {})
 
     return Admin("http://x", transport=httpx.MockTransport(handler)), seen
 
@@ -33,7 +33,7 @@ CASES = [
         "/_localslack/calls",
         {"method": "chat.postMessage", "ok": "false", "since": "3", "limit": "5"},
         None,
-        {"ok": True, "calls": []},
+        {"items": [], "next_since": 0, "generation": 1},
     ),
     ("delete calls", lambda a: a.delete_calls(), "DELETE", "/_localslack/calls", {}, None, None),
     (
@@ -48,7 +48,7 @@ CASES = [
             "match": {"channel": "C1"},
             "action": {"status": 429},
         },
-        {"ok": True, "fault": {"id": "f_1"}},
+        {"id": "f_1"},
     ),
     (
         "delete fault",
@@ -95,7 +95,7 @@ CASES = [
         "/_localslack/deliveries",
         {"event_type": "app_mention", "state": "failed", "app_id": "A1"},
         None,
-        {"ok": True, "deliveries": []},
+        {"items": [], "next_since": 0, "generation": 1},
     ),
     (
         "delete deliveries",
@@ -158,7 +158,7 @@ CASES = [
         "/_localslack/socket/connections",
         {},
         None,
-        {"ok": True, "connections": []},
+        {"items": []},
     ),
     (
         "socket disconnect",
@@ -171,13 +171,51 @@ CASES = [
     ),
     (
         "reset",
-        lambda a: a.reset(seed="s", keep=["apps"]),
+        lambda a: a.reset(seed="s"),
         "POST",
         "/_localslack/reset",
         {},
-        {"seed": "s", "keep": ["apps"]},
+        {"seed": "s"},
         None,
     ),
+    (
+        "reset all",
+        lambda a: a.reset(all=True),
+        "POST",
+        "/_localslack/reset",
+        {"all": "true"},
+        {},
+        None,
+    ),
+    (
+        "register with deliver_to",
+        lambda a: a.register_app({"k": 1}, deliver_to="http://localhost:3000"),
+        "POST",
+        "/_localslack/apps",
+        {},
+        {"manifest": {"k": 1}, "deliver_to": "http://localhost:3000"},
+        None,
+    ),
+    (
+        "patch app",
+        lambda a: a.patch_app("A1", deliver_to="http://localhost:4000"),
+        "PATCH",
+        "/_localslack/apps/A1",
+        {},
+        {"deliver_to": "http://localhost:4000"},
+        None,
+    ),
+    (
+        "set url",
+        lambda a: a.set_url("A1", "http://localhost:4000"),
+        "PATCH",
+        "/_localslack/apps/A1",
+        {},
+        {"deliver_to": "http://localhost:4000"},
+        None,
+    ),
+    ("list apps", lambda a: a.apps(), "GET", "/_localslack/apps", {}, None, {"items": []}),
+    ("get app", lambda a: a.app("A1"), "GET", "/_localslack/apps/A1", {}, None, {"id": "A1"}),
     (
         "create snapshot",
         lambda a: a.create_snapshot("before"),
@@ -203,7 +241,7 @@ CASES = [
         "/_localslack/diff",
         {"from": "before", "to": "current"},
         None,
-        {"ok": True, "changes": {}},
+        {},
     ),
 ]
 
@@ -234,7 +272,7 @@ def test_register_yaml_manifest_is_sent_as_yaml():
 
 
 def test_wait_calls_long_polls_and_returns_calls():
-    admin, seen = make_admin({"ok": True, "calls": [{"seq": 1}, {"seq": 2}], "next_since": 2})
+    admin, seen = make_admin({"items": [{"seq": 1}, {"seq": 2}], "next_since": 2, "generation": 1})
 
     got = admin.wait_calls(2, timeout_ms=1500, method="chat.postMessage")
 
@@ -247,37 +285,60 @@ def test_wait_calls_long_polls_and_returns_calls():
 
 
 def test_wait_calls_times_out_when_too_few():
-    admin, _ = make_admin({"ok": True, "calls": [], "next_since": 0})
+    admin, _ = make_admin({"items": [], "next_since": 0, "generation": 1})
 
     with pytest.raises(AdminTimeout):
         admin.wait_calls(1, timeout_ms=10)
 
 
 def test_wait_deliveries_returns_deliveries():
-    admin, seen = make_admin({"ok": True, "deliveries": [{"id": "d1"}]})
+    admin, seen = make_admin({"items": [{"id": "d1"}], "next_since": 1, "generation": 1})
 
     assert admin.wait_deliveries(1, timeout_ms=200, app_id="A1") == [{"id": "d1"}]
     assert dict(seen[0].url.params) == {"min": "1", "timeout_ms": "200", "app_id": "A1"}
 
 
 def test_add_fault_returns_the_created_fault():
-    admin, _ = make_admin({"ok": True, "fault": {"id": "f_9"}})
+    admin, _ = make_admin({"id": "f_9"})
 
     assert admin.add_fault("*", {"status": 500})["id"] == "f_9"
 
 
+def test_calls_returns_list_envelope():
+    envelope = {"items": [{"seq": 1}], "next_since": 1, "generation": 2}
+    admin, _ = make_admin(envelope)
+
+    assert admin.calls() == envelope
+
+
+def test_delete_returns_none_on_204():
+    seen = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(204)
+
+    admin = Admin("http://x", transport=httpx.MockTransport(handler))
+
+    assert admin.delete_calls() is None
+
+
+def test_ok_false_in_a_2xx_body_is_not_an_error():
+    admin, _ = make_admin({"ok": False, "id": "x"})
+
+    assert admin.app("x") == {"ok": False, "id": "x"}
+
+
 @pytest.mark.parametrize(
-    ("status", "reply", "error"),
-    [
-        (404, {"ok": False, "error": "not_found"}, "not_found"),
-        (200, {"ok": False, "error": "invalid_reset"}, "invalid_reset"),
-        (409, {"ok": False, "error": "reset_in_progress"}, "reset_in_progress"),
-    ],
+    ("status", "code"),
+    [(404, "app_not_found"), (409, "reset_in_progress"), (422, "invalid_manifest")],
 )
-def test_errors_raise_admin_error(status, reply, error):
+def test_errors_raise_admin_error(status, code):
+    reply = {"error": {"code": code, "message": "nope", "details": [{"pointer": "/a"}]}}
     admin, _ = make_admin(reply, status=status)
 
     with pytest.raises(AdminError) as err:
         admin.reset()
 
-    assert (err.value.status, err.value.error) == (status, error)
+    assert (err.value.status, err.value.code, err.value.message) == (status, code, "nope")
+    assert err.value.details == [{"pointer": "/a"}]

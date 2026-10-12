@@ -2,7 +2,7 @@
 
 
 def test_admin_reaches_health(admin):
-    assert admin.health()["ok"] is True
+    assert admin.health() == {"status": "ok"}
 
 
 def test_faults_fixture_teardown_tolerates_missing_endpoints(faults):

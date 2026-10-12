@@ -2,7 +2,7 @@
 
 Status: not yet implemented (stream C).
 
-GET/DELETE /_localslack/calls, POST /_localslack/reset, `localslack reset`. Owned by stream C; fill this in with the stream.
+GET/DELETE /_localslack/calls, POST /_localslack/reset, `localslack reset [--all]` (partial by default keeps apps; `--all` blank). Owned by stream C; fill this in with the stream.
 
 ## Setup
 
