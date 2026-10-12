@@ -104,7 +104,7 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 	if err != nil {
 		return nil, err
 	}
-	svc, err := service.New(ctx, st, now, "")
+	svc, err := service.New(ctx, st, now, "", service.WithStrictTokens(cfg.StrictTokens))
 	if err != nil {
 		_ = st.Close()
 		return nil, err

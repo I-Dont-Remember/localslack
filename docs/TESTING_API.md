@@ -12,7 +12,8 @@ Contract for the test-loop controls. LocalSlack-only; never on real Slack. Unaut
 Multiple apps per workspace; each owns a bot user, `bot_id`, tokens, signing secret.
 - `POST /_localslack/apps` -> 201 app. Body: raw Slack manifest (`application/json`, `application/yaml`) or `{"manifest":{..}|"<yaml>","deliver_to":"http://localhost:3000","signing_secret","bot_token","app_token","app_id","verify":true}`. Honored: `display_information.name`, `features.bot_user.display_name`, `oauth_config.scopes.bot`, `settings.event_subscriptions.{request_url,bot_events}`, `settings.socket_mode_enabled`; rest stored as-is.
   - App: `{"id","name","bot_user_id","bot_id","credentials":{"signing_secret","bot_token","app_token","verification_token"},"event_subscriptions":{"manifest_request_url","effective_request_url","bot_events":[]},"deliver_to","delivery":"ready|blocked","blocked_reason","socket_mode_enabled","scopes":{"bot":[]},"verified","warnings":[]}`
-  - 422 `invalid_manifest` with `details` pointers.
+  - 422 `invalid_manifest` with `details` pointers. 409 `already_exists` when `bot_token`/`app_token` already belong to another app (tokens are unique across apps).
+  - Tokens: deleting an app revokes its bot/app tokens for good (`invalid_auth`, even in permissive mode) until `reset --all` or restart. `--strict-tokens`: any `xoxb-` token that is not a registered app's is `invalid_auth` (default: it acts as the built-in bot).
 - `GET /_localslack/apps`, `GET|DELETE /_localslack/apps/{id}`, `PATCH /_localslack/apps/{id}` (`{"deliver_to":...}`), `POST /_localslack/apps/{id}/verify` (re-sends `url_verification`).
 - Startup: `--app-manifest <file>` (repeatable, env `LOCALSLACK_APP_MANIFEST`). Upsert keyed by explicit `app_id`, else deterministic from manifest name; safe on every restart; never clobbers a stored `deliver_to`.
 - CLI: `localslack apps add <manifest> [--deliver-to URL]`, `apps list`, `apps set-url <app> <URL>`, `apps env <app>` (prints credentials as env vars for the app under test).
@@ -64,4 +65,4 @@ Two modes, no knobs. Reset is global: one test session per server.
 - `GET /_localslack/diff?from=<name|current>&to=<name|current>` -> `{"users|conversations|members|messages|reactions":{"added":[],"removed":[],"changed":[{"id"|"channel+ts","fields":{"f":{"from","to"}}}]}}`.
 
 ## Misc
-`GET /_localslack/health` -> 200 `{"status":"ok"}`; `GET /_localslack/state/conversations` (existing). Default bot (no app) reports a fixed default scope list incl. `chat:write`, `chat:write.public`.
+`GET /_localslack/health` -> 200 `{"status":"ok"}`; `GET /_localslack/state/conversations` (existing). Default bot (no app) reports the fixed default scope list `chat:write`, `chat:write.public` (`service.DefaultBotScopes`, also given to apps whose manifest lists none).

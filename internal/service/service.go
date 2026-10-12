@@ -36,12 +36,22 @@ type Service struct {
 	apps appCache
 	bus  bus
 	eph  ephemerals
+
+	strictTokens bool
+	tombs        tombstones
 }
+
+// Option configures New.
+type Option func(*Service)
+
+// WithStrictTokens makes an xoxb- token that belongs to no registered app fail
+// with ErrInvalidAuth instead of acting as the default bot.
+func WithStrictTokens(strict bool) Option { return func(s *Service) { s.strictTokens = strict } }
 
 // New builds a Service. idSeed makes new conversation ids deterministic for
 // tests; production passes "" to get a fresh random seed per process, so ids
 // never replay after a restart. Exactly one Service may write to a store.
-func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed string) (*Service, error) {
+func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed string, opts ...Option) (*Service, error) {
 	maxTS, err := st.MaxTS(ctx)
 	if err != nil {
 		return nil, err
@@ -56,6 +66,9 @@ func New(ctx context.Context, st *store.Store, now func() time.Time, idSeed stri
 		}
 	}
 	svc := &Service{st: st, now: now, ids: ids.NewGenerator(idSeed), ts: gen}
+	for _, o := range opts {
+		o(svc)
+	}
 	if err := svc.RefreshApps(ctx); err != nil {
 		return nil, err
 	}

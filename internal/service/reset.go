@@ -51,6 +51,9 @@ func (s *Service) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	if err != nil {
 		return ResetResult{}, err
 	}
+	if o.All {
+		s.tombs.clear() // a blank server forgets revoked tokens
+	}
 	s.ids.Reseed(seedStr + "/runtime") // distinct from the populate stream, so new ids never replay seeded ones
 	if err := s.RefreshApps(ctx); err != nil {
 		return ResetResult{}, err

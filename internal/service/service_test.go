@@ -79,7 +79,7 @@ func TestAuthenticate(t *testing.T) {
 		wantErr error
 	}{
 		{"missing", "", service.Principal{}, service.ErrNotAuthed},
-		{"bot token", "xoxb-anything", service.Principal{User: bot, TokenKind: service.TokenBot}, nil},
+		{"bot token", "xoxb-anything", service.Principal{User: bot, TokenKind: service.TokenBot, Scopes: service.DefaultBotScopes()}, nil},
 		{"user token", "xoxp-" + human.ID, service.Principal{User: human, TokenKind: service.TokenUser}, nil},
 		{"unknown user", "xoxp-UNOPE", service.Principal{}, service.ErrInvalidAuth},
 		{"unregistered app token", "xapp-1-x", service.Principal{}, service.ErrInvalidAuth},
@@ -110,7 +110,7 @@ func TestIdentify(t *testing.T) {
 		want  service.Principal
 	}{
 		{"missing", "", service.Principal{}},
-		{"bot", "xoxb-x", service.Principal{User: bot, TokenKind: service.TokenBot}},
+		{"bot", "xoxb-x", service.Principal{User: bot, TokenKind: service.TokenBot, Scopes: service.DefaultBotScopes()}},
 		{"user", "xoxp-" + human.ID, service.Principal{User: human, TokenKind: service.TokenUser}},
 		{"unknown user keeps kind", "xoxp-UNOPE", service.Principal{TokenKind: service.TokenUser}},
 		{"app token", "xapp-1-x", service.Principal{TokenKind: service.TokenApp}},
@@ -167,7 +167,7 @@ func TestDefaultBot(t *testing.T) {
 	svc, _ := newSvc(t)
 	_, bot := usersOf(t, svc)
 	got, err := svc.DefaultBot(t.Context())
-	if want := (service.Principal{User: bot, TokenKind: service.TokenBot}); err != nil || cmp.Diff(want, got) != "" {
+	if want := (service.Principal{User: bot, TokenKind: service.TokenBot, Scopes: service.DefaultBotScopes()}); err != nil || cmp.Diff(want, got) != "" {
 		t.Errorf("DefaultBot = %+v, %v; want %+v", got, err, want)
 	}
 }

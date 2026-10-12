@@ -75,6 +75,9 @@ func (a appsAPI) create(w http.ResponseWriter, r *http.Request) {
 	case errors.Is(err, service.ErrAppExists):
 		a.problem(w, r, http.StatusConflict, "app_exists", "an app with this id already exists; delete it first or use another app_id", nil)
 		return
+	case errors.Is(err, service.ErrTokenInUse):
+		a.problem(w, r, http.StatusConflict, "already_exists", err.Error()+"; bot_token and app_token must be unique across apps", nil)
+		return
 	case err != nil:
 		a.internal(w, r, "register app", err)
 		return

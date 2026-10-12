@@ -17,6 +17,8 @@ import (
 var (
 	ErrAppNotFound = errors.New("app not found")
 	ErrAppExists   = errors.New("app already exists")
+	// ErrTokenInUse means a bot_token or app_token already belongs to another app.
+	ErrTokenInUse = errors.New("token already belongs to another app")
 )
 
 // DefaultBotScopes are granted to an app whose manifest lists none.
@@ -90,6 +92,9 @@ func (s *Service) RegisterApp(ctx context.Context, in RegisterInput) (App, error
 		return App{}, fmt.Errorf("%w: %s", ErrAppExists, id)
 	}
 	row := newAppRow(id, in, existing, found, s.now().Unix())
+	if err := s.checkTokensFree(id, row); err != nil {
+		return App{}, err
+	}
 	team, err := s.st.Team(ctx)
 	if err != nil {
 		return App{}, err
@@ -106,10 +111,26 @@ func (s *Service) RegisterApp(ctx context.Context, in RegisterInput) (App, error
 	if err != nil {
 		return App{}, err
 	}
+	s.tombs.remove(row.BotToken, row.AppToken) // a re-registered app owns its tokens again
 	if err := s.RefreshApps(ctx); err != nil {
 		return App{}, err
 	}
 	return s.App(ctx, id)
+}
+
+// checkTokensFree fails with ErrTokenInUse when row's tokens belong to another app.
+func (s *Service) checkTokensFree(id string, row store.App) error {
+	for _, other := range s.apps.all() {
+		if other.ID == id {
+			continue
+		}
+		switch {
+		case row.BotToken != "" && (row.BotToken == other.BotToken || row.BotToken == other.AppToken),
+			row.AppToken != "" && (row.AppToken == other.AppToken || row.AppToken == other.BotToken):
+			return fmt.Errorf("%w: app %s", ErrTokenInUse, other.ID)
+		}
+	}
+	return nil
 }
 
 func newAppRow(id string, in RegisterInput, old store.App, found bool, now int64) store.App {
@@ -186,11 +207,22 @@ func ensureBotUser(ctx context.Context, tx *store.Tx, teamID string, app store.A
 	return JoinBotToPublicChannels(ctx, tx, bot.ID)
 }
 
-// DeleteApp removes an app and revokes its tokens. Its bot user and messages stay.
+// DeleteApp removes an app and revokes its tokens: they answer invalid_auth,
+// even in permissive mode, until reset --all or restart. Its bot user and
+// messages stay.
 func (s *Service) DeleteApp(ctx context.Context, id string) error {
-	if err := s.st.Write(ctx, func(tx *store.Tx) error { return tx.DeleteApp(ctx, id) }); err != nil {
+	var row store.App
+	err := s.st.Write(ctx, func(tx *store.Tx) error {
+		var err error
+		if row, err = tx.App(ctx, id); err != nil {
+			return err
+		}
+		return tx.DeleteApp(ctx, id)
+	})
+	if err != nil {
 		return notFoundAs(err, ErrAppNotFound)
 	}
+	s.tombs.add(row.BotToken, row.AppToken)
 	return s.RefreshApps(ctx)
 }
 

@@ -183,6 +183,7 @@ func TestPostAppErrors(t *testing.T) {
 	app := storetest.NewApp(t)
 	url := app.URL + "/_localslack/apps"
 	doReq(t, http.MethodPost, url, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Dup", ""), "verify": false})
+	doReq(t, http.MethodPost, url, constants.ContentTypeJSON, map[string]any{"manifest": manifest("Victim", ""), "bot_token": "xo" + "xb-stolen", "verify": false})
 
 	tests := []struct {
 		name        string
@@ -196,6 +197,7 @@ func TestPostAppErrors(t *testing.T) {
 		{"malformed json", constants.ContentTypeJSON, "{", 400, "malformed_request", ""},
 		{"malformed yaml", "application/yaml", "a: [b", 400, "malformed_request", ""},
 		{"duplicate", constants.ContentTypeJSON, map[string]any{"manifest": manifest("Dup", ""), "verify": false}, 409, "app_exists", ""},
+		{"token reused by another app", constants.ContentTypeJSON, map[string]any{"manifest": manifest("Thief", ""), "bot_token": "xo" + "xb-stolen", "verify": false}, 409, "already_exists", ""},
 		{"bad deliver_to", constants.ContentTypeJSON, map[string]any{"manifest": manifest("Other", ""), "deliver_to": "nope"}, 422, "invalid_deliver_to", "/deliver_to"},
 	}
 	for _, tt := range tests {

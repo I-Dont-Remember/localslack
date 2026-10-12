@@ -85,6 +85,46 @@ func (c *appCache) get(token string) *App {
 	return c.byToken[token]
 }
 
+// tombstones remembers the tokens of deleted apps so they stay invalid_auth
+// (instead of falling back to the default bot) until reset --all or restart.
+type tombstones struct {
+	mu     sync.Mutex
+	tokens map[string]bool
+}
+
+func (t *tombstones) add(tokens ...string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.tokens == nil {
+		t.tokens = map[string]bool{}
+	}
+	for _, tok := range tokens {
+		if tok != "" {
+			t.tokens[tok] = true
+		}
+	}
+}
+
+func (t *tombstones) remove(tokens ...string) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	for _, tok := range tokens {
+		delete(t.tokens, tok)
+	}
+}
+
+func (t *tombstones) has(token string) bool {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.tokens[token]
+}
+
+func (t *tombstones) clear() {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.tokens = nil
+}
+
 // SetApps replaces the token->app cache. Call on register/delete/revoke/reset.
 func (s *Service) SetApps(apps ...App) { s.apps.set(apps) }
 
@@ -110,7 +150,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 // DefaultBot is the principal of the built-in bot, for server-internal callers.
 func (s *Service) DefaultBot(ctx context.Context) (Principal, error) {
 	u, err := s.lookupAuth(s.st.BotUser(ctx))
-	return Principal{User: u, TokenKind: TokenBot}, err
+	return Principal{User: u, TokenKind: TokenBot, Scopes: DefaultBotScopes()}, err
 }
 
 func (s *Service) resolve(ctx context.Context, token string) (Principal, error) {
@@ -135,10 +175,15 @@ func (s *Service) resolve(ctx context.Context, token string) (Principal, error) 
 	return Principal{TokenKind: TokenInvalid}, ErrInvalidAuth
 }
 
-// resolveBot maps a registered app's bot token to its bot; any other xoxb- is the default bot.
+// resolveBot maps a registered app's bot token to its bot. Any other xoxb- is
+// the default bot, unless the server is strict or the token belongs to a
+// deleted app: then it is invalid_auth.
 func (s *Service) resolveBot(ctx context.Context, token string) (Principal, error) {
 	app := s.apps.get(token)
 	if app == nil {
+		if s.strictTokens || s.tombs.has(token) {
+			return Principal{TokenKind: TokenBot}, ErrInvalidAuth
+		}
 		return s.DefaultBot(ctx)
 	}
 	u, err := s.lookupAuth(s.st.User(ctx, app.BotUserID))

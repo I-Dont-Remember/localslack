@@ -59,3 +59,39 @@ func TestAppsCRUD(t *testing.T) {
 		t.Errorf("second delete err = %v, want ErrNotFound", err)
 	}
 }
+
+func TestAppTokensAreUnique(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		b    App
+		want error
+	}{
+		{"same bot token", App{ID: "A2", BotToken: "bt"}, ErrDuplicate},
+		{"same app token", App{ID: "A2", AppToken: "at"}, ErrDuplicate},
+		{"empty tokens may repeat", App{ID: "A2"}, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			s := openTemp(t)
+			ctx := t.Context()
+			err := s.Write(ctx, func(tx *Tx) error {
+				if err := tx.InsertApp(ctx, App{ID: "A0"}); err != nil {
+					return err
+				}
+				return tx.InsertApp(ctx, App{ID: "A1", BotToken: "bt", AppToken: "at"})
+			})
+			if err != nil {
+				t.Fatalf("seed apps: %v", err)
+			}
+
+			err = s.Write(ctx, func(tx *Tx) error { return tx.InsertApp(ctx, tt.b) })
+
+			if !errors.Is(err, tt.want) {
+				t.Errorf("InsertApp err = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
