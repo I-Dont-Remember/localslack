@@ -39,12 +39,10 @@ def test_non_member_cannot_read_a_dm(api_url, client, unique):
     assert (status, error) == (200, "channel_not_found")
 
 
-@deviation("unknown-method-404")
 def test_unknown_method_is_200_unknown_method(client):
     assert error_of(lambda: client.api_call("does.notExist")) == (200, "unknown_method")
 
 
-@deviation("response-headers-missing")
 def test_responses_carry_slack_headers(api_url):
     resp = httpx.post(api_url + "auth.test", headers={"Authorization": "Bearer xoxb-test"})
     assert "x-slack-req-id" in resp.headers
@@ -61,7 +59,6 @@ def test_multipart_form_post_is_understood(api_url, unique):
     assert resp.json()["ok"] is True
 
 
-@deviation("users-list-unpaginated")
 def test_users_list_honors_limit(client):
     page = client.users_list(limit=1)
     assert len(page["members"]) == 1
@@ -74,7 +71,6 @@ def test_create_private_channel(client, unique):
     assert channel["is_private"] is True
 
 
-@deviation("token-in-json-body")
 def test_token_in_json_body_is_not_accepted(api_url):
     resp = httpx.post(api_url + "auth.test", json={"token": "xoxb-test"})
     assert resp.json().get("ok") is False
@@ -88,7 +84,6 @@ def test_messages_carry_team_field(client, unique):
     assert message.get("team")
 
 
-@deviation("collapsed-errors")
 def test_empty_channel_name_has_its_own_error(client):
     status, error = error_of(lambda: client.conversations_create(name=""))
     assert (status, error) == (200, "invalid_name_required")

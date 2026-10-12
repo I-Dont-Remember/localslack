@@ -11,12 +11,32 @@ import (
 
 const maxGroupMembers = 8
 
-var channelName = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,79}$`)
+const maxChannelNameLen = 80
+
+var (
+	channelNameChars = regexp.MustCompile(`^[a-z0-9_-]+$`)
+	channelNameStart = regexp.MustCompile(`^[a-z0-9]`)
+)
+
+// validateChannelName returns the Slack-specific invalid_name_* error, or nil.
+func validateChannelName(name string) error {
+	switch {
+	case name == "":
+		return ErrInvalidNameRequired
+	case len(name) > maxChannelNameLen:
+		return ErrInvalidNameMaxLength
+	case !channelNameChars.MatchString(name):
+		return ErrInvalidNameSpecials
+	case !channelNameStart.MatchString(name):
+		return ErrInvalidNamePunctuation
+	}
+	return nil
+}
 
 // CreateChannel makes a public channel with creator as its first member.
 func (s *Service) CreateChannel(ctx context.Context, creator User, name string) (Conversation, error) {
-	if !channelName.MatchString(name) {
-		return Conversation{}, ErrInvalidName
+	if err := validateChannelName(name); err != nil {
+		return Conversation{}, err
 	}
 	team, err := s.st.Team(ctx)
 	if err != nil {

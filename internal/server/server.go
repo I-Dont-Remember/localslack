@@ -41,7 +41,7 @@ func NewRouter(d Deps) http.Handler {
 	c := d.Components
 	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc, Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control})
 	if d.Svc != nil {
-		api.Mount(r, d.Svc, d.Log, h.notImplemented, c.apiOptions()...)
+		api.Mount(r, d.Svc, d.Log, c.apiOptions()...)
 	}
 	if d.Web != nil {
 		if err := d.Web.Mount(r); err != nil {

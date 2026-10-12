@@ -26,7 +26,7 @@ deviations = ["any-token-accepted"]
 status = "implemented"
 tier = 2
 scopes = ["users:read"]
-deviations = ["users-list-unpaginated", "partial-user-fields"]
+deviations = ["partial-user-fields"]
 
 [methods."conversations.list"]
 status = "implemented"
@@ -38,7 +38,7 @@ deviations = ["no-private-channels", "partial-conversation-fields", "limit-clamp
 status = "implemented"
 tier = 2
 scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
-deviations = ["collapsed-errors", "no-private-channels"]
+deviations = ["no-private-channels"]
 
 [methods."conversations.open"]
 status = "implemented"
@@ -180,16 +180,15 @@ ref = "slack_sdk/web/base_client.py: _perform_urllib_http_request always builds 
 
 [behaviors.form-and-json-bodies]
 status = "implemented"
-summary = "Request params are read from the query string, urlencoded form bodies and JSON bodies; arrays become comma lists."
+summary = "Request params are read from the query string, urlencoded form bodies and JSON bodies (a token field in a JSON body is ignored, as Slack does); arrays become comma lists."
 evidence = "docs"
 ref = "slack_sdk/web/base_client.py: JSON for chat.postMessage-style methods, urlencoded form for the rest"
-deviations = ["token-in-json-body"]
 
 [behaviors.api-errors-http-200]
 status = "implemented"
 summary = "API errors are HTTP 200 with ok:false and an error code, as Slack does."
 evidence = "llm"
-deviations = ["unknown-method-404", "collapsed-errors"]
+deviations = ["collapsed-errors"]
 
 [behaviors.opaque-cursor-pagination]
 status = "implemented"
@@ -208,9 +207,9 @@ summary = "Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C
 evidence = "llm"
 
 [behaviors.response-headers]
-status = "planned"
-summary = "Slack response headers (x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes, retry-after) and the charset on Content-Type."
-deviations = ["response-headers-missing"]
+status = "implemented"
+summary = "Slack response headers: x-slack-req-id, x-oauth-scopes (caller grants), x-accepted-oauth-scopes (method scopes) and the Content-Type charset; retry-after only on fault-injected 429s."
+evidence = "llm"
 
 [behaviors.multipart-bodies]
 status = "planned"
@@ -320,21 +319,13 @@ summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and r
 severity = "medium"
 summary = "Only public channels exist; types=private_channel returns nothing and is_private is never true for channels."
 
-[deviations.response-headers-missing]
-severity = "medium"
-summary = "Responses lack x-slack-req-id, x-oauth-scopes, x-accepted-oauth-scopes and retry-after, and Content-Type has no charset."
-
 [deviations.multipart-ignored]
 severity = "medium"
 summary = "multipart/form-data bodies are silently ignored, so their params are dropped (usually surfacing as not_authed or no_text)."
 
-[deviations.unknown-method-404]
-severity = "low"
-summary = "Unimplemented methods return HTTP 404 {error: not_implemented} (a deliberate signal); Slack returns HTTP 200 unknown_method."
-
 [deviations.collapsed-errors]
 severity = "low"
-summary = "Distinct Slack errors are merged: invalid_name_required/specials/maxlength become invalid_name; unparseable bodies become invalid_arguments."
+summary = "Some distinct Slack errors are merged: unparseable bodies become invalid_arguments, and several methods fold finer-grained failures into one code."
 
 [deviations.partial-conversation-fields]
 severity = "low"
@@ -344,10 +335,6 @@ summary = "Conversations omit topic, purpose, previous_names, is_shared/is_ext_s
 severity = "low"
 summary = "Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile."
 
-[deviations.users-list-unpaginated]
-severity = "low"
-summary = "users.list ignores limit and cursor and always returns every user with an empty next_cursor."
-
 [deviations.limit-clamping]
 severity = "low"
 summary = "Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method."
@@ -355,10 +342,6 @@ summary = "Invalid or out-of-range limit values are silently clamped (default 10
 [deviations.cursor-format]
 severity = "low"
 summary = "Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque."
-
-[deviations.token-in-json-body]
-severity = "low"
-summary = "A token field inside a JSON body is accepted; Slack only accepts it in the Authorization header or form/query params."
 
 [deviations.tombstone-shape]
 severity = "low"
