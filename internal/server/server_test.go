@@ -13,7 +13,7 @@ import (
 )
 
 type healthResponse struct {
-	OK bool `json:"ok"`
+	Status string `json:"status"`
 }
 
 type errorResponse struct {
@@ -101,7 +101,7 @@ func TestHealthEndpoint(t *testing.T) {
 	if ct := resp.Header.Get("Content-Type"); ct != "application/json" {
 		t.Errorf("Content-Type = %q, want %q", ct, "application/json")
 	}
-	want := healthResponse{OK: true}
+	want := healthResponse{Status: "ok"}
 	var got healthResponse
 	if err := json.NewDecoder(resp.Body).Decode(&got); err != nil {
 		t.Fatalf("decode body: %v", err)

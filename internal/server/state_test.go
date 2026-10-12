@@ -10,7 +10,6 @@ import (
 )
 
 type stateBody struct {
-	OK            bool `json:"ok"`
 	Conversations []struct {
 		ID       string   `json:"id"`
 		Name     string   `json:"name"`
@@ -65,8 +64,8 @@ func TestStateConversations(t *testing.T) {
 			}
 		}
 	}
-	if !before.OK || generalID == "" || seeded < 3 {
-		t.Fatalf("state = %+v, want ok with seeded #general (>=3 messages)", before)
+	if generalID == "" || seeded < 3 {
+		t.Fatalf("state = %+v, want seeded #general (>=3 messages)", before)
 	}
 
 	if _, err := app.Service.PostMessage(t.Context(), caller, service.PostOpts{Channel: generalID, Content: service.Content{Text: "visible in state"}}); err != nil {

@@ -8,7 +8,7 @@ from slack_sdk.errors import SlackApiError
 def test_health(base_url):
     resp = httpx.get(f"{base_url}/_localslack/health")
     assert resp.status_code == 200
-    assert resp.json() == {"ok": True}
+    assert resp.json() == {"status": "ok"}
 
 
 def test_unknown_method_returns_not_implemented(client):

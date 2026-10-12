@@ -50,6 +50,9 @@ func writeJSON(ctx context.Context, log *slog.Logger, w http.ResponseWriter, sta
 	}
 }
 
-func errorBody(code string) map[string]any {
-	return map[string]any{"ok": false, "error": code}
+// writeError emits the /_localslack error shape: {"error":{"code","message"}}.
+func writeError(ctx context.Context, log *slog.Logger, w http.ResponseWriter, status int, code, message string) {
+	writeJSON(ctx, log, w, status, map[string]any{
+		"error": map[string]any{"code": code, "message": message},
+	})
 }

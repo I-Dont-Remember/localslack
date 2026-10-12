@@ -23,14 +23,14 @@ func (d Deps) stateConversations(w http.ResponseWriter, r *http.Request) {
 	states, err := d.Svc.Snapshot(ctx)
 	if err != nil {
 		d.Log.ErrorContext(ctx, "state endpoint", slog.Any("error", err))
-		writeJSON(ctx, d.Log, w, http.StatusInternalServerError, errorBody("internal_error"))
+		writeError(ctx, d.Log, w, http.StatusInternalServerError, "internal_error", "internal error")
 		return
 	}
 	out := make([]map[string]any, 0, len(states))
 	for _, c := range states {
 		out = append(out, stateConversation(c))
 	}
-	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{"ok": true, "conversations": out})
+	writeJSON(ctx, d.Log, w, http.StatusOK, map[string]any{"conversations": out})
 }
 
 func stateConversation(c service.ConversationState) map[string]any {

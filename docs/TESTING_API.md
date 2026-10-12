@@ -62,4 +62,4 @@ Two modes, no knobs. Reset is global: one test session per server.
 - `GET /_localslack/diff?from=<name|current>&to=<name|current>` -> `{"users|conversations|members|messages|reactions":{"added":[],"removed":[],"changed":[{"id"|"channel+ts","fields":{"f":{"from","to"}}}]}}`.
 
 ## Misc
-`GET /_localslack/health` -> 200; `GET /_localslack/state/conversations` (existing). Default bot (no app) reports a fixed default scope list incl. `chat:write`, `chat:write.public`.
+`GET /_localslack/health` -> 200 `{"status":"ok"}`; `GET /_localslack/state/conversations` (existing). Default bot (no app) reports a fixed default scope list incl. `chat:write`, `chat:write.public`.

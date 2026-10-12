@@ -8,6 +8,6 @@ import (
 
 func mountHealth(r chi.Router, d Deps) {
 	r.Get("/_localslack/health", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(r.Context(), d.Log, w, http.StatusOK, map[string]bool{"ok": true})
+		writeJSON(r.Context(), d.Log, w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 }

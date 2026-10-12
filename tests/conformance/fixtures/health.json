@@ -7,7 +7,7 @@
   "response": {
     "status": 200,
     "body": {
-      "ok": true
+      "status": "ok"
     }
   }
 }
