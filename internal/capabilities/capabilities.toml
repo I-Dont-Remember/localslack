@@ -102,11 +102,10 @@ tier = 4
 scopes = ["users:read"]
 
 [methods."chat.update"]
-status = "in_progress"
-plan = "agent-docs/plans/test-loop.md"
-priority = "bolt-core"
+status = "implemented"
 tier = 3
 scopes = ["chat:write"]
+deviations = ["no-membership-check", "partial-message-fields", "message-length-unbounded"]
 
 [methods."chat.delete"]
 status = "in_progress"
