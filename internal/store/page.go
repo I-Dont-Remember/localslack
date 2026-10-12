@@ -44,6 +44,10 @@ func (s *Store) ConversationsPage(ctx context.Context, cq ConvQuery) ([]Conversa
 
 // MembersOf returns member user ids (sorted) per conversation id.
 func (s *Store) MembersOf(ctx context.Context, conversationIDs []string) (map[string][]string, error) {
+	return membersOf(ctx, s.reader, conversationIDs)
+}
+
+func membersOf(ctx context.Context, q queryer, conversationIDs []string) (map[string][]string, error) {
 	out := map[string][]string{}
 	if len(conversationIDs) == 0 {
 		return out, nil
@@ -53,7 +57,7 @@ func (s *Store) MembersOf(ctx context.Context, conversationIDs []string) (map[st
 		args = append(args, id)
 	}
 	type row struct{ conv, user string }
-	rows, err := query(ctx, s.reader, "members",
+	rows, err := query(ctx, q, "members",
 		`SELECT conversation_id, user_id FROM members WHERE conversation_id IN (`+placeholders(len(args))+`) ORDER BY conversation_id, user_id`,
 		func(r scanner, v *row) error { return r.Scan(&v.conv, &v.user) }, args...)
 	if err != nil {

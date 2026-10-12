@@ -282,3 +282,46 @@ func TestAfterCommit(t *testing.T) {
 		}
 	})
 }
+
+func TestReadIsOneConsistentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	s := openTemp(t)
+	fixtureTx(t, s)
+	var first, second []User
+	err := s.Read(t.Context(), func(r *Reader) error {
+		var err error
+		if first, err = r.Users(t.Context()); err != nil {
+			return err
+		}
+		// A write committing mid-read must not leak into this snapshot.
+		werr := s.Write(t.Context(), func(tx *Tx) error {
+			return tx.InsertUser(t.Context(), User{ID: "U2", TeamID: "T1", Name: "bob"})
+		})
+		if werr != nil {
+			return werr
+		}
+		second, err = r.Users(t.Context())
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if diff := cmp.Diff(first, second); diff != "" {
+		t.Errorf("snapshot changed mid-read (-first +second):\n%s", diff)
+	}
+	after, err := s.Users(t.Context())
+	if err != nil || len(after) != len(first)+1 {
+		t.Errorf("users after read = %d, %v; want %d", len(after), err, len(first)+1)
+	}
+}
+
+func TestReadReturnsCallbackError(t *testing.T) {
+	t.Parallel()
+
+	s := openTemp(t)
+	boom := errors.New("boom")
+	if err := s.Read(t.Context(), func(*Reader) error { return boom }); !errors.Is(err, boom) {
+		t.Errorf("Read err = %v, want boom", err)
+	}
+}

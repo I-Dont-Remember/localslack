@@ -51,8 +51,10 @@ func (s *Store) MaxTS(ctx context.Context) (string, error) {
 }
 
 // Team returns the workspace (LocalSlack hosts exactly one).
-func (s *Store) Team(ctx context.Context) (Team, error) {
-	return getOne(ctx, s.reader, "team", `SELECT id, name, domain FROM teams ORDER BY id LIMIT 1`,
+func (s *Store) Team(ctx context.Context) (Team, error) { return teamOf(ctx, s.reader) }
+
+func teamOf(ctx context.Context, q queryer) (Team, error) {
+	return getOne(ctx, q, "team", `SELECT id, name, domain FROM teams ORDER BY id LIMIT 1`,
 		func(r scanner, t *Team) error { return r.Scan(&t.ID, &t.Name, &t.Domain) })
 }
 
@@ -67,8 +69,10 @@ func (s *Store) BotUser(ctx context.Context) (User, error) {
 }
 
 // Users returns all users ordered by id.
-func (s *Store) Users(ctx context.Context) ([]User, error) {
-	return query(ctx, s.reader, "users", `SELECT `+userCols+` FROM users ORDER BY id`, scanUser)
+func (s *Store) Users(ctx context.Context) ([]User, error) { return usersOf(ctx, s.reader) }
+
+func usersOf(ctx context.Context, q queryer) ([]User, error) {
+	return query(ctx, q, "users", `SELECT `+userCols+` FROM users ORDER BY id`, scanUser)
 }
 
 // Conversation returns a conversation by id.
@@ -78,7 +82,11 @@ func (s *Store) Conversation(ctx context.Context, id string) (Conversation, erro
 
 // Conversations returns all conversations ordered by id.
 func (s *Store) Conversations(ctx context.Context) ([]Conversation, error) {
-	return query(ctx, s.reader, "conversations", `SELECT `+convCols+` FROM conversations ORDER BY id`, scanConv)
+	return conversationsOf(ctx, s.reader)
+}
+
+func conversationsOf(ctx context.Context, q queryer) ([]Conversation, error) {
+	return query(ctx, q, "conversations", `SELECT `+convCols+` FROM conversations ORDER BY id`, scanConv)
 }
 
 func userByID(ctx context.Context, q queryer, id string) (User, error) {

@@ -76,8 +76,10 @@ func (s *Store) App(ctx context.Context, id string) (App, error) {
 }
 
 // Apps returns all apps ordered by id.
-func (s *Store) Apps(ctx context.Context) ([]App, error) {
-	return query(ctx, s.reader, "apps", `SELECT `+appCols+` FROM apps ORDER BY id`, scanApp)
+func (s *Store) Apps(ctx context.Context) ([]App, error) { return appsOf(ctx, s.reader) }
+
+func appsOf(ctx context.Context, q queryer) ([]App, error) {
+	return query(ctx, q, "apps", `SELECT `+appCols+` FROM apps ORDER BY id`, scanApp)
 }
 
 func nonNil(s []string) []string {

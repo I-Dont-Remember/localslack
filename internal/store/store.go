@@ -132,6 +132,18 @@ func (s *Store) Write(ctx context.Context, fn func(*Tx) error) error {
 	return nil
 }
 
+// Read runs fn in one read transaction: every Reader call inside sees the same
+// point-in-time snapshot, unaffected by concurrent writes. Use it for export,
+// diff and state dumps that must be internally consistent.
+func (s *Store) Read(ctx context.Context, fn func(*Reader) error) error {
+	tx, err := s.reader.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin read: %w", err)
+	}
+	defer func() { _ = rollback(tx) }() // read-only: nothing to commit
+	return fn(&Reader{tx: tx})
+}
+
 func rollback(tx *sql.Tx) error {
 	if err := tx.Rollback(); err != nil && !errors.Is(err, sql.ErrTxDone) {
 		return fmt.Errorf("rollback: %w", err)
