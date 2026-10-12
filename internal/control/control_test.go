@@ -62,6 +62,40 @@ func TestResetQuiescesDispatcherThenWipesThenResumes(t *testing.T) {
 	}
 }
 
+func TestResetWipesDispatcherOnlyAfterDataCommits(t *testing.T) {
+	t.Parallel()
+
+	app := storetest.NewApp(t)
+	ctx := t.Context()
+	caller := firstHumanUser(t, app)
+	if _, err := app.Service.CreateChannel(ctx, caller, "marker"); err != nil {
+		t.Fatalf("CreateChannel: %v", err)
+	}
+	markerAtDispatcherReset, markerAtHook := true, true
+	has := func() bool {
+		snap, err := app.Service.Snapshot(ctx)
+		if err != nil {
+			t.Fatalf("Snapshot: %v", err)
+		}
+		for _, c := range snap {
+			if c.Name == "marker" {
+				return true
+			}
+		}
+		return false
+	}
+	rec := &recorder{onReset: func() { markerAtDispatcherReset = has() }}
+	c := control.New(app.Service, rec, control.WithOnReset(func() { markerAtHook = has() }))
+
+	if _, err := c.Reset(ctx, control.ResetOpts{Seed: "order"}); err != nil {
+		t.Fatalf("Reset: %v", err)
+	}
+
+	if markerAtDispatcherReset || markerAtHook {
+		t.Errorf("data still present at dispatcher.Reset=%v / hooks=%v, want both wiped first", markerAtDispatcherReset, markerAtHook)
+	}
+}
+
 func TestResetModeAndGeneration(t *testing.T) {
 	t.Parallel()
 
@@ -96,8 +130,8 @@ func TestResetResumesDispatcherOnFailure(t *testing.T) {
 	if err == nil {
 		t.Fatal("Reset with a cancelled context = nil error")
 	}
-	if diff := cmp.Diff([]string{"pause", "reset", "resume"}, rec.calls); diff != "" {
-		t.Errorf("dispatcher calls (-want +got):\n%s", diff)
+	if diff := cmp.Diff([]string{"pause", "resume"}, rec.calls); diff != "" {
+		t.Errorf("dispatcher calls: a failed reset must not wipe the trace (-want +got):\n%s", diff)
 	}
 }
 

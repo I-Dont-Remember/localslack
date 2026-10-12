@@ -115,11 +115,15 @@ func New(o Options) *Engine {
 // Publish implements Dispatcher: O(1), never blocks. A full queue drops the
 // event and counts it (see Dropped).
 func (e *Engine) Publish(ev service.Event) {
+	// Read the generation BEFORE the paused check: a Reset (gen bump) always runs
+	// while paused, so an event that sees "not paused" carries a generation no
+	// newer than that Reset's and is dropped by fanout if the Reset overtook it.
+	gen := e.gen.Load()
 	if e.paused.Load() {
 		return
 	}
 	select {
-	case e.queue <- queued{ev: ev, gen: e.gen.Load()}:
+	case e.queue <- queued{ev: ev, gen: gen}:
 	default:
 		n := e.dropped.Add(1)
 		e.log.Warn("event queue full, dropping event", slog.Int64("dropped_total", n))

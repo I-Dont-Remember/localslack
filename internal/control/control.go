@@ -68,10 +68,16 @@ type ResetResult struct {
 	TookMS     int64
 }
 
-// Reset wipes and repopulates state with the dispatcher quiesced: pause it,
-// cancel in-flight deliveries, replace the data in one transaction, clear the
-// externally held state, then resume. A concurrent Reset fails with
+// Reset wipes and repopulates state with the dispatcher quiesced:
+// Pause -> service reset (one tx) -> dispatcher Reset (cancel in-flight, clear
+// trace) -> clear externally held state -> Resume. The dispatcher is wiped only
+// after the data commits, so a failed reset leaves the trace and in-flight
+// deliveries alone (it just resumes). A concurrent Reset fails with
 // ErrResetInProgress. No events are emitted.
+//
+// Known limit: a write committed between the service wipe and Resume is new
+// data, but its event is dropped (Publish is paused), so apps never hear of it.
+// Callers resetting under load should expect that.
 func (c *Control) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	if !c.resetMu.TryLock() {
 		return ResetResult{}, ErrResetInProgress
@@ -81,7 +87,6 @@ func (c *Control) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 
 	c.disp.Pause()
 	defer c.disp.Resume()
-	c.disp.Reset()
 
 	seed := o.Seed
 	if seed == "" {
@@ -91,6 +96,7 @@ func (c *Control) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	if err != nil {
 		return ResetResult{}, err
 	}
+	c.disp.Reset()
 	for _, fn := range c.onReset {
 		fn()
 	}
