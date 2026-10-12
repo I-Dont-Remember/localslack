@@ -33,15 +33,15 @@ func (t *Tx) InsertTeam(ctx context.Context, m Team) error {
 // InsertUser adds a user.
 func (t *Tx) InsertUser(ctx context.Context, u User) error {
 	return t.exec(ctx, "insert user",
-		`INSERT INTO users (id, team_id, name, real_name, is_bot) VALUES (?, ?, ?, ?, ?)`,
-		u.ID, u.TeamID, u.Name, u.RealName, u.IsBot)
+		`INSERT INTO users (id, team_id, name, real_name, is_bot, bot_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		u.ID, u.TeamID, u.Name, u.RealName, u.IsBot, u.BotID)
 }
 
 // InsertConversation adds a conversation; a duplicate channel name yields ErrDuplicate.
 func (t *Tx) InsertConversation(ctx context.Context, c Conversation) error {
 	return t.exec(ctx, "insert conversation",
-		`INSERT INTO conversations (id, team_id, name, kind, creator, created, is_archived) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		c.ID, c.TeamID, c.Name, c.Kind, c.Creator, c.Created, c.IsArchived)
+		`INSERT INTO conversations (id, team_id, name, kind, creator, created, is_archived, is_private) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, c.TeamID, c.Name, c.Kind, c.Creator, c.Created, c.IsArchived, c.IsPrivate)
 }
 
 // AddMember adds a user to a conversation.

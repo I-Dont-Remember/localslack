@@ -83,7 +83,13 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("migrations fs: %w", err)
 	}
-	p, err := goose.NewProvider(goose.DialectSQLite3, db, sub)
+	return migrateFS(ctx, db, sub)
+}
+
+// migrateFS applies migrations out of order: parallel streams own number ranges
+// and may land a lower version after a higher one.
+func migrateFS(ctx context.Context, db *sql.DB, sub fs.FS) error {
+	p, err := goose.NewProvider(goose.DialectSQLite3, db, sub, goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}

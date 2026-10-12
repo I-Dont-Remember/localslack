@@ -20,17 +20,17 @@ type queryer interface {
 type scanner interface{ Scan(dest ...any) error }
 
 const (
-	userCols = `id, team_id, name, real_name, is_bot`
-	convCols = `id, team_id, name, kind, creator, created, is_archived`
+	userCols = `id, team_id, name, real_name, is_bot, bot_id`
+	convCols = `id, team_id, name, kind, creator, created, is_archived, is_private`
 	msgCols  = `channel_id, ts, user_id, text, thread_ts, reply_count, latest_reply`
 )
 
 func scanUser(r scanner, u *User) error {
-	return r.Scan(&u.ID, &u.TeamID, &u.Name, &u.RealName, &u.IsBot)
+	return r.Scan(&u.ID, &u.TeamID, &u.Name, &u.RealName, &u.IsBot, &u.BotID)
 }
 
 func scanConv(r scanner, c *Conversation) error {
-	return r.Scan(&c.ID, &c.TeamID, &c.Name, &c.Kind, &c.Creator, &c.Created, &c.IsArchived)
+	return r.Scan(&c.ID, &c.TeamID, &c.Name, &c.Kind, &c.Creator, &c.Created, &c.IsArchived, &c.IsPrivate)
 }
 
 func scanMsg(r scanner, m *Message) error {

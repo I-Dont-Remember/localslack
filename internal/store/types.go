@@ -16,6 +16,8 @@ type Team struct {
 type User struct {
 	ID, TeamID, Name, RealName string
 	IsBot                      bool
+	// BotID is the B-prefixed bot identity of a bot user ("" for humans).
+	BotID string
 }
 
 // Conversation is a channel, DM, or group DM.
@@ -23,6 +25,7 @@ type Conversation struct {
 	ID, TeamID, Name, Kind, Creator string
 	Created                         int64
 	IsArchived                      bool
+	IsPrivate                       bool
 }
 
 // Message is a posted message; ThreadTS is empty for non-threaded messages.
