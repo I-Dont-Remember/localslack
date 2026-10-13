@@ -1,0 +1,41 @@
+{
+  "state": "passing",
+  "note": "Slack: leaving a public channel you are not in is not_in_channel",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/users.list",
+      "token": "xoxb-test",
+      "capture": {
+        "human": "members.0.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "name": "fx-leave-out"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.leave",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "not_in_channel"
+    }
+  }
+}

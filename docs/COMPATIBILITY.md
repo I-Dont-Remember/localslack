@@ -6,7 +6,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 **Scope:** LocalSlack deliberately covers a small part of Slack's API: the common surface Bolt and SDK apps use. Many methods (admin.*, Enterprise Grid, paid-plan features, destructive operations) may never be recorded from real Slack; this page says honestly what is verified and what is a best guess.
 
-**Methods:** 17 implemented, 1 partial, 7 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 18 llm, 0 none.
+**Methods:** 21 implemented, 1 partial, 4 planned. **Evidence of shipped methods:** 0 recorded, 0 docs, 22 llm, 0 none.
 
 ## How to read the evidence column
 
@@ -34,6 +34,10 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `conversations.create` | implemented | llm | 2 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | — |
 | `conversations.history` | implemented | llm | 3 | `channels:history`, `groups:history`, `im:history`, `mpim:history` | yes | `partial-message-fields`, `limit-clamping`, `cursor-format` |
 | `conversations.info` | implemented | llm | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `partial-conversation-fields` |
+| `conversations.invite` | implemented | llm | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `membership-events` |
+| `conversations.join` | implemented | llm | 3 | `channels:join` | yes | `membership-events` |
+| `conversations.kick` | implemented | llm | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `membership-events` |
+| `conversations.leave` | implemented | llm | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | yes | `membership-events` |
 | `conversations.list` | implemented | llm | 2 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `partial-conversation-fields`, `limit-clamping` |
 | `conversations.members` | implemented | llm | 4 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | yes | `limit-clamping`, `cursor-format` |
 | `conversations.open` | implemented | llm (errors only) | 3 | `groups:write`, `im:write`, `mpim:write` | yes | `partial-conversation-fields` |
@@ -46,9 +50,6 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 
 | Method | Status | Priority | Tier | Scopes | Plan |
 |---|---|---|---|---|---|
-| `conversations.invite` | planned | common | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | — |
-| `conversations.join` | planned | common | 3 | `channels:join` | — |
-| `conversations.leave` | planned | common | 3 | `channels:manage`, `groups:write`, `im:write`, `mpim:write` | — |
 | `team.info` | planned | common | 3 | `team:read` | — |
 | `users.conversations` | planned | common | 3 | `channels:read`, `groups:read`, `im:read`, `mpim:read` | — |
 | `views.open` | planned | interactivity | 4 | — | — |
@@ -97,6 +98,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `cursor-format` | low | Cursors are unpadded base64url of an internal key; Slack's are padded base64. Clients should treat both as opaque. | `conversations.history`, `conversations.members`, `conversations.replies`, `opaque-cursor-pagination` | — |
 | `ephemeral-not-delivered` | low | chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart. | `chat.postEphemeral` | — |
 | `limit-clamping` | low | Invalid or out-of-range limit values are silently clamped (default 100, max 1000) instead of erroring; Slack's defaults and caps vary by method. | `conversations.history`, `conversations.list`, `conversations.members`, `conversations.replies`, `opaque-cursor-pagination` | — |
+| `membership-events` | low | conversations.join/leave/invite/kick change membership without emitting member_joined_channel or member_left_channel events (inject them with POST /_localslack/events). | `conversations.invite`, `conversations.join`, `conversations.kick`, `conversations.leave` | — |
 | `partial-conversation-fields` | low | Conversations omit topic, purpose, previous_names, is_shared/is_ext_shared/is_org_shared and updated; IMs include num_members. | `conversations.info`, `conversations.list`, `conversations.open` | — |
 | `partial-user-fields` | low | Users carry only id, team_id, name, real_name, deleted, is_bot and a minimal profile. | `users.info`, `users.list` | — |
 | `permissive-url-verification` | low | A failed url_verification handshake only marks the app unverified and warns; events are still delivered. The challenge may be echoed as JSON or plain text. | `events-api-http` | — |

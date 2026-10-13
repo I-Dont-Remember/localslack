@@ -1,0 +1,58 @@
+{
+  "state": "passing",
+  "note": "Slack: joining a public channel returns the channel; shape from memory, unverified",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/users.list",
+      "token": "xoxb-test",
+      "capture": {
+        "human": "members.0.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "name": "fx-join"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.join",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true,
+      "channel": {
+        "id": "<id:C>",
+        "name": "fx-join",
+        "is_channel": true,
+        "is_archived": false,
+        "is_private": false,
+        "is_member": true
+      }
+    },
+    "ignore": [
+      "created",
+      "creator",
+      "is_group",
+      "is_im",
+      "is_mpim",
+      "num_members",
+      "name_normalized",
+      "is_general"
+    ]
+  }
+}

@@ -277,7 +277,6 @@ Write short answers under each item (or "fine"). Items are copied from each page
 
 - [ ] Is bot history on an unjoined public channel being `not_in_channel` (while posting works via `chat:write.public`) the right default?
   - Answer:
-- [ ] Do you need a way to join/invite from tests (`conversations.join/invite`) or is create/seed/UI-join enough?
   - Answer:
 - [ ] Should the UI "acting as bot" be exempt from read membership so you can browse any public channel?
   - Answer:

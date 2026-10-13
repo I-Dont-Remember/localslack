@@ -122,22 +122,28 @@ scopes = ["reactions:write"]
 deviations = []
 
 [methods."conversations.join"]
-status = "planned"
-priority = "common"
+status = "implemented"
 tier = 3
 scopes = ["channels:join"]
+deviations = ["membership-events"]
 
 [methods."conversations.leave"]
-status = "planned"
-priority = "common"
+status = "implemented"
 tier = 3
 scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+deviations = ["membership-events"]
 
 [methods."conversations.invite"]
-status = "planned"
-priority = "common"
+status = "implemented"
 tier = 3
 scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+deviations = ["membership-events"]
+
+[methods."conversations.kick"]
+status = "implemented"
+tier = 3
+scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
+deviations = ["membership-events"]
 
 [methods."users.conversations"]
 status = "planned"
@@ -356,6 +362,10 @@ summary = "A failed url_verification handshake only marks the app unverified and
 [deviations.ephemeral-not-delivered]
 severity = "low"
 summary = "chat.postEphemeral validates and remembers the message in a bounded in-memory ring (inspector use) but never delivers it: no history entry, no event, and it is lost on restart."
+
+[deviations.membership-events]
+severity = "low"
+summary = "conversations.join/leave/invite/kick change membership without emitting member_joined_channel or member_left_channel events (inject them with POST /_localslack/events)."
 
 [deviations.socket-url-local]
 severity = "low"

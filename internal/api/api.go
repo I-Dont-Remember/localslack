@@ -96,7 +96,7 @@ func MethodNames() []string {
 func (a *API) registry() map[string]spec {
 	out := map[string]spec{}
 	for _, part := range []map[string]spec{
-		a.authMethods(), a.conversationMethods(), a.messageMethods(),
+		a.authMethods(), a.conversationMethods(), a.membershipMethods(), a.messageMethods(),
 		a.reactionMethods(), a.userMethods(), a.socketMethods(),
 		a.readMethods(), a.writeMethods(),
 	} {

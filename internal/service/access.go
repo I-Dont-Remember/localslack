@@ -98,8 +98,8 @@ func (s *Service) checkWrite(ctx context.Context, u User, c store.Conversation) 
 }
 
 // EnsureMember joins u to a public, unarchived channel (a no-op elsewhere).
-// For the web UI, which acts as a human who may post anywhere public; the API
-// has no join primitive in this tier.
+// For the web UI, which acts as a human who may post anywhere public; API
+// callers use JoinChannel.
 func (s *Service) EnsureMember(ctx context.Context, u User, channelID string) error {
 	return s.st.Write(ctx, func(tx *store.Tx) error {
 		c, err := tx.Conversation(ctx, channelID)

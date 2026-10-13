@@ -63,6 +63,28 @@ func (t *Tx) AddMember(ctx context.Context, conversationID, userID string) error
 	return t.exec(ctx, "add member", `INSERT INTO members (conversation_id, user_id) VALUES (?, ?)`, conversationID, userID)
 }
 
+// RemoveMember removes a user from a conversation; ErrNotFound if they were not a member.
+func (t *Tx) RemoveMember(ctx context.Context, conversationID, userID string) error {
+	res, err := t.tx.ExecContext(ctx, `DELETE FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID)
+	if err != nil {
+		return fmt.Errorf("remove member: %w", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("remove member %s from %s: %w", userID, conversationID, ErrNotFound)
+	}
+	return nil
+}
+
+// IsMember reports whether a user is in a conversation, seeing this txn's writes.
+func (t *Tx) IsMember(ctx context.Context, conversationID, userID string) (bool, error) {
+	var n int
+	err := t.tx.QueryRowContext(ctx, `SELECT count(*) FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("is member: %w", err)
+	}
+	return n > 0, nil
+}
+
 // User returns a user by id, seeing this txn's writes.
 func (t *Tx) User(ctx context.Context, id string) (User, error) { return userByID(ctx, t.tx, id) }
 

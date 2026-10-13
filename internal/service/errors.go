@@ -40,6 +40,16 @@ var (
 	ErrNotAllowedTokenType   = errors.New("token type not allowed")
 )
 
+// Membership failures (conversations.join/leave/invite/kick).
+var (
+	ErrAlreadyInChannel       = errors.New("already in channel")
+	ErrCantInviteSelf         = errors.New("cannot invite self")
+	ErrCantLeaveGeneral       = errors.New("cannot leave general")
+	ErrCantKickSelf           = errors.New("cannot kick self")
+	ErrCantKickFromGeneral    = errors.New("cannot kick from general")
+	ErrUnsupportedChannelType = errors.New("method not supported for channel type")
+)
+
 // Channel-name failures; each satisfies errors.Is(err, ErrInvalidName).
 var (
 	ErrInvalidNameRequired    = fmt.Errorf("%w: required", ErrInvalidName)
@@ -57,6 +67,8 @@ func AllErrors() []error {
 		ErrMessageNotFound, ErrCantUpdateMessage, ErrCantDeleteMessage, ErrAlreadyReacted, ErrInvalidReactionName,
 		ErrNotInChannel, ErrUserNotInChannel, ErrInvalidBlocks, ErrInvalidAttachments, ErrInvalidMetadataFormat,
 		ErrMsgTooLong, ErrNotAllowedTokenType,
+		ErrAlreadyInChannel, ErrCantInviteSelf, ErrCantLeaveGeneral, ErrCantKickSelf, ErrCantKickFromGeneral,
+		ErrUnsupportedChannelType,
 		ErrInvalidNameRequired, ErrInvalidNameSpecials, ErrInvalidNameMaxLength, ErrInvalidNamePunctuation,
 	}
 }

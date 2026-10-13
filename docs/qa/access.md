@@ -1,9 +1,21 @@
 # QA: Access edge cases
 
 Strict, scope-gated membership. One rule set (`internal/service/access.go`) covers history,
-replies, info, members, post, update, delete, react and ephemeral. There is no join/invite API
-in this tier; membership comes from creating a channel, registration-time auto-join (apps),
-seeded data, and the web UI actor joining public channels when it posts or reacts.
+replies, info, members, post, update, delete, react and ephemeral. Membership comes from creating a
+channel, registration-time join of existing public channels (apps), seeded data, the web UI actor
+joining public channels when it posts or reacts, and the real methods `conversations.join`,
+`.leave`, `.invite`, `.kick`. **A channel created after startup does not auto-add your app's bot** (as in
+Slack): join or invite it, or give it `chat:write.public` to post without joining.
+
+```python
+client.conversations_join(channel=channel_id)                       # public channels
+human.conversations_invite(channel=channel_id, users=bot_user_id)   # private channels (a member invites)
+```
+`conversations.join` on a channel you are in succeeds with `warning: already_in_channel`; on a private
+channel or DM you are not in it is `channel_not_found`; on an archived one `is_archived`. `.invite` fails the
+whole call (and changes nothing) if any user is refused unless `force=true`; failures list `errors:[{user,ok,error}]`.
+`.leave`/`.kick` refuse `#general`. No `member_joined_channel`/`member_left_channel` events are emitted (deviation
+`membership-events`).
 
 | Actor / channel | read (history) | post | info / members |
 |---|---|---|---|
@@ -82,6 +94,5 @@ Codes as in the table and comments above; all failures are HTTP 200 `ok:false`. 
 ## Feedback prompts
 
 - Is bot history on an unjoined public channel being `not_in_channel` (while posting works via `chat:write.public`) the right default for your test apps?
-- Do you need a way to join/invite from tests (tier 3 `conversations.join/invite`) or is create/seed/UI-join enough?
 - Should the UI "acting as bot" be exempt from read membership so you can browse any public channel?
 - Any Slack behavior you have seen differ (e.g. `chat.delete` in an archived channel, `reactions.add` for a non-member bot)?

@@ -14,7 +14,7 @@ func statusFor(err error) (int, string, bool) {
 		errs   []error
 	}{
 		{http.StatusNotFound, []error{service.ErrChannelNotFound, service.ErrThreadNotFound, service.ErrUserNotFound, service.ErrMessageNotFound}},
-		{http.StatusConflict, []error{service.ErrIsArchived, service.ErrAlreadyReacted}},
+		{http.StatusConflict, []error{service.ErrIsArchived, service.ErrAlreadyReacted, service.ErrAlreadyInChannel}},
 		{http.StatusForbidden, []error{
 			service.ErrNotInChannel, service.ErrUserNotInChannel, service.ErrCantUpdateMessage, service.ErrCantDeleteMessage,
 			service.ErrNotAllowedTokenType,
@@ -22,6 +22,8 @@ func statusFor(err error) (int, string, bool) {
 		{http.StatusBadRequest, []error{
 			service.ErrMsgTooLong, service.ErrInvalidBlocks, service.ErrInvalidAttachments, service.ErrInvalidMetadataFormat,
 			service.ErrInvalidName, service.ErrInvalidReactionName, service.ErrNoText,
+			service.ErrCantInviteSelf, service.ErrCantLeaveGeneral, service.ErrCantKickSelf, service.ErrCantKickFromGeneral,
+			service.ErrUnsupportedChannelType,
 		}},
 	} {
 		for _, e := range r.errs {
