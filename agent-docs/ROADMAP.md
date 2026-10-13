@@ -61,7 +61,7 @@ competitor gap; re-check ALTERNATIVES when re-ranking.
 ## Tier 3: common but secondary
 - Interactivity `(gap)` (L): `views.open/update/publish`, `block_actions`, slash commands, `response_url`.
   `emulate` lacks interaction/slash simulation. Needs blocks (6) and events (1); do right after M3. Upstream issue #289 is building this, so check before starting.
-- Channel membership flows: `conversations.join/leave/invite/kick`, `setTopic/setPurpose`,
+- Channel membership flows: `conversations.join/leave/invite/kick` are done (no `member_*` events); remaining: `setTopic/setPurpose`,
   `users.conversations`, `team.info`, `reactions.remove/get`, `pins.*`, `chat.getPermalink`.
 - Scopes (M4): `missing_scope` checks driven by the manifest's `scopes`, permissive default (`emulate`
   has opt-in strict scopes; match it cheaply). Skip mock OAuth flows and exhaustive token-error

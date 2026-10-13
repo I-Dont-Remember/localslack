@@ -75,6 +75,17 @@ linters:
               desc: control must not import web
             - pkg: localslack/internal/admin
               desc: control must not import admin
+        socket:
+          files: ["**/internal/socket/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: socket talks to events, never store
+            - pkg: localslack/internal/api
+              desc: socket must not import api
+            - pkg: localslack/internal/web
+              desc: socket must not import web
+            - pkg: localslack/internal/admin
+              desc: socket must not import admin
         service:
           files: ["**/internal/service/**", "!$test"]
           deny:
@@ -91,7 +102,7 @@ linters:
         # api deliberately imports calllog (Recorder) and faults (Interceptor): those leaf
         # packages ARE the seams api.serve plugs into, so denying them would break the design.
         leaf:
-          files: ["**/internal/calllog/**", "**/internal/faults/**", "**/internal/scenario/**", "**/internal/appmanifest/**", "!$test"]
+          files: ["**/internal/calllog/**", "**/internal/faults/**", "**/internal/scenario/**", "**/internal/appmanifest/**", "**/internal/respond/**", "!$test"]
           deny:
             - pkg: localslack/internal/store
               desc: leaf packages must not import store

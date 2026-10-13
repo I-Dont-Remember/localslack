@@ -155,6 +155,7 @@ func (e *Engine) Reset() {
 	e.overrides = map[string]ConfigPatch{}
 	e.verifyErr = map[string]string{}
 	e.warned = map[string]bool{}
+	e.trace.Clear() // under mu, so no delivery added between the bump and the clear survives
 	e.mu.Unlock()
 	for drained := false; !drained; {
 		select {
@@ -163,7 +164,6 @@ func (e *Engine) Reset() {
 			drained = true
 		}
 	}
-	e.trace.Clear()
 }
 
 // Close implements Dispatcher: stops the fan-out loop and cancels deliveries.

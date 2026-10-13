@@ -146,7 +146,7 @@ Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
 - [x] Wave 0 (11 steps)  - [ ] Gate 0
 - [x] Wave 1: A B1 B2 C D E (merged, make verify green)  - [ ] Gate 1 (owner QA) - [x] Gate 1 arch review: findings C1-C4, H1-H6, M1, M5 fixed (see "Gate 1 review fixes")
 - [x] Wave 2: S X F G I (merged, make verify green)  - [ ] Gate 2 (owner QA via `docs/QA.md`)
-- [x] Wave 3: inspector socket panel, `docs/QA.md` walkthrough, README, STATUS/ROADMAP/CHANGELOG/DESIGN_DOC notes  - [ ] final `arch-reviewer` pass (running read-only in parallel)  - [ ] owner merges `test-loop` -> `main` (human only)
+- [x] Wave 3: inspector socket panel, `docs/QA.md` walkthrough, README, STATUS/ROADMAP/CHANGELOG/DESIGN_DOC notes  - [x] final `arch-reviewer` pass (findings fixed: flaky tests, membership methods + helper, app_mention membership, snapshot `app_bots`, built-in bot resolution, depguard socket/respond)  - [ ] owner merges `test-loop` -> `main` (human only)
 - [ ] Gates: 0, 1 and 2 owner QA still open; `make verify` green on `test-loop` is the exit bar for Wave 3
 
 ## Handoff: Wave 0 extension points (Wave 1 streams register here, nothing else)

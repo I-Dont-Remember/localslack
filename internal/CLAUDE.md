@@ -5,8 +5,8 @@ Layering (M1): `store` (SQL only) -> `service` (rules, typed domain errors) -> `
 - `cli`: CLI command utilities.
 - `config`: env-driven settings (`Load(getenv)`).
 - `server`: `Build` (the single wiring point), router (`Deps`), `Run`, middleware, `guard` (Host/Origin/body limits), routing.
-- `admin`: `/_localslack/*` control API, one file per feature (health, state real; rest stubs). `calllog`, `faults`: leaf seams (Recorder, Interceptor) for api; depguard keeps them off store/service.
-- `events` (Dispatcher/Transport seams, noop), `control` (Reset/Snapshot orchestrator over service+dispatcher), `scenario` (Fixture types, leaf), `appmanifest` (manifest types, leaf). `server.Components` (build.go) wires the optional seams once; add a field, not shared lines. depguard in `.golangci.yml` enforces the layering.
+- `admin`: `/_localslack/*` control API, one file per feature (apps, events, calls, faults, reset, snapshots, socket, members). `calllog`, `faults`: leaf seams (Recorder, Interceptor) for api; depguard keeps them off store/service.
+- `events`: Engine (HTTP delivery: signing, retries, trace, per-app config) behind the Dispatcher/Transport seams. `socket`: Socket Mode Hub (WebSocket transport for events; deny api/web/admin/store). `control`: Reset/Snapshot/Diff orchestrator over service+dispatcher. `scenario`: Fixture types, validate, generate, diff (leaf). `appmanifest`: manifest types (leaf). `respond`: shared JSON/error writers for `/api` and `/_localslack` (leaf). `server.Components` (build.go) wires the optional seams once; add a field, not shared lines. depguard in `.golangci.yml` enforces the layering.
 - `storetest`: `NewApp(t)` isolated app (temp DB, pinned seed) for tests.
 - `capabilities`: embedded `capabilities.toml` manifest (methods, behaviors, deviations) + tests that keep it in sync with `api.MethodNames()`.
 - `xdg`, `constants`: paths and shared constants.

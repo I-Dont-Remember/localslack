@@ -94,7 +94,7 @@ On startup, it should pick a random seed value, log it, and then generate & popu
 - 2 - 50 channels
 - 1 channel will have between 3 - 25 messages between up to 4 people.
 
-TODO: eventually we will find a way for users to define custom seed data/scenarios, but that is a long-term roadmap and should not be built in the near future.
+Custom seed data/scenarios shipped: scenario fixtures (`--scenario`, `reset --scenario`), `generate` recipes and snapshots (see `docs/TESTING_API.md`).
 
 ### API/ webserver
 
