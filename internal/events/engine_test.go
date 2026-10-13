@@ -276,9 +276,8 @@ func TestEngineTimeoutThenRetryReason(t *testing.T) {
 	t.Parallel()
 
 	app := newFakeApp(t, "sek")
-	var calls atomic.Int32
 	app.respond = func(w http.ResponseWriter, r *http.Request) {
-		if calls.Add(1) == 1 {
+		if r.Header.Get("X-Slack-Retry-Num") == "" { // hang the first attempt, whichever request reaches us first
 			<-r.Context().Done()
 			return
 		}
@@ -286,7 +285,7 @@ func TestEngineTimeoutThenRetryReason(t *testing.T) {
 	}
 	src := &fakeSource{apps: []service.App{app.appDef("A1", "UBOT1", "message.channels")}}
 	cfg := fastConfig()
-	cfg.TimeoutMS = 50
+	cfg.TimeoutMS = 250
 	e := newEngine(t, src, engineOpts{cfg: cfg})
 
 	e.Publish(posted("hello", "UBOT1"))
@@ -299,8 +298,14 @@ func TestEngineTimeoutThenRetryReason(t *testing.T) {
 	if second.RetryReason != "http_timeout" {
 		t.Errorf("second attempt retry_reason = %q, want http_timeout", second.RetryReason)
 	}
-	if h := app.requests()[1].Header.Get("X-Slack-Retry-Reason"); h != "http_timeout" {
-		t.Errorf("X-Slack-Retry-Reason = %q, want http_timeout", h)
+	var retryReason string
+	for _, r := range app.requests() {
+		if r.Header.Get("X-Slack-Retry-Num") != "" {
+			retryReason = r.Header.Get("X-Slack-Retry-Reason")
+		}
+	}
+	if retryReason != "http_timeout" {
+		t.Errorf("X-Slack-Retry-Reason = %q, want http_timeout", retryReason)
 	}
 }
 
@@ -965,6 +970,8 @@ func TestEngineDeliversToOneAppInPublishOrder(t *testing.T) {
 	const n = 25
 	app := newFakeApp(t, "s")
 	var inFlight, maxInFlight atomic.Int32
+	release := make(chan struct{})
+	overtook := make(chan struct{}, 1)
 	app.respond = func(w http.ResponseWriter, r *http.Request) {
 		cur := inFlight.Add(1)
 		defer inFlight.Add(-1)
@@ -972,7 +979,12 @@ func TestEngineDeliversToOneAppInPublishOrder(t *testing.T) {
 		}
 		body, _ := io.ReadAll(r.Body)
 		if strings.Contains(string(body), `"text":"m0"`) {
-			time.Sleep(30 * time.Millisecond) // a slow first delivery must not let later ones overtake it
+			<-release // a slow first delivery must not let later ones overtake it
+		} else {
+			select {
+			case overtook <- struct{}{}:
+			default:
+			}
 		}
 		w.WriteHeader(http.StatusOK)
 	}
@@ -985,6 +997,13 @@ func TestEngineDeliversToOneAppInPublishOrder(t *testing.T) {
 		want = append(want, text)
 		e.Publish(posted(text, "UBOT1"))
 	}
+	waitState(t, e, events.StatePending, n) // m0 is held at the app; the rest are queued behind it
+	select {
+	case <-overtook:
+		t.Error("a later event reached the app while m0 was still in flight")
+	case <-time.After(50 * time.Millisecond): // only a false pass is possible here, never a flake
+	}
+	close(release)
 	waitState(t, e, events.StateDelivered, n)
 
 	var got []string
