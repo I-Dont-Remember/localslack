@@ -15,13 +15,19 @@ import (
 	"localslack/internal/service"
 )
 
+// notImplementedHeader marks an unknown method, keeping LocalSlack's "not built yet"
+// signal visible now that the status matches Slack (200 unknown_method).
+const notImplementedHeader = "X-LocalSlack-Not-Implemented"
+
 // serve runs one request through the stages, all inside the Recorder:
 // resolve -> parse -> identify -> intercept -> enforce auth -> call -> respond.
 func (a *API) serve(w http.ResponseWriter, r *http.Request) {
 	start := a.now()
 	rw := newCapture(w)
+	rw.Header().Set("X-Slack-Req-Id", middleware.GetReqID(r.Context()))
 	st := &state{method: chi.URLParam(r, "method")}
 	a.run(rw, r, st)
+	a.setScopeHeaders(rw.Header(), st.method, st.p)
 	a.rec.Record(st.record(r, rw, start, a.now()))
 	if err := rw.flush(); err != nil {
 		a.log.ErrorContext(r.Context(), "write response", slog.Any("error", err))
@@ -44,7 +50,8 @@ func (a *API) run(w http.ResponseWriter, r *http.Request, st *state) {
 	if !ok {
 		st.notImplemented = true
 		a.identifyUnknown(r, st)
-		a.fallback(w, r)
+		w.Header().Set(notImplementedHeader, "1")
+		a.write(ctx, w, http.StatusOK, map[string]any{"ok": false, "error": "unknown_method"})
 		return
 	}
 	params, raw, err := parseParams(r)
@@ -136,7 +143,7 @@ func (a *API) enforce(ctx context.Context, mode authMode, token string, p servic
 	if _, err := a.svc.Authenticate(ctx, token); err != nil {
 		return p, err
 	}
-	return p, service.ErrInvalidAuth
+	return p, service.ErrNotAllowedTokenType // a valid token of the wrong kind
 }
 
 func appID(p service.Principal) string {

@@ -185,11 +185,15 @@ func TestCreateChannel(t *testing.T) {
 		{"ok", "project-x", nil},
 		{"duplicate", "project-x", service.ErrNameTaken},
 		{"general exists from seed", "general", service.ErrNameTaken},
-		{"uppercase", "Project", service.ErrInvalidName},
-		{"space", "my channel", service.ErrInvalidName},
-		{"empty", "", service.ErrInvalidName},
-		{"too long", string(make([]byte, 81)), service.ErrInvalidName},
-		{"leading hyphen", "-x", service.ErrInvalidName},
+		{"uppercase", "Project", service.ErrInvalidNameSpecials},
+		{"space", "my channel", service.ErrInvalidNameSpecials},
+		{"dot", "a.b", service.ErrInvalidNameSpecials},
+		{"empty", "", service.ErrInvalidNameRequired},
+		{"too long", strings.Repeat("a", 81), service.ErrInvalidNameMaxLength},
+		{"max length ok", strings.Repeat("a", 80), nil},
+		{"only hyphen", "-", service.ErrInvalidNamePunctuation},
+		{"only punctuation", "_-_", service.ErrInvalidNamePunctuation},
+		{"leading hyphen", "-x", service.ErrInvalidNamePunctuation},
 	}
 	// Sequential: later cases depend on earlier ones.
 	for _, tt := range tests {

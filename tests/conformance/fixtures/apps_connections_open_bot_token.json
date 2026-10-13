@@ -1,0 +1,17 @@
+{
+  "state": "passing",
+  "note": "Slack: apps.connections.open needs an app-level token; a bot token is HTTP 200 ok:false not_allowed_token_type",
+  "source": "llm",
+  "request": {
+    "method": "POST",
+    "path": "/api/apps.connections.open",
+    "token": "xoxb-test"
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "not_allowed_token_type"
+    }
+  }
+}

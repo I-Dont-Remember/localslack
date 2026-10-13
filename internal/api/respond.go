@@ -8,8 +8,10 @@ import (
 	"net/http"
 
 	"localslack/internal/calllog"
-	"localslack/internal/constants"
 )
+
+// slackContentType is what Slack sends on every API response.
+const slackContentType = "application/json; charset=utf-8"
 
 // fail renders a domain error as Slack does: HTTP 200 with ok:false.
 // Unmapped errors are real faults and return 500.
@@ -23,7 +25,7 @@ func (a *API) fail(ctx context.Context, w http.ResponseWriter, err error) {
 }
 
 func (a *API) write(ctx context.Context, w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", constants.ContentTypeJSON)
+	w.Header().Set("Content-Type", slackContentType)
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(v); err != nil {
 		a.log.ErrorContext(ctx, "encode response", slog.Any("error", err))

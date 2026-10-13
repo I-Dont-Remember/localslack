@@ -28,6 +28,9 @@ func parseParams(r *http.Request) (url.Values, map[string]any, error) {
 			return nil, nil, fmt.Errorf("decode json body: %w: %w", errInvalidArguments, err)
 		}
 		for k, v := range raw {
+			if k == "token" { // Slack takes the token from the header, query or form only
+				continue
+			}
 			vals.Set(k, stringify(v))
 		}
 	case strings.HasPrefix(ct, constants.ContentTypeForm):

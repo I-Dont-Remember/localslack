@@ -199,7 +199,7 @@ func (e *Engine) attempt(ctx context.Context, j *job, n int, reason string) (aga
 	spec := j.spec
 	spec.RetryNum, spec.RetryReason = j.baseRetry+n, reason
 	actx, cancel := context.WithTimeout(ctx, j.cfg.Timeout())
-	att := j.tr.Deliver(actx, Delivery{Payload: j.payload, Spec: spec})
+	att := j.tr.Deliver(actx, Delivery{AppID: j.appID, Payload: j.payload, Spec: spec})
 	cancel()
 	if ctx.Err() != nil {
 		return false, "" // reset or shutdown: a late result must not be recorded

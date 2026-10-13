@@ -59,12 +59,7 @@ func pipeline(t *testing.T, opts ...api.Option) *httptest.Server {
 		t.Fatalf("service.New: %v", err)
 	}
 	r := chi.NewRouter()
-	fallback := func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", constants.ContentTypeJSON)
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = io.WriteString(w, `{"ok":false,"error":"not_implemented"}`)
-	}
-	api.Mount(r, svc, slog.New(slog.NewTextHandler(io.Discard, nil)), fallback, opts...)
+	api.Mount(r, svc, slog.New(slog.NewTextHandler(io.Discard, nil)), opts...)
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
 	return srv
@@ -117,13 +112,13 @@ func TestRecorder(t *testing.T) {
 		},
 		{
 			"unknown method", "nope.nothing", "", nil,
-			calllog.CallRecord{Method: "nope.nothing", HTTPMethod: "POST", Status: 404, Error: "not_implemented", NotImplemented: true, Actor: calllog.Actor{TokenKind: "none"}},
+			calllog.CallRecord{Method: "nope.nothing", HTTPMethod: "POST", Status: 200, Error: "unknown_method", NotImplemented: true, Actor: calllog.Actor{TokenKind: "none"}},
 		},
 		{
 			"unknown method keeps actor and params", "nope.nothing", "xoxb-x",
 			url.Values{"channel": {"C1"}},
 			calllog.CallRecord{
-				Method: "nope.nothing", HTTPMethod: "POST", Status: 404, Error: "not_implemented", NotImplemented: true,
+				Method: "nope.nothing", HTTPMethod: "POST", Status: 200, Error: "unknown_method", NotImplemented: true,
 				Params: map[string]any{"channel": "C1"}, Actor: calllog.Actor{TokenKind: "bot"},
 			},
 		},

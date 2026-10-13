@@ -38,8 +38,8 @@ Process for adding a new Slack API endpoint. Check `internal/capabilities/capabi
 
 - All responses: JSON with `"ok": true` on success, `"ok": false, "error": "<code>"` on failure.
 - Real Slack API errors are HTTP **200** with `ok:false` (e.g. `channel_not_found`, `name_taken`).
-  LocalSlack's deliberate or infrastructural non-200s: 404 `not_implemented` (unknown method; Slack
-  returns 200 `unknown_method`, see the `unknown-method-404` deviation), 403 `invalid_host` /
+  An unknown method is also 200 `unknown_method` (as Slack), marked by an `X-LocalSlack-Not-Implemented: 1`
+  header and `not_implemented:true` in the call log. LocalSlack's deliberate or infrastructural non-200s: 403 `invalid_host` /
   `forbidden_origin` (guard), 405 `method_not_allowed`, 500 `internal_error` (unmapped fault), and
   later 429 for rate limits (M5). Under `/_localslack/` the same server-level failures use the control-API
   shape `{"error":{"code","message"}}` instead (`not_found`, `method_not_allowed`, `invalid_host`,

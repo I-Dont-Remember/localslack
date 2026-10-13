@@ -14,6 +14,7 @@ import (
 	"localslack/internal/events"
 	"localslack/internal/faults"
 	"localslack/internal/service"
+	"localslack/internal/socket"
 	"localslack/internal/store"
 	"localslack/internal/web"
 )
@@ -26,6 +27,7 @@ type Components struct {
 	Faults  *faults.Set
 	Events  events.Dispatcher
 	Control *control.Control
+	Socket  *socket.Hub
 
 	unsubscribe func()
 }
@@ -45,20 +47,24 @@ func newComponents(cfg config.Config, svc *service.Service, log *slog.Logger, op
 		size = config.DefaultCallLogSize
 	}
 	c.CallLog = calllog.New(size)
+	c.Socket = socket.NewHub(socket.Options{Log: log})
 	for _, o := range opts {
 		o(&c)
 	}
 	if c.Events == nil {
-		c.Events = newEngine(cfg, svc, log)
+		c.Events = newEngine(cfg, svc, log, c.Socket)
 	}
-	c.Control = control.New(svc, c.Events, control.WithSeed(cfg.Seed), control.WithOnReset(c.resetHooks()...))
+	c.Control = control.New(svc, c.Events, control.WithSeed(cfg.Seed), control.WithOnReset(c.resetHooks(svc)...))
 	c.unsubscribe = svc.Subscribe(c.Events.Publish)
 	return c
 }
 
 // resetHooks clear the in-memory state a reset must drop (streams add theirs here).
-func (c Components) resetHooks() []func() {
+func (c Components) resetHooks(svc *service.Service) []func() {
 	var fns []func()
+	if c.Socket != nil { // connections survive a partial reset; apps removed by --all lose theirs
+		fns = append(fns, func() { c.Socket.Prune(liveApps(svc)) })
+	}
 	if c.CallLog != nil {
 		fns = append(fns, c.CallLog.Clear)
 	}
@@ -77,13 +83,24 @@ func (c Components) apiOptions() []api.Option {
 	if c.Faults != nil {
 		opts = append(opts, api.WithInterceptor(c.Faults))
 	}
+	if c.Socket != nil {
+		opts = append(opts, api.WithSocket(c.Socket))
+	}
 	return opts
 }
 
-// Close stops event delivery.
+// inspector hands the UI inspector its read/act seams (all non-nil after newComponents).
+func (c Components) inspector() web.Inspector {
+	return web.Inspector{Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control}
+}
+
+// Close drops socket connections and stops event delivery.
 func (c Components) Close() error {
 	if c.unsubscribe != nil {
 		c.unsubscribe()
+	}
+	if c.Socket != nil {
+		c.Socket.Close()
 	}
 	return c.Events.Close()
 }
@@ -109,12 +126,12 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 		_ = st.Close()
 		return nil, err
 	}
-	ui, err := web.New(svc, log)
+	comps := newComponents(cfg, svc, log, opts...)
+	ui, err := web.New(svc, log, web.WithInspector(comps.inspector()))
 	if err != nil {
-		_ = st.Close()
+		_ = errors.Join(comps.Close(), st.Close())
 		return nil, err
 	}
-	comps := newComponents(cfg, svc, log, opts...)
 	if err := registerManifests(ctx, log, cfg, svc, comps.Events); err != nil {
 		_ = errors.Join(comps.Close(), st.Close())
 		return nil, err
@@ -126,4 +143,13 @@ func Build(ctx context.Context, log *slog.Logger, cfg config.Config, now func() 
 // Close stops components, then releases the store.
 func (a *App) Close() error {
 	return errors.Join(a.Components.Close(), a.Store.Close())
+}
+
+// liveApps reports whether an app id is still registered.
+func liveApps(svc *service.Service) func(string) bool {
+	live := map[string]bool{}
+	for _, a := range svc.Apps() {
+		live[a.ID] = true
+	}
+	return func(id string) bool { return live[id] }
 }

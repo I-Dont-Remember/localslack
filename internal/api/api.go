@@ -47,13 +47,14 @@ func tok(fn method) spec { return spec{fn: fn} }
 
 // API serves Slack methods.
 type API struct {
-	svc      *service.Service
-	log      *slog.Logger
-	fallback http.HandlerFunc
-	methods  map[string]spec
-	rec      calllog.Recorder
-	icpt     faults.Interceptor
-	now      func() time.Time
+	svc     *service.Service
+	log     *slog.Logger
+	methods map[string]spec
+	rec     calllog.Recorder
+	icpt    faults.Interceptor
+	now     func() time.Time
+	scopes  map[string][]string // method -> accepted scopes (capabilities manifest)
+	sock    TicketIssuer
 }
 
 // Option customises Mount.
@@ -65,13 +66,17 @@ func WithRecorder(r calllog.Recorder) Option { return func(a *API) { a.rec = r }
 // WithInterceptor sets the fault interceptor (default: never fires).
 func WithInterceptor(i faults.Interceptor) Option { return func(a *API) { a.icpt = i } }
 
-// Mount registers /api/{method} (GET and POST). Unknown methods go to fallback.
-func Mount(r chi.Router, svc *service.Service, log *slog.Logger, fallback http.HandlerFunc, opts ...Option) {
-	a := &API{svc: svc, log: log, fallback: fallback, rec: calllog.Noop{}, icpt: faults.Noop{}, now: time.Now}
+// WithSocket sets where apps.connections.open gets its one-time tickets.
+func WithSocket(t TicketIssuer) Option { return func(a *API) { a.sock = t } }
+
+// Mount registers /api/{method} (GET and POST). Unknown methods answer 200 unknown_method.
+func Mount(r chi.Router, svc *service.Service, log *slog.Logger, opts ...Option) {
+	a := &API{svc: svc, log: log, rec: calllog.Noop{}, icpt: faults.Noop{}, now: time.Now}
 	for _, o := range opts {
 		o(a)
 	}
 	a.methods = a.registry()
+	a.scopes = methodScopes()
 	r.Get("/api/{method}", a.serve)
 	r.Post("/api/{method}", a.serve)
 }

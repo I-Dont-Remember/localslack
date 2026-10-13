@@ -85,7 +85,7 @@ def general_id(client: WebClient) -> str:
 
 
 ERROR_CASES = {
-    "invalid_name": lambda c, u: c.conversations_create(name="Bad Name!"),
+    "invalid_name_specials": lambda c, u: c.conversations_create(name="Bad Name!"),
     "name_taken": lambda c, u: (
         c.conversations_create(name=f"dup-{u}"),
         c.conversations_create(name=f"dup-{u}"),
@@ -133,8 +133,8 @@ def test_auth_errors(api_url):
 
 
 def test_unimplemented_method_is_a_clear_sdk_error(client):
-    """Deliberate deviation (see unknown-method-404): a 404 with not_implemented."""
-    assert error_of(lambda: client.api_call("does.notExist")) == (404, "not_implemented")
+    """Slack answers unknown methods 200 unknown_method; LocalSlack adds a header."""
+    assert error_of(lambda: client.api_call("does.notExist")) == (200, "unknown_method")
 
 
 @pytest.mark.parametrize(
@@ -183,5 +183,5 @@ def test_retry_handlers_do_not_get_in_the_way(api_url):
     started = time.monotonic()
     assert client.auth_test()["ok"]
     with pytest.raises(SlackApiError):
-        client.api_call("does.notExist")  # 404 is not retried
+        client.api_call("does.notExist")  # unknown_method is not retried
     assert time.monotonic() - started < 3

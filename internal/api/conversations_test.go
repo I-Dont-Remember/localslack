@@ -56,8 +56,8 @@ func TestConversationsCreate(t *testing.T) {
 		{"ok", botToken, map[string]string{"name": "project-x"}, ""},
 		{"duplicate", botToken, map[string]string{"name": "project-x"}, "name_taken"},
 		{"duplicate of seeded general", botToken, map[string]string{"name": "general"}, "name_taken"},
-		{"bad name", botToken, map[string]string{"name": "Has Spaces"}, "invalid_name"},
-		{"missing name", botToken, nil, "invalid_name"},
+		{"bad name", botToken, map[string]string{"name": "Has Spaces"}, "invalid_name_specials"},
+		{"missing name", botToken, nil, "invalid_name_required"},
 		{"no token", "", map[string]string{"name": "zzz"}, "not_authed"},
 	}
 	for _, tt := range tests { // sequential: duplicate depends on ok

@@ -232,6 +232,9 @@ func (a appsAPI) remove(w http.ResponseWriter, r *http.Request) {
 	if ctl, ok := a.controller(); ok {
 		ctl.ClearAppConfig(id)
 	}
+	if a.Socket != nil {
+		a.Socket.CloseApp(id)
+	}
 	writeNoContent(w)
 }
 

@@ -39,9 +39,9 @@ func NewRouter(d Deps) http.Handler {
 	})
 	h := handlers{log: d.Log}
 	c := d.Components
-	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc, Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control})
+	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc, Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control, Socket: c.Socket})
 	if d.Svc != nil {
-		api.Mount(r, d.Svc, d.Log, h.notImplemented, c.apiOptions()...)
+		api.Mount(r, d.Svc, d.Log, c.apiOptions()...)
 	}
 	if d.Web != nil {
 		if err := d.Web.Mount(r); err != nil {

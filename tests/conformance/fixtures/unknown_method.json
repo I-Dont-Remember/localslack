@@ -1,6 +1,6 @@
 {
   "state": "passing",
-  "note": "unimplemented methods return not_implemented (LocalSlack behavior)",
+  "note": "unknown methods return HTTP 200 unknown_method, as Slack does",
   "source": "local",
   "request": {
     "method": "POST",
@@ -8,10 +8,10 @@
     "token": "xoxb-test"
   },
   "response": {
-    "status": 404,
+    "status": 200,
     "body": {
       "ok": false,
-      "error": "not_implemented"
+      "error": "unknown_method"
     }
   }
 }
