@@ -100,6 +100,16 @@ class Admin:
     def state(self) -> dict[str, Any]:
         return self._request("GET", "/state")
 
+    # --- channel members --------------------------------------------------------------------
+
+    def add_member(self, channel_id: str, user_id: str) -> None:
+        """Put a user (human or app bot) in any conversation; idempotent, emits no events."""
+        self._request("PUT", f"/channels/{channel_id}/members/{user_id}")
+
+    def remove_member(self, channel_id: str, user_id: str) -> None:
+        """Take a user out of any conversation; idempotent, emits no events."""
+        self._request("DELETE", f"/channels/{channel_id}/members/{user_id}")
+
     # --- apps -------------------------------------------------------------------------------
 
     def register_app(

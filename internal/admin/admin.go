@@ -44,6 +44,7 @@ func Mount(r chi.Router, d Deps) {
 	mountReset(r, d)
 	mountSnapshots(r, d)
 	mountSocket(r, d)
+	mountMembers(r, d)
 }
 
 // writeError emits the /_localslack error shape: {"error":{"code","message"}}.

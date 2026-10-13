@@ -4,6 +4,7 @@ import pytest
 from slack_sdk import WebClient
 
 from conftest import error_of, humans
+from localslack_admin import AdminError
 
 NOT_IN = (200, "not_in_channel")
 
@@ -87,3 +88,29 @@ def test_kick_removes_the_member(client, human, bot_id, unique):
 
     assert bot_id not in members(human, ch)
     assert error_of(lambda: client.conversations_history(channel=ch)) == NOT_IN
+
+
+def test_admin_helper_adds_and_removes_the_bot(client, human, admin, bot_id, unique):
+    pub = human.conversations_create(name=f"adm-{unique}")["channel"]["id"]
+    priv = human.conversations_create(name=f"adm-p-{unique}", is_private=True)["channel"]["id"]
+
+    admin.add_member(priv, bot_id)
+    admin.add_member(priv, bot_id)  # idempotent
+    admin.add_member(pub, bot_id)
+
+    assert bot_id in members(human, priv)
+    client.conversations_history(channel=priv)
+
+    admin.remove_member(pub, bot_id)
+    assert error_of(lambda: client.conversations_history(channel=pub)) == NOT_IN
+    admin.remove_member(pub, bot_id)  # idempotent
+
+
+def test_admin_helper_unknown_ids_are_404(admin, human, bot_id, unique):
+    ch = human.conversations_create(name=f"adm404-{unique}")["channel"]["id"]
+    with pytest.raises(AdminError) as e:
+        admin.add_member("CNOPE", bot_id)
+    assert (e.value.status, e.value.code) == (404, "not_found")
+    with pytest.raises(AdminError) as e:
+        admin.remove_member(ch, "UNOPE")
+    assert (e.value.status, e.value.code) == (404, "not_found")

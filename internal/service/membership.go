@@ -175,3 +175,25 @@ func (s *Service) KickFromChannel(ctx context.Context, caller User, id, userID s
 		return nil
 	})
 }
+
+// SetMembership adds or removes a user in any conversation (public, private, DM,
+// archived) without the caller-side rules or events: a test-setup primitive.
+// Both directions are idempotent; unknown ids are ErrChannelNotFound / ErrUserNotFound.
+func (s *Service) SetMembership(ctx context.Context, channelID, userID string, member bool) error {
+	return s.st.Write(ctx, func(tx *store.Tx) error {
+		if _, err := tx.Conversation(ctx, channelID); err != nil {
+			return notFoundAs(err, ErrChannelNotFound)
+		}
+		if _, err := tx.User(ctx, userID); err != nil {
+			return notFoundAs(err, ErrUserNotFound)
+		}
+		is, err := tx.IsMember(ctx, channelID, userID)
+		switch {
+		case err != nil || is == member:
+			return err
+		case member:
+			return tx.AddMember(ctx, channelID, userID)
+		}
+		return tx.RemoveMember(ctx, channelID, userID)
+	})
+}

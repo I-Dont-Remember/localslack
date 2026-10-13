@@ -290,3 +290,51 @@ func TestMembershipDrivesAccess(t *testing.T) {
 		t.Errorf("after leave: err = %v, want not_in_channel", err)
 	}
 }
+
+func TestSetMembership(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		ch      func(*accessEnv) string
+		user    func(*accessEnv) string
+		member  bool
+		wantErr error
+	}{
+		{"add bot to public", func(e *accessEnv) string { return e.pub }, func(e *accessEnv) string { return e.bot.ID }, true, nil},
+		{"add bot to private", func(e *accessEnv) string { return e.priv }, func(e *accessEnv) string { return e.bot.ID }, true, nil},
+		{"add human to dm", func(e *accessEnv) string { return e.dm }, func(e *accessEnv) string { return e.bot.ID }, true, nil},
+		{"add to archived", func(e *accessEnv) string { return e.archived }, func(e *accessEnv) string { return e.bot.ID }, true, nil},
+		{"add twice (idempotent)", func(e *accessEnv) string { return e.pub }, func(e *accessEnv) string { return e.owner.ID }, true, nil},
+		{"remove owner", func(e *accessEnv) string { return e.pub }, func(e *accessEnv) string { return e.owner.ID }, false, nil},
+		{"remove non-member (idempotent)", func(e *accessEnv) string { return e.pub }, func(e *accessEnv) string { return e.bot.ID }, false, nil},
+		{"unknown channel", func(*accessEnv) string { return "CNOPE" }, func(e *accessEnv) string { return e.bot.ID }, true, service.ErrChannelNotFound},
+		{"unknown user", func(e *accessEnv) string { return e.pub }, func(*accessEnv) string { return "UNOPE" }, true, service.ErrUserNotFound},
+		{"unknown user on remove", func(e *accessEnv) string { return e.pub }, func(*accessEnv) string { return "UNOPE" }, false, service.ErrUserNotFound},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			e := newAccessEnv(t, nil)
+			ch, user := tt.ch(e), tt.user(e)
+
+			err := e.svc.SetMembership(t.Context(), ch, user, tt.member)
+
+			if !errors.Is(err, tt.wantErr) || (tt.wantErr == nil && err != nil) {
+				t.Fatalf("err = %v, want %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			// the owner can see every channel in the env (member, or public)
+			page, err := e.svc.Members(t.Context(), e.owner, ch, service.PageOpts{Limit: 1000})
+			if err != nil {
+				t.Fatalf("Members: %v", err)
+			}
+			got := slices.Contains(page.Items, user)
+			if got != tt.member {
+				t.Errorf("member = %v after SetMembership(%v), want %v", got, tt.member, tt.member)
+			}
+		})
+	}
+}

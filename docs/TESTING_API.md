@@ -1,6 +1,6 @@
 # LocalSlack testing API (`/_localslack/*`)
 
-Contract for the test-loop controls. LocalSlack-only; never on real Slack. Unauthenticated, loopback-guarded like the rest of the server. Status: **draft contract** (agent-docs/plans/test-loop.md); each stream owns its section.
+Contract for the test-loop controls. LocalSlack-only; never on real Slack. Unauthenticated, loopback-guarded like the rest of the server.  Plan: agent-docs/plans/test-loop.md; each stream owns its section.
 
 ## Conventions
 - **Real HTTP semantics (unlike Slack's `/api/*`, which keeps `200 + ok:false` for SDK fidelity).** Success = 2xx with the resource as the body, no `ok` wrapper. Failure = 4xx/5xx with `{"error":{"code":"<snake_case>","message":"<human>","details":[...]?}}`. This includes server-level failures under `/_localslack/`: unknown path 404 `not_found`, wrong verb 405 `method_not_allowed`, guard 403 `invalid_host` / `forbidden_origin`, body over the cap (1 MiB) 413 `payload_too_large`, panic 500 `internal_error`. `/api/*` and the UI keep Slack's `{"ok":false,"error":code}` for the same failures.
@@ -80,6 +80,10 @@ Two modes, no knobs. Reset is global: one test session per server.
   - `GET /_localslack/snapshots/{name}` -> 200 the fixture (reusable as a scenario); unknown -> 404 `not_found`.
   - `POST /_localslack/snapshots/{name}/restore` -> 200 `{"name","counts":{"users","channels","messages"},"took_ms"}`. Pauses event delivery and replaces the workspace like a partial reset, but never emits events and keeps the call log, deliveries, faults and other snapshots. Unknown -> 404 `not_found`; during a reset/restore -> 409 `reset_in_progress`; a snapshot that no longer resolves (for example its app was deleted) -> 422 `invalid_scenario`.
 - `GET /_localslack/diff?from=<name|current>&to=<name|current>` (`to` defaults to `current`) -> `{"users|conversations|members|messages|reactions":{"added":[],"removed":[],"changed":[{"id"|"channel"+"ts","fields":{"f":{"from","to"}}}]}}`. All five sections and all three lists are always present, sorted by key (ids; channel then ts). Users and conversations are keyed by `id`; messages by `channel`+`ts` (fields: `user,text,thread_ts,bot_id,subtype,blocks,attachments,metadata,edited`); `members` (`{"channel","user"}`) and `reactions` (`{"channel","ts","name","user"}`) are sets, so only added/removed. Messages of added or removed conversations are listed too, without their reactions (those are in `reactions`). Missing `from` -> 400 `invalid_query`; unknown name -> 404 `not_found`.
+
+## Channel members (test setup)
+- `PUT /_localslack/channels/{id}/members/{user_id}` -> 204: adds the user; `DELETE /_localslack/channels/{id}/members/{user_id}` -> 204: removes them. Both are idempotent. Works for any user (humans, app bots) and any conversation (public, private, archived, DMs, group DMs). Unknown channel or user -> 404 `not_found`.
+- Setup only: no events, no `#general`/archived/DM rules (unlike `conversations.join/leave/invite/kick`, which follow Slack). Use it to put a bot in a private channel or take it out of a public one.
 
 ## Misc
 `GET /_localslack/health` -> 200 `{"status":"ok","events_dropped":0}` (`events_dropped` counts events lost to a full dispatcher queue; 0 means none); `GET /_localslack/state/conversations` (existing; a thin debug view of the same single-transaction export that snapshots use, so it omits app bot users). Default bot (no app) reports the fixed default scope list `chat:write`, `chat:write.public` (`service.DefaultBotScopes`, also given to apps whose manifest lists none).
