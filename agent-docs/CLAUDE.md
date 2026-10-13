@@ -7,6 +7,7 @@
 - `workflow.md` is the required process for repo changes; `endpoint_guide.md` the steps for a new Slack API endpoint (package map: `internal/CLAUDE.md`).
 - `capabilities.md` explains the test-enforced capability manifest (what is implemented/planned/in progress, how well verified, known deviations); read it before starting or claiming feature work.
 - `ROADMAP.md` ranks what to work on next (impact tiers, S/M/L sizing); read it to pick work.
+- `reviews/` holds agent-trace efficiency reviews (baseline metrics, history table; re-measure with `make trace-stats`).
 - `plans/` holds per-milestone checklists + handoff protocol; read `plans/README.md` when resuming work.
 
 See `STATUS.md` for current milestone and progress.
