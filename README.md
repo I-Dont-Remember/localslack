@@ -35,6 +35,19 @@ make run                      # serves on http://localhost:3232 (loopback only; 
 - **Inspect state:** `curl localhost:3232/_localslack/state/conversations`.
 - **What's supported:** see [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), generated from the capability manifest: every implemented and planned method, how well each is verified against real Slack, behaviors like rate limiting and scopes, and known deviations. Unimplemented methods return `200 unknown_method` with an `X-LocalSlack-Not-Implemented: 1` header.
 
+## Try the test loop
+
+```
+make demo               # LocalSlack on :3232 + two real Bolt apps (needs go, uv); DEMO_MODE=socket or `make demo-socket` for Socket Mode
+```
+
+- Open http://localhost:3232/ui, post `@demo-bolt ping` in `#general` (the bot replies `pong`), then watch it all at **http://localhost:3232/ui/inspector** (API calls, event deliveries, apps, faults, sockets, snapshots).
+- Guided 45-minute walkthrough with expected results and feedback prompts: [docs/QA.md](docs/QA.md). API contract: [docs/TESTING_API.md](docs/TESTING_API.md).
+- CLI niceties (server running on :3232):
+  - `localslack apps add manifest.json` / `apps set-url <app> http://localhost:3000` (fixes a `blocked` remote request URL) / `apps env <app>` (prints `SLACK_API_URL`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_APP_TOKEN` for your app).
+  - `localslack reset [--all]`: re-seed workspace data, keeping apps; `--all` also removes apps.
+  - `localslack start --scenario examples/scenarios/acme.json` (also `reset --scenario f`): exact, reproducible users/channels/messages.
+
 ## Key Notes
 
 - [`Slack APIs accepts any API method requests with POST methods`](https://github.com/slackapi/python-slack-sdk/blob/6fc2d5c082f70ca3e222a7644e6eb202f2140893/slack/web/base_client.py#L402), so at least the Python Slack client always sends requests as `POST` even if they are listed as `GET` in the docs, e.g. `users.list`.
