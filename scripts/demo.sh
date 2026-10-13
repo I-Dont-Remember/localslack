@@ -94,7 +94,7 @@ echo
 "$bin" apps list --addr "$addr"
 echo
 echo "LocalSlack UI:  $url/ui"
-echo "Inspector:      $url/ui/inspector   (may not exist yet)"
+echo "Inspector:      $url/ui/inspector"
 echo "Try, in #general: @demo-bolt ping  |  hello  |  echo hi  |  add a reaction"
 if [ "$mode" = "socket" ]; then
 	echo "Force a reconnect: curl -X POST $url/_localslack/socket/disconnect -d '{\"reason\":\"refresh_requested\"}'"

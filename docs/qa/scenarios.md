@@ -33,7 +33,7 @@ api -X POST -d channel=C0GENERAL01 $LS/api/conversations.history | jq '.messages
 api -X POST -d channel=C0GENERAL01 -d ts=1767312000.000100 $LS/api/conversations.replies | jq '.messages | length'
 ```
 
-Expected: the reset prints counts (6 users, 8 channels incl. DMs, 15 messages). `auth.test` says `U0ACMEBOT01` / `B0ACMEBOT01` (the file's only bot is the default bot). History shows the `wave` reaction on the welcome message with `reply_count: 3`, a bot message with `blocks`, and `dave`'s message with `edited`. Replies returns 4.
+Expected: the reset prints counts (7 users counting the bot, 8 channels incl. DMs, 15 messages). `auth.test` says `U0ACMEBOT01` / `B0ACMEBOT01` (the file's only bot is the default bot). History shows the `wave` reaction on the welcome message with `reply_count: 3`, a bot message with `blocks`, and `dave`'s message with `edited`. Replies returns 4.
 
 ### 3. Same through the API, YAML without ids, validation errors
 
