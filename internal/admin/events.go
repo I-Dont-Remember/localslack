@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"time"
 
 	"localslack/internal/respond"
 
@@ -13,8 +12,6 @@ import (
 
 	"localslack/internal/events"
 )
-
-const maxPollTimeout = 30 * time.Second
 
 func mountEvents(r chi.Router, d Deps) {
 	if d.Svc == nil {
@@ -47,24 +44,16 @@ type eventsAPI struct {
 
 func (e eventsAPI) list(w http.ResponseWriter, r *http.Request) {
 	v := r.URL.Query()
-	since, err1 := intParam(v, "since")
-	limit, err2 := intParam(v, "limit")
-	minN, err3 := intParam(v, "min")
-	timeoutMS, err4 := intParam(v, "timeout_ms")
-	if err := errors.Join(err1, err2, err3, err4); err != nil {
+	p, err := parsePoll(v)
+	if err != nil {
 		e.problem(w, r, http.StatusBadRequest, "invalid_query", err.Error(), nil)
 		return
 	}
 	f := events.Filter{
 		AppID: v.Get("app_id"), EventType: v.Get("event_type"), State: v.Get("state"),
-		Since: int64(since), Limit: limit,
+		Since: int64(p.Since), Limit: p.Limit,
 	}
-	timeout := time.Duration(timeoutMS) * time.Millisecond
-	if minN > 0 && v.Get("timeout_ms") == "" {
-		timeout = defaultPollTimeout
-	}
-	timeout = min(timeout, maxPollTimeout)
-	items, next, gen := e.ctl.WaitDeliveries(r.Context(), f, minN, timeout)
+	items, next, gen := e.ctl.WaitDeliveries(r.Context(), f, p.Min, p.Timeout)
 	respond.JSON(r.Context(), e.Log, w, http.StatusOK, map[string]any{"items": items, "next_since": next, "generation": gen})
 }
 
