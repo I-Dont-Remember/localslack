@@ -48,7 +48,7 @@ func TestInspectorPageAndNav(t *testing.T) {
 		`data-testid="inspector-deliveries"`, `data-testid="inspector-apps"`,
 		`data-testid="inspector-faults"`, `data-testid="inspector-controls"`,
 		`data-testid="inspector-sockets"`, `data-testid="inspector-snapshots"`,
-		"available when Socket Mode", `hx-get="/ui/inspector/snapshots"`,
+		`hx-get="/ui/inspector/sockets"`, `hx-get="/ui/inspector/snapshots"`,
 	)
 	_, chat, _ := b.get("/ui/c/" + w.general)
 	contains(t, chat, `data-testid="nav-inspector"`, `href="/ui/inspector"`)

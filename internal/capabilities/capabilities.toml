@@ -271,7 +271,7 @@ evidence = "llm"
 
 [behaviors.inspector-ui]
 status = "implemented"
-summary = "Browser inspector at /ui/inspector: live API calls (filters, fault and not-implemented badges), event deliveries (attempts, redeliver), apps (delivery readiness, editable deliver_to, credentials), faults, delivery-config toggles and reset. Socket connections and snapshots/diff panels appear once those backends are wired."
+summary = "Browser inspector at /ui/inspector: live API calls (filters, fault and not-implemented badges), event deliveries (attempts, redeliver), apps (delivery readiness, editable deliver_to, credentials), faults, delivery-config toggles and reset, Socket Mode connections (Disconnect sends refresh_requested), snapshots/diff."
 evidence = "llm"
 
 [behaviors.state-reset]

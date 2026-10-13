@@ -47,6 +47,8 @@ type Inspector struct {
 	Control Resetter
 	// Snapshots drives the snapshot/restore/diff panel (*control.Control).
 	Snapshots SnapshotStore
+	// Sockets lists and disconnects Socket Mode connections (*socket.Hub); nil when Socket Mode is off.
+	Sockets SocketHub
 }
 
 // Option configures New.
@@ -77,6 +79,8 @@ func (w *Web) mountInspector(r chi.Router) {
 	r.Post("/ui/inspector/snapshots", w.inspectorCreateSnapshot)
 	r.Post("/ui/inspector/snapshots/{name}/restore", w.inspectorRestoreSnapshot)
 	r.Get("/ui/inspector/diff", w.inspectorDiff)
+	r.Get("/ui/inspector/sockets", w.inspectorSockets)
+	r.Post("/ui/inspector/sockets/{id}/disconnect", w.inspectorSocketDisconnect)
 }
 
 func (w *Web) inspectorPage(rw http.ResponseWriter, r *http.Request) {

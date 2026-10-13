@@ -3,6 +3,9 @@
 import httpx
 import pytest
 from playwright.sync_api import Page, expect
+from slack_bolt import App
+from slack_bolt.adapter.socket_mode import SocketModeHandler
+from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
 
 POLL = 6_000  # ms; the inspector polls every second
@@ -48,9 +51,7 @@ def test_nav_link_reaches_inspector(page: Page):
     page.goto("/")
     page.get_by_test_id("nav-inspector").click()
     expect(page).to_have_url(f"{page.url.split('/ui')[0].rstrip('/')}/ui/inspector")
-    expect(page.get_by_test_id("inspector-sockets")).to_contain_text(
-        "available when Socket Mode"
-    )
+    expect(page.get_by_test_id("inspector-sockets")).to_be_visible()
 
 
 def test_sdk_call_appears_with_params_and_response(page: Page, client, unique):
@@ -164,3 +165,48 @@ def test_reset_from_page_clears_calls(page: Page, client):
 
     expect(page.get_by_test_id("reset-result")).to_contain_text("partial", timeout=POLL)
     expect(page.get_by_test_id("call-row")).to_have_count(0, timeout=POLL)
+
+
+def test_socket_connection_listed_and_disconnect_reconnects(
+    page: Page, admin, base_url: str, unique
+):
+    bot_token, app_token = "xo" + f"xb-ins-{unique}", "xa" + f"pp-1-ins-{unique}"
+    manifest = {
+        "display_information": {"name": f"Sock {unique}"},
+        "features": {"bot_user": {"display_name": f"sock-{unique}"}},
+        "settings": {
+            "socket_mode_enabled": True,
+            "event_subscriptions": {"bot_events": ["message.channels"]},
+        },
+    }
+    resp = admin.post(
+        "/apps",
+        json={"manifest": manifest, "bot_token": bot_token, "app_token": app_token},
+    )
+    assert resp.status_code == 201, resp.text
+    app_id = resp.json()["id"]
+    admin.created_apps.append(app_id)  # type: ignore[attr-defined]
+    client = WebClient(token=bot_token, base_url=f"{base_url}/api/")
+    handler = SocketModeHandler(
+        App(client=client, token_verification_enabled=False, signing_secret="unused"),
+        app_token,
+        web_client=client,
+    )
+    handler.connect()
+    try:
+        open_inspector(page)
+        row = page.locator(f'[data-testid="socket-row"]:has-text("{app_id}")')
+        expect(row).to_have_count(1, timeout=POLL)
+        old = row.get_attribute("data-conn")
+
+        page.once("dialog", lambda d: d.accept())
+        row.get_by_test_id("socket-disconnect").click()
+
+        expect(page.get_by_test_id("socket-notice")).to_contain_text(
+            "refresh_requested"
+        )
+        fresh = page.locator(f'[data-testid="socket-row"]:has-text("{app_id}")')
+        expect(fresh).to_have_count(1, timeout=15_000)  # the client reconnected
+        expect(fresh).not_to_have_attribute("data-conn", old, timeout=POLL)
+    finally:
+        handler.close()

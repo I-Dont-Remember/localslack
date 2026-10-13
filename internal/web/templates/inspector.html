@@ -134,7 +134,7 @@
 
   <section data-testid="inspector-sockets">
     <h2>Socket Mode connections</h2>
-    <p class="note">Socket connections are available when Socket Mode is enabled on this server.</p>
+    <div id="sockets-panel" data-testid="sockets-panel" hx-get="/ui/inspector/sockets" hx-trigger="load, every 1s" hx-swap="innerHTML"></div>
   </section>
 
   <section data-testid="inspector-snapshots">
@@ -223,6 +223,12 @@
 <div style="margin-top:6px" class="muted">timeout <span data-testid="timeout-ms">{{.TimeoutMS}}</span> ms · stale after {{.StaleSeconds}} s</div>
 <div style="margin-top:6px">Events dropped (full queue): <strong data-testid="events-dropped" class="{{if .EventsDropped}}bad{{end}}">{{.EventsDropped}}</strong></div>
 {{end}}{{end}}
+
+{{define "inspector-sockets"}}{{if .Missing}}<p class="note">Socket Mode is not enabled on this server.</p>{{else}}{{if .Error}}<p class="bad" data-testid="socket-error">{{.Error}}</p>{{end}}{{if .Notice}}<p class="ok" data-testid="socket-notice">{{.Notice}}</p>{{end}}
+{{if .Rows}}<table><tr><th>id</th><th>app</th><th>connected</th><th>last ack</th><th>pending</th><th></th></tr>
+{{range .Rows}}<tr data-testid="socket-row" data-conn="{{.ID}}"><td>{{.ID}}</td><td>{{.App}}</td><td>{{.ConnectedAt}}</td><td>{{.LastAckAt}}</td><td>{{.Pending}}</td>
+<td><button type="button" data-testid="socket-disconnect" hx-post="/ui/inspector/sockets/{{.ID}}/disconnect" hx-target="#sockets-panel" hx-confirm="Send refresh_requested and close this connection?">Disconnect</button></td></tr>{{end}}
+</table>{{else}}<p class="muted">No Socket Mode connections.</p>{{end}}{{end}}{{end}}
 
 {{define "inspector-snapshots"}}{{if .Missing}}<p class="note">Snapshots are not enabled on this server.</p>{{else}}{{if .Error}}<p class="bad" data-testid="snapshot-error">{{.Error}}</p>{{end}}{{if .Notice}}<p class="ok" data-testid="snapshot-notice">{{.Notice}}</p>{{end}}
 <form class="row-form" hx-post="/ui/inspector/snapshots" hx-target="#snapshots-panel" data-testid="snapshot-form">

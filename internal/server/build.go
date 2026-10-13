@@ -95,6 +95,9 @@ func (c Components) inspector() web.Inspector {
 	if c.Control != nil {
 		in.Snapshots = c.Control
 	}
+	if c.Socket != nil {
+		in.Sockets = c.Socket
+	}
 	return in
 }
 

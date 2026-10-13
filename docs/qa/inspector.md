@@ -47,8 +47,8 @@ Open <http://localhost:3232/> and click **Inspector** at the top of the sidebar.
 1. **Reset** asks for confirmation. After OK: a green summary (mode, seed, counts), the Calls list empties, deliveries and faults clear, delivery-config returns to defaults. Apps stay.
 2. **Reset --all** asks again; after OK the Apps list is empty.
 
-### 6. Not-yet panels
-Socket Mode connections and Snapshots/diff show an italic "available when ..." note until those features are enabled on the server.
+### 6. Socket Mode connections
+With a socket app connected (`make demo-socket`), the panel lists each connection: id, app, connected time, last ack, pending envelopes. **Disconnect** (after confirmation) sends `refresh_requested`; the row disappears and the app's Bolt client reconnects with a new id within a few seconds. With nothing connected: "No Socket Mode connections."
 
 ## Expected
 - Every action above is visible within about a second without reloading.
