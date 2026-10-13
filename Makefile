@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: demo demo-check tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check review merge wsl-cover
+.PHONY: demo demo-check tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check check-raw review merge wsl-cover t stress lint-changed gen hooks-test trace-test trace-stats
 
 AIR 		  := air
 APP           := localslack
@@ -14,6 +14,7 @@ BIN           := $(BIN_DIR)/$(APP)
 GOTESTFLAGS   ?= -race -count=1 -shuffle=on
 LDFLAGS       ?= -s -w
 UNIT_PKGS     := $$(go list ./... | grep -v /tests/)
+PYTEST_V      := $(if $(V),-v,-q)
 
 $(BIN_DIR):
 	@mkdir -p $(BIN_DIR)
@@ -33,11 +34,45 @@ tidy:
 clean:
 	rm -rf $(BIN_DIR)
 
+# Quiet by default: one "ok" line on success, only failures on error (full log in tmp/logs/<name>.log).
+# V=1 shows raw output.
+Q := scripts/quiet.sh
+
 test:
-	go test $(GOTESTFLAGS) $(UNIT_PKGS)
+	@$(Q) test go test $(GOTESTFLAGS) $(UNIT_PKGS)
+
+# Fast inner loop for one package: make t PKG=./internal/service [RUN=TestX]
+t:
+	@test -n "$(PKG)" || { echo "usage: make t PKG=./internal/x [RUN=TestX]"; exit 2; }
+	@$(Q) t go test $(GOTESTFLAGS) $(if $(RUN),-run '$(RUN)') $(PKG)
+
+# Flake hunt: make stress PKG=./internal/x RUN=TestX [N=50]
+stress:
+	@test -n "$(PKG)" -a -n "$(RUN)" || { echo "usage: make stress PKG=./internal/x RUN=TestX [N=50]"; exit 2; }
+	@$(Q) stress go test -race -shuffle=on -count=$(or $(N),50) -run '$(RUN)' $(PKG)
+
+# Lint only what changed vs BASE (default main; stacked branches: BASE=<parent-branch>).
+BASE ?= main
+lint-changed:
+	golangci-lint run --new-from-rev=$(BASE) ./...
+	ast-grep scan
+
+# Regenerate all generated files (currently docs/COMPATIBILITY.md).
+gen: docs
+
+hooks-test:
+	scripts/hooks_test.sh
+
+# Tests for scripts/trace_stats.py. Usage of the tool: make trace-stats SESSION=<id|path> [VS=<id|path>]
+trace-test:
+	uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/trace -q
+
+trace-stats:
+	@test -n "$(SESSION)" || { echo "usage: make trace-stats SESSION=<id|path> [VS=<id|path>]"; exit 2; }
+	python3 scripts/trace_stats.py $(SESSION) $(if $(VS),--compare $(VS))
 
 conformance:
-	go test $(GOTESTFLAGS) ./tests/conformance/...
+	@$(Q) conformance go test $(GOTESTFLAGS) ./tests/conformance/...
 
 # Rewrite gap_diffs of known_gap fixtures from the observed differences (e.g. after recording).
 conformance-update-gaps:
@@ -60,18 +95,18 @@ redact-check:
 
 # Tests for the recording/redaction tools (records against a live isolated LocalSlack).
 tools-test:
-	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/conformance/ -v
+	@$(Q) tools-test scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/conformance/ $(PYTEST_V)
 
 smoke:
-	scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ -v --ignore=tests/smoke/reset_test.py
+	@$(Q) smoke scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/ $(PYTEST_V) --ignore=tests/smoke/reset_test.py
 
 # Suites that reset global state get their own server (skipped by `smoke`, and by pytest unless the env var is set).
 smoke-reset:
-	LOCALSLACK_RESET_SUITE=1 scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/reset_test.py tests/smoke/scenarios_test.py -v
+	@LOCALSLACK_RESET_SUITE=1 $(Q) smoke-reset scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/reset_test.py tests/smoke/scenarios_test.py $(PYTEST_V)
 
 # Browser tests (Playwright/Chromium). Failure screenshots land in tmp/e2e-artifacts.
 e2e:
-	scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/e2e/ -v \
+	@$(Q) e2e scripts/with-server.sh uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/e2e/ $(PYTEST_V) \
 		--screenshot only-on-failure --output tmp/e2e-artifacts $(E2E_ARGS)
 
 # Hands-on demo: LocalSlack + two Bolt apps on :3232 (Ctrl-C to stop); DEMO_MODE=socket for Socket Mode.
@@ -89,7 +124,7 @@ demo-socket:
 demo-check-socket:
 	DEMO_MODE=socket scripts/demo.sh --check
 
-test-all: test conformance tools-test smoke smoke-reset e2e
+test-all: test conformance tools-test trace-test hooks-test smoke smoke-reset e2e
 
 # single "am I done" command
 verify: check test-all
@@ -102,7 +137,7 @@ setup:
 
 fmt:
 	golangci-lint fmt ./...
-	uv run --project tests/smoke ruff format tests examples
+	uv run --project tests/smoke ruff format tests examples scripts
 
 lint:
 	golangci-lint run ./...
@@ -110,13 +145,16 @@ lint:
 	ast-grep scan
 
 lint-py:
-	uv run --project tests/smoke ruff check tests examples
-	uv run --project tests/smoke ruff format --check tests examples
+	uv run --project tests/smoke ruff check tests examples scripts
+	uv run --project tests/smoke ruff format --check tests examples scripts
 
 vet:
 	go vet ./...
 
 check:
+	@$(Q) check $(MAKE) --no-print-directory check-raw
+
+check-raw:
 	golangci-lint fmt --diff ./...
 	$(MAKE) vet
 	$(MAKE) lint
