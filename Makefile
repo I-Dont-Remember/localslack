@@ -67,7 +67,7 @@ smoke:
 
 # Suites that reset global state get their own server (skipped by `smoke`, and by pytest unless the env var is set).
 smoke-reset:
-	LOCALSLACK_RESET_SUITE=1 scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/reset_test.py -v
+	LOCALSLACK_RESET_SUITE=1 scripts/with-server.sh uv run --project tests/smoke pytest tests/smoke/reset_test.py tests/smoke/scenarios_test.py -v
 
 # Browser tests (Playwright/Chromium). Failure screenshots land in tmp/e2e-artifacts.
 e2e:

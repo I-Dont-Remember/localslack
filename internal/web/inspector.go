@@ -45,6 +45,8 @@ type Inspector struct {
 	Faults  FaultStore
 	Events  events.Dispatcher
 	Control Resetter
+	// Snapshots drives the snapshot/restore/diff panel (*control.Control).
+	Snapshots SnapshotStore
 }
 
 // Option configures New.
@@ -71,6 +73,10 @@ func (w *Web) mountInspector(r chi.Router) {
 	r.Get("/ui/inspector/controls", w.inspectorControls)
 	r.Post("/ui/inspector/config", w.inspectorConfig)
 	r.Post("/ui/inspector/reset", w.inspectorReset)
+	r.Get("/ui/inspector/snapshots", w.inspectorSnapshots)
+	r.Post("/ui/inspector/snapshots", w.inspectorCreateSnapshot)
+	r.Post("/ui/inspector/snapshots/{name}/restore", w.inspectorRestoreSnapshot)
+	r.Get("/ui/inspector/diff", w.inspectorDiff)
 }
 
 func (w *Web) inspectorPage(rw http.ResponseWriter, r *http.Request) {

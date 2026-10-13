@@ -139,7 +139,14 @@
 
   <section data-testid="inspector-snapshots">
     <h2>Snapshots and diff</h2>
-    <p class="note">Snapshots and diff are available when snapshots are enabled on this server.</p>
+    <div id="snapshots-panel" data-testid="snapshots-panel" hx-get="/ui/inspector/snapshots" hx-trigger="load" hx-swap="innerHTML"></div>
+    <h2 style="margin-top:12px">Diff</h2>
+    <form class="row-form" hx-get="/ui/inspector/diff" hx-target="#diff-result" data-testid="diff-form">
+      <input name="from" placeholder="from: snapshot name" required data-testid="diff-from">
+      <input name="to" placeholder="to (default current)" data-testid="diff-to">
+      <button type="submit">Diff</button>
+    </form>
+    <div id="diff-result" data-testid="diff-result-slot"></div>
   </section>
 </main>
 </body>
@@ -216,5 +223,20 @@
 <div style="margin-top:6px" class="muted">timeout <span data-testid="timeout-ms">{{.TimeoutMS}}</span> ms · stale after {{.StaleSeconds}} s</div>
 <div style="margin-top:6px">Events dropped (full queue): <strong data-testid="events-dropped" class="{{if .EventsDropped}}bad{{end}}">{{.EventsDropped}}</strong></div>
 {{end}}{{end}}
+
+{{define "inspector-snapshots"}}{{if .Missing}}<p class="note">Snapshots are not enabled on this server.</p>{{else}}{{if .Error}}<p class="bad" data-testid="snapshot-error">{{.Error}}</p>{{end}}{{if .Notice}}<p class="ok" data-testid="snapshot-notice">{{.Notice}}</p>{{end}}
+<form class="row-form" hx-post="/ui/inspector/snapshots" hx-target="#snapshots-panel" data-testid="snapshot-form">
+  <input name="name" placeholder="snapshot name" required data-testid="snapshot-name">
+  <button type="submit" data-testid="snapshot-save">Save snapshot</button>
+</form>
+{{if .Rows}}<table>
+<tr><th>name</th><th>taken</th><th>users</th><th>channels</th><th>dms</th><th>messages</th><th>reactions</th><th></th></tr>
+{{range .Rows}}<tr data-testid="snapshot-row" data-snapshot="{{.Name}}"><td>{{.Name}}</td><td>{{.Created}}</td><td>{{.Users}}</td><td>{{.Channels}}</td><td>{{.DMs}}</td><td>{{.Messages}}</td><td>{{.Reactions}}</td>
+<td><button type="button" class="danger" data-testid="snapshot-restore" hx-post="/ui/inspector/snapshots/{{.Name}}/restore" hx-target="#snapshots-panel" hx-confirm="Restore workspace data to this snapshot? Current users, channels and messages are replaced; no events are sent.">Restore</button></td></tr>{{end}}
+</table>{{else}}<p class="muted">No snapshots yet. Snapshots live in memory and are cleared by a reset.</p>{{end}}{{end}}{{end}}
+
+{{define "inspector-diff"}}{{if .Missing}}<p class="note">Snapshots are not enabled on this server.</p>{{else if .Error}}<p class="bad" data-testid="diff-error">{{.Error}}</p>{{else}}<p class="muted">{{.From}} &rarr; {{.To}}</p>
+<ul data-testid="diff-summary">{{range .Summary}}<li>{{.}}</li>{{end}}</ul>
+<details><summary>full diff JSON</summary><pre data-testid="diff-json">{{.JSON}}</pre></details>{{end}}{{end}}
 
 {{define "inspector-reset"}}{{if .Error}}<p class="bad" data-testid="reset-error">{{.Error}}</p>{{else}}<p class="ok" data-testid="reset-result">Reset ({{.Mode}}) done in {{.TookMS}} ms. Seed <code>{{.Seed}}</code>: {{.Users}} users, {{.Channels}} channels, {{.Messages}} messages.</p>{{end}}{{end}}
