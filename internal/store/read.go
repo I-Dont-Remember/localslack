@@ -65,9 +65,13 @@ func (s *Store) User(ctx context.Context, id string) (User, error) {
 	return userByID(ctx, s.reader, id)
 }
 
-// BotUser returns the workspace bot user.
+// BotUser returns the workspace's built-in bot: the first-inserted bot user that
+// does not belong to an app. App bot users are inserted after the workspace data
+// (registration, reset, restore), so insertion order also keeps the built-in bot
+// ahead of the orphan bot user a deleted app leaves behind.
 func (s *Store) BotUser(ctx context.Context) (User, error) {
-	return getOne(ctx, s.reader, "bot user", `SELECT `+userCols+` FROM users WHERE is_bot = 1 ORDER BY id LIMIT 1`, scanUser)
+	return getOne(ctx, s.reader, "bot user",
+		`SELECT `+userCols+` FROM users WHERE is_bot = 1 AND id NOT IN (SELECT bot_user_id FROM apps) ORDER BY rowid LIMIT 1`, scanUser)
 }
 
 // Users returns all users ordered by id.

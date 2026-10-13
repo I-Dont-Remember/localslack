@@ -27,6 +27,13 @@ whole call (and changes nothing) if any user is refused unless `force=true`; fai
 
 Reactions need membership for everyone (`not_in_channel`; `channel_not_found` on private).
 
+**Which scopes apply?** The token decides. A registered app's `xoxb-` token carries that app's manifest
+`oauth_config.scopes.bot`; a manifest that lists scopes but not `chat:write.public` gets `not_in_channel`
+when posting to a public channel it has not joined (correct, as in Slack). A manifest with no scopes gets
+the defaults (`chat:write`, `chat:write.public`), as does any unregistered `xoxb-` token (the built-in bot,
+never an app's bot user). The demo manifests list `chat:write.public`; test apps registered with only
+`chat:write` do not. If a post surprises you, check `x-oauth-scopes` on the response or `GET /_localslack/apps/{id}`.
+
 ## Setup
 
 ```bash

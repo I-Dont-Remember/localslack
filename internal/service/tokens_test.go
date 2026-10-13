@@ -1,11 +1,14 @@
 package service_test
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
+	"localslack/internal/appmanifest"
+	"localslack/internal/scenario"
 	"localslack/internal/service"
 	"localslack/internal/storetest"
 )
@@ -194,5 +197,120 @@ func TestDefaultBotReportsDefaultScopes(t *testing.T) {
 		if !found {
 			t.Errorf("default bot scopes %v lack %s", p.Scopes, want)
 		}
+	}
+}
+
+// The unregistered xoxb- token is the built-in bot, never an app's bot user, even
+// when that user sorts first (live app) or lingers after its app was deleted.
+func TestUnregisteredBotTokenIsTheBuiltInBotNotAnAppBot(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		deleteApp bool
+	}{
+		{"registered app", false},
+		{"deleted app leaves its bot user", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc, _ := newSvc(t)
+			ctx := t.Context()
+			app, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsed(t, "Scoped", "")}) // scopes: chat:write only
+			if err != nil {
+				t.Fatalf("RegisterApp: %v", err)
+			}
+			builtIn := app.BotUserID + "Z" // sorts after the app's bot user
+			_, err = svc.Restore(ctx, scenario.Fixture{
+				Users: []scenario.User{
+					{ID: "UHUMAN1", Name: "ann"},
+					{ID: builtIn, Name: "builtin", IsBot: true, BotID: "BBUILTIN"},
+				},
+				Channels: []scenario.Channel{
+					{Name: "general", Members: []string{"UHUMAN1", builtIn}},
+					{Name: "open", Members: []string{"UHUMAN1"}},
+				},
+			})
+			if err != nil {
+				t.Fatalf("Restore: %v", err)
+			}
+			if tt.deleteApp {
+				if err := svc.DeleteApp(ctx, app.ID); err != nil {
+					t.Fatalf("DeleteApp: %v", err)
+				}
+			}
+
+			p, err := svc.Authenticate(ctx, "xoxb-whatever")
+
+			if err != nil || p.User.ID != builtIn || p.App != nil {
+				t.Errorf("xoxb-whatever = user %q app %v err %v, want the built-in bot %q", p.User.ID, p.App, err, builtIn)
+			}
+		})
+	}
+}
+
+func parsedWithScopes(t *testing.T, name string, scopes []string) appmanifest.Parsed {
+	t.Helper()
+	m := map[string]any{
+		"display_information": map[string]any{"name": name},
+		"features":            map[string]any{"bot_user": map[string]any{"display_name": name}},
+	}
+	if scopes != nil {
+		m["oauth_config"] = map[string]any{"scopes": map[string]any{"bot": scopes}}
+	}
+	b, err := json.Marshal(m)
+	if err != nil {
+		t.Fatalf("marshal manifest: %v", err)
+	}
+	p, err := appmanifest.Parse(b)
+	if err != nil {
+		t.Fatalf("Parse: %v", err)
+	}
+	return p
+}
+
+// Scopes follow the token's app: a manifest without chat:write.public cannot post to an unjoined
+// public channel (not_in_channel is correct), the built-in bot can.
+func TestPostToUnjoinedPublicChannelFollowsTheTokensScopes(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		scopes  []string
+		wantErr error
+	}{
+		{"manifest without chat:write.public", []string{"chat:write"}, service.ErrNotInChannel},
+		{"manifest with chat:write.public", []string{"chat:write", "chat:write.public"}, nil},
+		{"manifest without scopes gets the defaults", nil, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			svc, _ := newSvc(t)
+			ctx := t.Context()
+			human, _ := usersOf(t, svc)
+			open, err := svc.CreateChannel(ctx, human, "open")
+			if err != nil {
+				t.Fatalf("CreateChannel: %v", err)
+			}
+			app, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsedWithScopes(t, "Scopes", tt.scopes)})
+			if err != nil {
+				t.Fatalf("RegisterApp: %v", err)
+			}
+			if err := svc.SetMembership(ctx, open.ID, app.BotUserID, false); err != nil { // registration joined it only to channels that existed
+				t.Fatalf("SetMembership: %v", err)
+			}
+			p, err := svc.Authenticate(ctx, app.BotToken)
+			if err != nil {
+				t.Fatalf("Authenticate: %v", err)
+			}
+
+			_, err = svc.PostMessage(ctx, p.User, service.PostOpts{Channel: open.ID, Content: service.Content{Text: "hi"}})
+
+			if !errors.Is(err, tt.wantErr) || (tt.wantErr == nil && err != nil) {
+				t.Errorf("post err = %v, want %v", err, tt.wantErr)
+			}
+		})
 	}
 }
