@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 
 	"localslack/internal/scenario"
 	"localslack/internal/store"
@@ -112,6 +113,9 @@ func (s *Service) replaceTx(ctx context.Context, tx *store.Tx, all bool, seedStr
 				return store.Counts{}, fmt.Errorf("bot user %s: %w", u.ID, ErrResetIDCollision)
 			}
 			return store.Counts{}, err
+		}
+		if slices.Contains(fx.AppBots, u.ID) { // the fixture states its membership exactly
+			continue
 		}
 		if err := JoinBotToPublicChannels(ctx, tx, u.ID); err != nil {
 			return store.Counts{}, err

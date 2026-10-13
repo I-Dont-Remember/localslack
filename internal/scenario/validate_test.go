@@ -219,7 +219,7 @@ func TestValidateReportsEveryProblemWithPointers(t *testing.T) {
 		{
 			name:   "generate cannot mix with data",
 			mutate: func(f *scenario.Fixture) { f.Generate = &scenario.Generate{Users: 2} },
-			want:   []scenario.Issue{is("/generate", "generate cannot be combined with users, channels, dms or messages")},
+			want:   []scenario.Issue{is("/generate", "generate cannot be combined with users, channels, dms, messages or app_bots")},
 		},
 		{
 			name:   "collisions with app bot users",
@@ -241,7 +241,32 @@ func TestValidateReportsEveryProblemWithPointers(t *testing.T) {
 				f.Channels[1].Members = []string{"U1", "UAPP"}
 				f.Channels[0].Members = []string{"U1", "UAPP"}
 			},
-			want: []scenario.Issue{is("/channels/0/members/1", `app bot "UAPP" is joined to public channels automatically; remove it`)},
+			want: []scenario.Issue{is("/channels/0/members/1", `app bot "UAPP" is joined to public channels automatically; remove it or list it in app_bots`)},
+		},
+		{
+			name: "a listed app bot states its public membership exactly",
+			res:  scenario.Reserved{UserIDs: []string{"UAPP"}},
+			mutate: func(f *scenario.Fixture) {
+				f.AppBots = []string{"UAPP"}
+				f.Channels[0].Members = []string{"U1", "UAPP"}
+			},
+		},
+		{
+			name:   "app_bots must be registered app bots",
+			res:    scenario.Reserved{UserIDs: []string{"UAPP"}},
+			mutate: func(f *scenario.Fixture) { f.AppBots = []string{"UAPP", "UGONE", "UAPP"} },
+			want: []scenario.Issue{
+				is("/app_bots/1", `unknown app bot "UGONE"`),
+				is("/app_bots/2", `duplicate app bot "UAPP"`),
+			},
+		},
+		{
+			name: "generate cannot mix with app_bots",
+			res:  scenario.Reserved{UserIDs: []string{"UAPP"}},
+			mutate: func(f *scenario.Fixture) {
+				*f = scenario.Fixture{Version: 1, Team: f.Team, Generate: &scenario.Generate{Users: 2}, AppBots: []string{"UAPP"}}
+			},
+			want: []scenario.Issue{is("/generate", "generate cannot be combined with users, channels, dms, messages or app_bots")},
 		},
 	}
 	for _, tt := range tests {

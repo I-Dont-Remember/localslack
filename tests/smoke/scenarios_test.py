@@ -113,6 +113,41 @@ def test_snapshot_diff_restore_after_sdk_activity(admin, client, calls_since):
     assert [s["name"] for s in admin.snapshots()] == ["before"]
 
 
+def test_snapshot_keeps_an_app_bot_out_of_a_public_channel(admin, client, unique):
+    admin.reset(seed="snap-bot")
+    token = "xo" + f"xb-snapbot-{unique}"
+    manifest = {
+        "display_information": {"name": f"Snapbot {unique}"},
+        "features": {"bot_user": {"display_name": f"snapbot-{unique}"}},
+    }
+    app = admin.register_app(manifest, bot_token=token, verify=False)
+    bot = app["bot_user_id"]
+    general = next(
+        c["id"] for c in client.conversations_list()["channels"] if c["name"] == "general"
+    )
+    assert bot in client.conversations_members(channel=general)["members"]
+    admin.create_snapshot("with-bot")
+
+    admin.remove_member(general, bot)
+    diff = admin.diff("with-bot")
+    assert diff["members"] == {
+        "added": [],
+        "removed": [{"channel": general, "user": bot}],
+        "changed": [],
+    }
+
+    admin.add_member(general, bot)
+    admin.create_snapshot("bot-in")
+    admin.remove_member(general, bot)
+    admin.create_snapshot("bot-out")
+    admin.restore_snapshot("with-bot")
+    assert bot in client.conversations_members(channel=general)["members"]
+    admin.restore_snapshot("bot-out")
+    assert bot not in client.conversations_members(channel=general)["members"]
+    assert admin.diff("bot-out")["members"] == {"added": [], "removed": [], "changed": []}
+    admin.delete_app(app["id"])
+
+
 def test_snapshot_is_reusable_as_a_scenario(admin):
     admin.reset(scenario=acme())
     admin.create_snapshot("acme-snap")

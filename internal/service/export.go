@@ -13,12 +13,12 @@ import (
 // can never tear it.
 //
 // App bot users are never defined in Users: apps persist across reset and
-// restore, which re-create their bot users. Their membership of public,
-// unarchived channels is omitted too, because restore re-joins them there; their
-// membership of private or archived channels and of DMs, and the messages and
-// reactions they authored, stay so a restore loses nothing. Such a fixture
-// references app bot ids without defining them, so only a workspace that still
-// has the apps accepts it.
+// restore, which re-create their bot users. Their membership of every
+// conversation (public channels too), and the messages and reactions they
+// authored, are exported, and AppBots lists them all so a restore keeps
+// membership exactly (a bot that was removed from a public channel stays out).
+// Such a fixture references app bot ids without defining them, so only a
+// workspace that still has the apps accepts it.
 //
 // Thread roots carry no ThreadTS (only replies do), reply counts are derived.
 func (s *Service) Export(ctx context.Context) (scenario.Fixture, error) {
@@ -45,10 +45,14 @@ func exportFrom(ctx context.Context, r *store.Reader) (scenario.Fixture, error) 
 		appBots[a.BotUserID] = true
 	}
 	fx := scenario.Fixture{Version: scenario.Version, Team: &scenario.Team{ID: team.ID, Name: team.Name, Domain: team.Domain}}
+	for id := range appBots {
+		fx.AppBots = append(fx.AppBots, id)
+	}
+	slices.Sort(fx.AppBots)
 	if err := exportUsers(ctx, r, appBots, &fx); err != nil {
 		return scenario.Fixture{}, err
 	}
-	if err := exportConversations(ctx, r, appBots, &fx); err != nil {
+	if err := exportConversations(ctx, r, &fx); err != nil {
 		return scenario.Fixture{}, err
 	}
 	if err := exportMessages(ctx, r, &fx); err != nil {
@@ -70,7 +74,7 @@ func exportUsers(ctx context.Context, r *store.Reader, appBots map[string]bool, 
 	return nil
 }
 
-func exportConversations(ctx context.Context, r *store.Reader, appBots map[string]bool, fx *scenario.Fixture) error {
+func exportConversations(ctx context.Context, r *store.Reader, fx *scenario.Fixture) error {
 	convs, err := r.Conversations(ctx)
 	if err != nil {
 		return err
@@ -86,9 +90,6 @@ func exportConversations(ctx context.Context, r *store.Reader, appBots map[strin
 	for _, c := range convs {
 		m := slices.Clone(members[c.ID])
 		if c.Kind == KindChannel {
-			if !c.IsPrivate && !c.IsArchived { // restore re-joins app bots here
-				m = slices.DeleteFunc(m, func(u string) bool { return appBots[u] })
-			}
 			fx.Channels = append(fx.Channels, scenario.Channel{
 				ID: c.ID, Name: c.Name, Creator: c.Creator, Created: c.Created,
 				IsArchived: c.IsArchived, IsPrivate: c.IsPrivate, Members: m,

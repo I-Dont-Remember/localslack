@@ -37,6 +37,7 @@ func Validate(fx Fixture, res Reserved) []Issue {
 		v.add("/version", "unsupported version %d; want %d", fx.Version, Version)
 	}
 	v.team(fx.Team)
+	v.appBots(fx.AppBots)
 	v.users(fx.Users)
 	v.channels(fx.Channels)
 	v.dms(fx.DMs)
@@ -59,6 +60,7 @@ type validator struct {
 	issues []Issue
 
 	resUsers, resBots, resNames map[string]bool
+	exact                       map[string]bool // app bots whose membership the fixture states (app_bots)
 
 	userSet map[string]userInfo // fixture users by id
 	convs   map[string]string   // conversation id -> pointer
@@ -75,7 +77,7 @@ func newValidator(res Reserved) *validator {
 	}
 	return &validator{
 		resUsers: set(res.UserIDs), resBots: set(res.BotIDs), resNames: set(res.UserNames),
-		userSet: map[string]userInfo{}, convs: map[string]string{},
+		exact: map[string]bool{}, userSet: map[string]userInfo{}, convs: map[string]string{},
 		roots: map[msgKey]bool{},
 	}
 }
@@ -202,6 +204,20 @@ func (v *validator) userBot(i int, u User, seen map[string]int) {
 }
 
 // email flags addresses outside example.com: fixtures are shared, so only synthetic ones.
+// appBots records which registered app bots the fixture describes exactly.
+func (v *validator) appBots(ids []string) {
+	for i, id := range ids {
+		switch {
+		case v.exact[id]:
+			v.add(ptr("app_bots", i), "duplicate app bot %q", id)
+		case !v.resUsers[id]:
+			v.add(ptr("app_bots", i), "unknown app bot %q", id)
+		default:
+			v.exact[id] = true
+		}
+	}
+}
+
 func (v *validator) email(at, s string) {
 	for _, m := range emailRE.FindAllStringSubmatch(s, -1) {
 		if !strings.EqualFold(m[1], "example.com") {
@@ -267,8 +283,8 @@ func (v *validator) members(at string, members []string, autoJoined bool) {
 		switch {
 		case seen[m]:
 			v.add(mp, "duplicate member %q", m)
-		case autoJoined && v.resUsers[m]:
-			v.add(mp, "app bot %q is joined to public channels automatically; remove it", m)
+		case autoJoined && v.resUsers[m] && !v.exact[m]:
+			v.add(mp, "app bot %q is joined to public channels automatically; remove it or list it in app_bots", m)
 		default:
 			v.user(mp, m)
 		}
@@ -455,8 +471,8 @@ func (v *validator) generate(fx Fixture) {
 	if fx.Generate == nil {
 		return
 	}
-	if len(fx.Users)+len(fx.Channels)+len(fx.DMs)+len(fx.Messages) > 0 {
-		v.add("/generate", "generate cannot be combined with users, channels, dms or messages")
+	if len(fx.Users)+len(fx.Channels)+len(fx.DMs)+len(fx.Messages)+len(fx.AppBots) > 0 {
+		v.add("/generate", "generate cannot be combined with users, channels, dms, messages or app_bots")
 	}
 	v.issues = append(v.issues, fx.Generate.Issues("/generate")...)
 }

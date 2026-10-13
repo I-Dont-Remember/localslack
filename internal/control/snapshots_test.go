@@ -9,11 +9,22 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
+	"localslack/internal/appmanifest"
 	"localslack/internal/control"
 	"localslack/internal/events"
 	"localslack/internal/scenario"
+	"localslack/internal/service"
 	"localslack/internal/storetest"
 )
+
+func parsedManifest(t *testing.T, name string) appmanifest.Parsed {
+	t.Helper()
+	p, err := appmanifest.Parse([]byte(`{"display_information":{"name":"` + name + `"},"features":{"bot_user":{"display_name":"` + name + `"}}}`))
+	if err != nil {
+		t.Fatalf("Parse manifest: %v", err)
+	}
+	return p
+}
 
 func newControl(t *testing.T, rec events.Dispatcher) (*control.Control, *storetest.App) {
 	t.Helper()
@@ -262,5 +273,40 @@ func TestSnapshotCreatedUsesInjectedClock(t *testing.T) {
 	info, err := c.CreateSnapshot(t.Context(), "timed")
 	if err != nil || !info.Created.Equal(at) {
 		t.Errorf("info = %+v, %v; want created %v", info, err, at)
+	}
+}
+
+// Taking the bot out of a public channel with the members helper shows up in the diff.
+func TestDiffShowsAppBotRemovedFromPublicChannel(t *testing.T) {
+	t.Parallel()
+
+	c, app := newControl(t, nil)
+	ctx := t.Context()
+	reg, err := app.Service.RegisterApp(ctx, service.RegisterInput{Manifest: parsedManifest(t, "Diffy")})
+	if err != nil {
+		t.Fatalf("RegisterApp: %v", err)
+	}
+	if _, err := c.CreateSnapshot(ctx, "with-bot"); err != nil {
+		t.Fatalf("CreateSnapshot: %v", err)
+	}
+	cur, _ := c.State(ctx)
+	general := ""
+	for _, ch := range cur.Channels {
+		if ch.Name == "general" {
+			general = ch.ID
+		}
+	}
+	if err := app.Service.SetMembership(ctx, general, reg.BotUserID, false); err != nil {
+		t.Fatalf("SetMembership: %v", err)
+	}
+
+	d, err := c.Diff(ctx, "with-bot", "current")
+	if err != nil {
+		t.Fatalf("Diff: %v", err)
+	}
+
+	want := []scenario.Member{{Channel: general, User: reg.BotUserID}}
+	if diff := cmp.Diff(want, d.Members.Removed); diff != "" {
+		t.Errorf("members.removed (-want +got):\n%s", diff)
 	}
 }

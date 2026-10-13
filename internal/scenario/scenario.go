@@ -16,6 +16,10 @@ type Fixture struct {
 	Channels []Channel `json:"channels,omitempty"`
 	DMs      []DM      `json:"dms,omitempty"`
 	Messages []Message `json:"messages,omitempty"`
+	// AppBots lists registered app bot users whose membership this fixture states
+	// exactly, public channels included. Other app bots are joined to every public,
+	// unarchived channel when the fixture is applied. Snapshots list every app bot.
+	AppBots  []string  `json:"app_bots,omitempty"`
 	Generate *Generate `json:"generate,omitempty"`
 }
 

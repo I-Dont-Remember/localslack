@@ -84,9 +84,12 @@ func TestExportCoversEverythingButAppBotUsers(t *testing.T) {
 		t.Errorf("channel G1 (-want +got):\n%s", diff)
 	}
 
+	if diff := cmp.Diff([]string{app.BotUserID}, got.AppBots); diff != "" {
+		t.Errorf("app_bots (-want +got):\n%s", diff)
+	}
 	for _, c := range got.Channels {
-		if !c.IsPrivate && !c.IsArchived && slices.Contains(c.Members, app.BotUserID) {
-			t.Errorf("public channel %s exports app bot %s; restore re-joins it", c.Name, app.BotUserID)
+		if !c.IsPrivate && !c.IsArchived && !slices.Contains(c.Members, app.BotUserID) {
+			t.Errorf("public channel %s omits app bot %s; membership is exported exactly", c.Name, app.BotUserID)
 		}
 	}
 
@@ -238,4 +241,102 @@ func indexFunc[T any](s []T, f func(T) bool) int {
 		}
 	}
 	return -1
+}
+
+// An app bot removed from a public channel must survive export and restore, and
+// an app registered after the snapshot (not listed in app_bots) is joined as usual.
+func TestSnapshotKeepsAppBotMembershipOfPublicChannels(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	ctx := t.Context()
+	app, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsed(t, "Snap", "", "message.channels")})
+	if err != nil {
+		t.Fatalf("RegisterApp: %v", err)
+	}
+	caller, _ := usersOf(t, svc)
+	pub, err := svc.CreateChannel(ctx, caller, "bot-optional")
+	if err != nil {
+		t.Fatalf("CreateChannel: %v", err)
+	}
+	general := generalID(t, svc, caller)
+	if err := svc.SetMembership(ctx, pub.ID, app.BotUserID, false); err != nil {
+		t.Fatalf("SetMembership: %v", err)
+	}
+
+	snap, err := svc.Export(ctx)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	if diff := cmp.Diff([]string{app.BotUserID}, snap.AppBots); diff != "" {
+		t.Errorf("app_bots (-want +got):\n%s", diff)
+	}
+	late, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsed(t, "Late", "", "message.channels")})
+	if err != nil {
+		t.Fatalf("RegisterApp late: %v", err)
+	}
+	if err := svc.SetMembership(ctx, pub.ID, app.BotUserID, true); err != nil { // drift after the snapshot
+		t.Fatalf("SetMembership: %v", err)
+	}
+
+	if _, err := svc.Restore(ctx, snap); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	got, err := svc.Export(ctx)
+	if err != nil {
+		t.Fatalf("Export after restore: %v", err)
+	}
+	members := map[string][]string{}
+	for _, c := range got.Channels {
+		members[c.ID] = c.Members
+	}
+	tests := []struct {
+		name, ch, bot string
+		want          bool
+	}{
+		{"snapshotted bot stays out of the public channel it was removed from", pub.ID, app.BotUserID, false},
+		{"snapshotted bot stays in #general", general, app.BotUserID, true},
+		{"app registered after the snapshot is joined everywhere public", pub.ID, late.BotUserID, true},
+		{"late app in #general", general, late.BotUserID, true},
+	}
+	for _, tt := range tests {
+		if has := slices.Contains(members[tt.ch], tt.bot); has != tt.want {
+			t.Errorf("%s: member = %v, want %v", tt.name, has, tt.want)
+		}
+	}
+	if diff := cmp.Diff(slices.Sorted(slices.Values([]string{app.BotUserID, late.BotUserID})), got.AppBots); diff != "" {
+		t.Errorf("app_bots after restore (-want +got):\n%s", diff)
+	}
+}
+
+// A hand-written fixture that does not list app bots keeps the old behavior: they join every public channel.
+func TestRestoreWithoutAppBotsJoinsThemToPublicChannels(t *testing.T) {
+	t.Parallel()
+
+	svc, _ := newSvc(t)
+	ctx := t.Context()
+	app, err := svc.RegisterApp(ctx, service.RegisterInput{Manifest: parsed(t, "Joiner", "", "message.channels")})
+	if err != nil {
+		t.Fatalf("RegisterApp: %v", err)
+	}
+	snap, err := svc.Export(ctx)
+	if err != nil {
+		t.Fatalf("Export: %v", err)
+	}
+	snap.AppBots = nil
+	for i := range snap.Channels {
+		snap.Channels[i].Members = slices.DeleteFunc(snap.Channels[i].Members, func(u string) bool { return u == app.BotUserID })
+	}
+
+	if _, err := svc.Restore(ctx, snap); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	got, _ := svc.Export(ctx)
+	for _, c := range got.Channels {
+		if want := !c.IsPrivate && !c.IsArchived; slices.Contains(c.Members, app.BotUserID) != want {
+			t.Errorf("channel %s: bot member = %v, want %v", c.Name, !want, want)
+		}
+	}
 }
