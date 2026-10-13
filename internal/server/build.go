@@ -91,7 +91,11 @@ func (c Components) apiOptions() []api.Option {
 
 // inspector hands the UI inspector its read/act seams (all non-nil after newComponents).
 func (c Components) inspector() web.Inspector {
-	return web.Inspector{Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control}
+	in := web.Inspector{Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control}
+	if c.Control != nil {
+		in.Snapshots = c.Control
+	}
+	return in
 }
 
 // Close drops socket connections and stops event delivery.

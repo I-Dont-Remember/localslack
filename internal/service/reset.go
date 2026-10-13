@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"localslack/internal/seed"
+	"localslack/internal/scenario"
 	"localslack/internal/store"
 )
 
@@ -19,6 +19,9 @@ type ResetOpts struct {
 	All bool
 	// Seed drives the repopulated data and runtime ids; "" picks a random one.
 	Seed string
+	// Scenario repopulates from this fixture (or its Generate recipe) instead of
+	// the demo seed. Problems are reported as *scenario.Error, nothing changes.
+	Scenario *scenario.Fixture
 }
 
 // ResetCounts is what a reset left behind.
@@ -31,9 +34,10 @@ type ResetResult struct {
 }
 
 // Reset replaces workspace data (users, channels, messages and anything later
-// migrations add) with freshly seeded demo data in one transaction. The team row
-// and the ts high-water mark survive, so ids and timestamps never run backwards.
-// Without All, apps and their bot users are kept. No events are emitted.
+// migrations add) with freshly seeded demo data, or o.Scenario, in one
+// transaction. The team row (id) and the ts high-water mark survive, so ids and
+// timestamps never run backwards. Without All, apps and their bot users are
+// kept (and rejoined to public channels). No events are emitted.
 func (s *Service) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	seedStr := o.Seed
 	if seedStr == "" {
@@ -45,7 +49,7 @@ func (s *Service) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	var counts store.Counts
 	err := s.st.Write(ctx, func(tx *store.Tx) error {
 		var err error
-		counts, err = s.resetTx(ctx, tx, o.All, seedStr)
+		counts, err = s.replaceTx(ctx, tx, o.All, seedStr, o.Scenario)
 		return err
 	})
 	if err != nil {
@@ -61,13 +65,28 @@ func (s *Service) Reset(ctx context.Context, o ResetOpts) (ResetResult, error) {
 	return ResetResult{Seed: seedStr, Counts: ResetCounts{Users: counts.Users, Channels: counts.Conversations, Messages: counts.Messages}}, nil
 }
 
-func (s *Service) resetTx(ctx context.Context, tx *store.Tx, all bool, seedStr string) (store.Counts, error) {
-	var team *store.Team
-	if t, err := tx.Team(ctx); err == nil {
-		team = &t
-	} else if !errors.Is(err, store.ErrNotFound) {
-		return store.Counts{}, err
+// Restore replaces the workspace with fx (a snapshot or scenario) the way a
+// partial reset does: apps and their bot users are kept and rejoined to public
+// channels, the team id and ts high-water mark survive, and no events are
+// emitted. Runtime id generation is left alone. Problems are *scenario.Error.
+func (s *Service) Restore(ctx context.Context, fx scenario.Fixture) (ResetCounts, error) {
+	seedStr, err := randomSeed() // only for ids a hand-written fixture leaves out
+	if err != nil {
+		return ResetCounts{}, err
 	}
+	var counts store.Counts
+	err = s.st.Write(ctx, func(tx *store.Tx) error {
+		var err error
+		counts, err = s.replaceTx(ctx, tx, false, seedStr, &fx)
+		return err
+	})
+	if err != nil {
+		return ResetCounts{}, err
+	}
+	return ResetCounts{Users: counts.Users, Channels: counts.Conversations, Messages: counts.Messages}, nil
+}
+
+func (s *Service) replaceTx(ctx context.Context, tx *store.Tx, all bool, seedStr string, sc *scenario.Fixture) (store.Counts, error) {
 	keep := []string{"teams"}
 	var botUsers []store.User
 	if !all {
@@ -77,10 +96,14 @@ func (s *Service) resetTx(ctx context.Context, tx *store.Tx, all bool, seedStr s
 			return store.Counts{}, err
 		}
 	}
+	fx, err := prepareFixture(sc, seedStr, s.now(), reservedOf(botUsers))
+	if err != nil {
+		return store.Counts{}, err
+	}
 	if err := tx.WipeWorkspace(ctx, keep...); err != nil {
 		return store.Counts{}, err
 	}
-	if err := seed.Populate(ctx, tx, seed.Options{Seed: seedStr, Now: s.now()}, team); err != nil {
+	if err := writeFixture(ctx, tx, fx); err != nil {
 		return store.Counts{}, err
 	}
 	for _, u := range botUsers {

@@ -279,11 +279,11 @@ func humanAndGeneral(t *testing.T, svc *service.Service) (service.User, string) 
 			break
 		}
 	}
-	convs, err := svc.Snapshot(t.Context())
+	fx, err := svc.Export(t.Context())
 	if err != nil {
-		t.Fatalf("Snapshot: %v", err)
+		t.Fatalf("Export: %v", err)
 	}
-	for _, c := range convs {
+	for _, c := range fx.Channels {
 		if c.Name == "general" {
 			return human, c.ID
 		}

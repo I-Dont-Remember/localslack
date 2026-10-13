@@ -67,7 +67,7 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `fault-injection` | implemented | — | llm | Deterministic per-method faults (429 + Retry-After, 5xx, Slack errors, delays) via /_localslack/faults. | — |
 | `form-and-json-bodies` | implemented | — | docs | Request params are read from the query string, urlencoded form bodies and JSON bodies (a token field in a JSON body is ignored, as Slack does); arrays become comma lists. | — |
 | `get-methods-accept-post` | implemented | — | docs | Any method accepts POST (and GET) regardless of the HTTP verb the docs list; the Python SDK always POSTs. | — |
-| `inspection-api` | planned | — | — | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
+| `inspection-api` | implemented | — | llm | LocalSlack-only /_localslack/ endpoints to snapshot, reset and assert on state and API calls, beyond what Slack's own APIs expose. | — |
 | `inspector-ui` | implemented | — | llm | Browser inspector at /ui/inspector: live API calls (filters, fault and not-implemented badges), event deliveries (attempts, redeliver), apps (delivery readiness, editable deliver_to, credentials), faults, delivery-config toggles and reset. Socket connections and snapshots/diff panels appear once those backends are wired. | — |
 | `membership-enforcement` | implemented | — | llm | Strict, scope-gated membership (service/access.go): private channels and DMs are channel_not_found for non-members; a bot not in a public channel gets not_in_channel on history/replies and on post unless its app has chat:write.public (default scopes do); a user token not in a public channel can read but not post; reactions need membership; archived is is_archived on post/update/react/ephemeral. The web UI actor auto-joins a public channel when posting or reacting; registered apps auto-join public channels at registration and after reset. | — |
 | `message-ts` | implemented | — | llm | Message ts values are unique and strictly increasing, in Slack's seconds.micros format, across restarts. | — |
@@ -77,11 +77,11 @@ What LocalSlack supports, how well each piece is verified against real Slack, an
 | `private-channels` | implemented | — | llm | conversations.create is_private=true makes a private channel (is_private, is_group true); types=private_channel lists only the caller's; the web UI shows a lock icon. | — |
 | `rate-limiting` | planned | M5 | — | Per-method rate-limit tiers returning HTTP 429 with Retry-After (opt-in via env var). | — |
 | `response-headers` | implemented | — | llm | Slack response headers: x-slack-req-id, x-oauth-scopes (caller grants), x-accepted-oauth-scopes (method scopes) and the Content-Type charset; retry-after only on fault-injected 429s. | — |
-| `scenario-seeding` | planned | — | — | Reproducible workspace scenarios (e.g. 50 channels, 400 users, busy threads) from a flag, config or the inspection API, so tests need no setup boilerplate. | — |
+| `scenario-seeding` | implemented | — | llm | Reproducible workspace scenarios: JSON/TOML/YAML fixtures with exact ids or a seeded generator (400 users x 50 channels in well under 2s), from `start --scenario`, `localslack reset --scenario` or POST /_localslack/reset. | — |
 | `slack-style-ids` | implemented | — | llm | Teams, users, channels, DMs and group DMs get Slack-shaped IDs (T/U/C/D/G + 10 chars). | — |
 | `socket-mode` | implemented | — | llm | Socket Mode: apps.connections.open (xapp- token, one-time ticket URL), WebSocket hello/events_api envelopes/ack/disconnect, round-robin across an app's connections, retries through the shared delivery engine, and /_localslack/socket/{connections,disconnect} controls. | `socket-url-local`, `socket-events-only` |
 | `state-reset` | implemented | — | llm | POST /_localslack/reset (and `localslack reset`) reseeds workspace data in one transaction, keeping apps, the team id and ts monotonicity; ?all=true also removes apps. | — |
-| `state-snapshot` | planned | — | — | Snapshot, restore and diff workspace state; snapshot format doubles as scenario fixture. | — |
+| `state-snapshot` | implemented | — | llm | In-memory named snapshots, restore (no events) and field-level diff of workspace state; the snapshot format doubles as a scenario fixture (GET /_localslack/state). | — |
 
 ## Known deviations from real Slack
 

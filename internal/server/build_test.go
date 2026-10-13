@@ -98,8 +98,8 @@ func TestBuildWiresComponents(t *testing.T) {
 	}
 
 	general := ""
-	convs, _ := app.Service.Snapshot(t.Context())
-	for _, cv := range convs {
+	fx, _ := app.Service.Export(t.Context())
+	for _, cv := range fx.Channels {
 		if cv.Name == "general" {
 			general = cv.ID
 		}

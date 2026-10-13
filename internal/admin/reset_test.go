@@ -111,8 +111,6 @@ func TestResetRejectsBadRequests(t *testing.T) {
 		{"unknown field", "", `{"keep":["apps"]}`, http.StatusBadRequest, "invalid_reset"},
 		{"bad all", "all=maybe", "", http.StatusBadRequest, "invalid_query"},
 		{"scenario and generate", "", `{"scenario":"x.json","generate":{"users":3}}`, http.StatusBadRequest, "invalid_reset"},
-		{"scenario not yet", "", `{"scenario":"x.json"}`, http.StatusUnprocessableEntity, "not_supported_yet"},
-		{"generate not yet", "", `{"generate":{"users":3}}`, http.StatusUnprocessableEntity, "not_supported_yet"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
