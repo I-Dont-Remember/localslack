@@ -21,7 +21,8 @@ type Routed struct {
 
 // Route maps a service event to the inner events each app should receive:
 // subscription match plus the app's bot being a member of the channel
-// (Scope.Targets), except app_mention, which needs only the mention. A bot's own
+// (Scope.Targets), except app_mention in a public channel, which needs only the
+// mention (private channels, DMs and group DMs still need membership). A bot's own
 // posts are delivered. team is the workspace id; now stamps events that carry no ts.
 func Route(ev service.Event, apps []service.App, team string, now time.Time) []Routed {
 	var out []Routed
@@ -80,7 +81,8 @@ func postedCandidates(e service.MessagePosted, app service.App, team string) []c
 			"ts": e.Msg.TS, "event_ts": e.Msg.TS, "team": team,
 		}
 		addOptional(mention, e.Msg)
-		out = append(out, candidate{typ: "app_mention", sub: "app_mention", event: mention})
+		restricted := e.Channel.IsPrivate || e.Channel.Kind != service.KindChannel
+		out = append(out, candidate{typ: "app_mention", sub: "app_mention", event: mention, needsMember: restricted, targets: e.Targets})
 	}
 	return out
 }

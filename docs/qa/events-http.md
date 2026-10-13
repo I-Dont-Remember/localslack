@@ -86,7 +86,7 @@ Mention the bot: the delivery fails with `connection_failed`. Fix it with the po
 
 ## Feedback prompts
 - Did the delivery trace answer "why did my app not get this event?" without reading server logs? What was missing from an attempt record?
-- Are the defaults right: events to loopback only, bot auto-joined to every public channel at registration, permissive url_verification?
+- Are the defaults right: events to loopback only, bot auto-joined to every public channel that exists at registration (later channels need `conversations.join`/`invite`), permissive url_verification?
 - Is the delivery-config shape (`signature`, `stale_seconds`, `timeout_ms`, `retry_delays_ms`, `paused`) enough, or would you want per-event-type controls?
 - Which Slack event type would you reach for next that we do not emit (see the `event-subset` deviation)?
 - Was `localslack apps env` enough to point your own app at LocalSlack, or do you need more variables?

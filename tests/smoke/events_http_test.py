@@ -180,3 +180,17 @@ def test_injected_event_with_stale_signature_is_rejected(admin, bolt):
     failed = admin.wait_deliveries(1, app_id=app_id, state="failed")
     assert failed[0]["injected"] is True
     assert failed[0]["attempts"][0]["status"] == 401
+
+
+def test_private_channel_mention_needs_membership(admin, bolt, human, unique):
+    bot_id = bolt.record["bot_user_id"]
+    app_id = bolt.record["id"]
+    priv = human.client.conversations_create(name=f"men-{unique}", is_private=True)["channel"]["id"]
+
+    human.client.chat_postMessage(channel=priv, text=f"<@{bot_id}> before invite")
+    human.client.conversations_invite(channel=priv, users=bot_id)
+    human.client.chat_postMessage(channel=priv, text=f"<@{bot_id}> after invite")
+
+    # Deliveries are ordered per app: had the first mention been delivered it would come first.
+    mentions = admin.wait_deliveries(1, app_id=app_id, event_type="app_mention")
+    assert [d["payload"]["event"]["text"] for d in mentions] == [f"<@{bot_id}> after invite"]

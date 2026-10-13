@@ -194,7 +194,7 @@ Write short answers under each item (or "fine"). Items are copied from each page
 
 - [ ] Did the delivery trace answer "why did my app not get this event?" without server logs? What was missing from an attempt record?
   - Answer:
-- [ ] Are the defaults right: events to loopback only, bot auto-joined to every public channel at registration, permissive url_verification?
+- [ ] Are the defaults right: events to loopback only, bot auto-joined to every public channel that exists at registration (later channels need `conversations.join`/`invite`), permissive url_verification?
   - Answer:
 - [ ] Is the delivery-config shape (`signature`, `stale_seconds`, `timeout_ms`, `retry_delays_ms`, `paused`) enough, or per-event-type controls?
   - Answer:

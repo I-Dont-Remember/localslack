@@ -224,7 +224,7 @@ deviations = ["multipart-ignored"]
 
 [behaviors.membership-enforcement]
 status = "implemented"
-summary = "Strict, scope-gated membership (service/access.go): private channels and DMs are channel_not_found for non-members; a bot not in a public channel gets not_in_channel on history/replies and on post unless its app has chat:write.public (default scopes do); a user token not in a public channel can read but not post; reactions need membership; archived is is_archived on post/update/react/ephemeral. The web UI actor auto-joins a public channel when posting or reacting; registered apps auto-join public channels at registration and after reset."
+summary = "Strict, scope-gated membership (service/access.go): private channels and DMs are channel_not_found for non-members; a bot not in a public channel gets not_in_channel on history/replies and on post unless its app has chat:write.public (default scopes do); a user token not in a public channel can read but not post; reactions need membership; archived is is_archived on post/update/react/ephemeral. The web UI actor auto-joins a public channel when posting or reacting; registered apps join the public channels that exist at registration and after reset (not channels created later: use conversations.join/invite); app_mention in a private channel or DM is delivered only if the bot is a member."
 evidence = "llm"
 
 [behaviors.private-channels]

@@ -112,6 +112,34 @@ func TestRouteMapping(t *testing.T) {
 			},
 		},
 		{
+			name: "mention in a private channel needs membership",
+			ev:   service.MessagePosted{Msg: mention, Scope: scope(privateCh, "UBOTC")},
+			want: []routed{{"ACCC", "message", chanMsg(mention, "group")}},
+		},
+		{
+			name: "member mentioned in a private channel gets app_mention",
+			ev:   service.MessagePosted{Msg: mention, Scope: scope(privateCh, "UBOTA", "UBOTC")},
+			want: []routed{
+				{"AAAA", "app_mention", mentionEv(mention)},
+				{"ACCC", "message", chanMsg(mention, "group")},
+			},
+		},
+		{
+			name: "mention in an im the bot is not in",
+			ev:   service.MessagePosted{Msg: mention, Scope: scope(im, "UBOTB")},
+			want: []routed{{"ABBB", "message", chanMsg(mention, "im")}},
+		},
+		{
+			name: "mention in an mpim the bot is not in",
+			ev:   service.MessagePosted{Msg: mention, Scope: scope(mpim, "UBOTC")},
+			want: []routed{{"ACCC", "message", chanMsg(mention, "mpim")}},
+		},
+		{
+			name: "member mentioned in an im gets app_mention",
+			ev:   service.MessagePosted{Msg: mention, Scope: scope(im, "UBOTA")},
+			want: []routed{{"AAAA", "app_mention", mentionEv(mention)}},
+		},
+		{
 			name: "bot own post is delivered but never mentions itself",
 			ev:   service.MessagePosted{Msg: botPost, Scope: scope(publicGen(), "UBOTA")},
 			want: []routed{{"AAAA", "message", chanMsg(botPost, "channel")}},
