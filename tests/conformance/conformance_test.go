@@ -46,7 +46,7 @@ func newRequest(ctx context.Context, baseURL string, r capabilities.FixtureReque
 		req.Header.Set("Content-Type", constants.ContentTypeForm)
 	}
 	if r.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+r.Token)
+		req.Header.Set("Authorization", "Bearer "+substitute(r.Token, caps))
 	}
 	return req, nil
 }
@@ -62,6 +62,14 @@ func substitute(s string, caps map[string]string) string {
 func capturePath(body map[string]any, path string) (string, bool) {
 	var cur any = body
 	for _, part := range strings.Split(path, ".") {
+		if list, isList := cur.([]any); isList { // numeric segment indexes into a list
+			i, err := strconv.Atoi(part)
+			if err != nil || i < 0 || i >= len(list) {
+				return "", false
+			}
+			cur = list[i]
+			continue
+		}
 		m, ok := cur.(map[string]any)
 		if !ok {
 			return "", false

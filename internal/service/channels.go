@@ -33,8 +33,14 @@ func validateChannelName(name string) error {
 	return nil
 }
 
-// CreateChannel makes a public channel with creator as its first member.
-func (s *Service) CreateChannel(ctx context.Context, creator User, name string) (Conversation, error) {
+// CreateOpt tweaks CreateChannel.
+type CreateOpt func(*store.Conversation)
+
+// CreatePrivate makes the channel private: only members see it.
+func CreatePrivate() CreateOpt { return func(c *store.Conversation) { c.IsPrivate = true } }
+
+// CreateChannel makes a channel (public unless CreatePrivate) with creator as its first member.
+func (s *Service) CreateChannel(ctx context.Context, creator User, name string, opts ...CreateOpt) (Conversation, error) {
 	if err := validateChannelName(name); err != nil {
 		return Conversation{}, err
 	}
@@ -45,6 +51,9 @@ func (s *Service) CreateChannel(ctx context.Context, creator User, name string) 
 	c := store.Conversation{
 		ID: s.ids.Channel(), TeamID: team.ID, Name: name, Kind: KindChannel,
 		Creator: creator.ID, Created: s.now().Unix(),
+	}
+	for _, o := range opts {
+		o(&c)
 	}
 	err = s.st.Write(ctx, func(tx *store.Tx) error {
 		if err := tx.InsertConversation(ctx, c); err != nil {
@@ -72,7 +81,7 @@ type ListOpts struct {
 
 // ListConversations lists channels plus the caller's own DMs, paginated by id.
 func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts) (Page[Conversation], error) {
-	kinds, err := kindsFor(o.Types)
+	kinds, privacy, err := kindsFor(o.Types)
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
@@ -80,12 +89,9 @@ func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts
 	if err != nil {
 		return Page[Conversation]{}, err
 	}
-	if len(kinds) == 0 { // e.g. only private_channel, which LocalSlack does not have
-		return Page[Conversation]{}, nil
-	}
 	limit := clampLimit(o.Limit)
 	items, err := s.st.ConversationsPage(ctx, store.ConvQuery{
-		Kinds: kinds, ExcludeArchived: o.ExcludeArchived, MemberID: caller.ID, AfterID: after, Limit: limit + 1,
+		Kinds: kinds, Privacy: privacy, ExcludeArchived: o.ExcludeArchived, MemberID: caller.ID, AfterID: after, Limit: limit + 1,
 	})
 	if err != nil {
 		return Page[Conversation]{}, err
@@ -98,25 +104,36 @@ func (s *Service) ListConversations(ctx context.Context, caller User, o ListOpts
 	return Page[Conversation]{Items: enriched, NextCursor: page.NextCursor}, nil
 }
 
-func kindsFor(types []string) ([]string, error) {
+// kindsFor maps Slack conversation types to store kinds plus a channel privacy
+// filter ("" when both public and private channels are wanted).
+func kindsFor(types []string) (kinds []string, privacy string, err error) {
 	if len(types) == 0 {
 		types = []string{"public_channel"}
 	}
-	var kinds []string
+	var pub, priv bool
 	for _, t := range types {
 		switch t {
 		case "public_channel":
-			kinds = append(kinds, KindChannel)
+			pub = true
+		case "private_channel":
+			priv = true
 		case "im":
 			kinds = append(kinds, KindIM)
 		case "mpim":
 			kinds = append(kinds, KindMPIM)
-		case "private_channel":
 		default:
-			return nil, ErrInvalidTypes
+			return nil, "", ErrInvalidTypes
 		}
 	}
-	return kinds, nil
+	switch {
+	case pub && priv:
+		kinds = append(kinds, KindChannel)
+	case pub:
+		kinds, privacy = append(kinds, KindChannel), "public"
+	case priv:
+		kinds, privacy = append(kinds, KindChannel), "private"
+	}
+	return kinds, privacy, nil
 }
 
 // OpenDM opens (or returns the existing) DM between caller and userIDs:
@@ -187,11 +204,14 @@ func notFoundAs(err, domain error) error {
 }
 
 // ArchiveChannel archives a public channel (never #general).
-func (s *Service) ArchiveChannel(ctx context.Context, _ User, id string) error {
+func (s *Service) ArchiveChannel(ctx context.Context, caller User, id string) error {
 	return s.st.Write(ctx, func(tx *store.Tx) error {
 		c, err := tx.Conversation(ctx, id)
 		if err != nil || c.Kind != KindChannel {
 			return notFoundOr(err, ErrChannelNotFound)
+		}
+		if _, err := s.canSee(ctx, caller, c); err != nil {
+			return err
 		}
 		switch {
 		case c.Name == "general":

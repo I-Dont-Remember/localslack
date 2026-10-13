@@ -21,8 +21,11 @@ func (s *Service) AddReaction(ctx context.Context, actor User, channelID, ts, na
 		if err != nil {
 			return notFoundAs(err, ErrChannelNotFound)
 		}
-		if err := s.checkAccess(ctx, actor, conv); err != nil {
+		if err := s.canReact(ctx, actor, conv); err != nil {
 			return err
+		}
+		if conv.IsArchived {
+			return ErrIsArchived
 		}
 		m, err := tx.Message(ctx, channelID, ts)
 		if err != nil {

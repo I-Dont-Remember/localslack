@@ -32,13 +32,12 @@ deviations = ["partial-user-fields"]
 status = "implemented"
 tier = 2
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
-deviations = ["no-private-channels", "partial-conversation-fields", "limit-clamping"]
+deviations = ["partial-conversation-fields", "limit-clamping"]
 
 [methods."conversations.create"]
 status = "implemented"
 tier = 2
 scopes = ["channels:manage", "groups:write", "im:write", "mpim:write"]
-deviations = ["no-private-channels"]
 
 [methods."conversations.open"]
 status = "implemented"
@@ -51,13 +50,13 @@ fixtures = "waived: needs seeded user ids; exercised by tests/smoke/m1_api_test.
 status = "implemented"
 tier = 3
 scopes = ["channels:history", "groups:history", "im:history", "mpim:history"]
-deviations = ["no-membership-check", "partial-message-fields", "limit-clamping", "cursor-format"]
+deviations = ["partial-message-fields", "limit-clamping", "cursor-format"]
 
 [methods."conversations.replies"]
 status = "implemented"
 tier = 3
 scopes = ["channels:history", "groups:history", "im:history", "mpim:history"]
-deviations = ["no-membership-check", "partial-message-fields", "limit-clamping", "cursor-format"]
+deviations = ["partial-message-fields", "limit-clamping", "cursor-format"]
 
 [methods."conversations.archive"]
 status = "implemented"
@@ -69,7 +68,7 @@ deviations = ["collapsed-errors"]
 status = "partial"
 tier = 0 # special: roughly 1 message/second/channel
 scopes = ["chat:write", "chat:write.public"]
-deviations = ["name-targets-unresolved", "no-membership-check", "partial-message-fields"]
+deviations = ["name-targets-unresolved", "partial-message-fields"]
 
 # ---------------------------------------------------------------- planned methods
 # priority: bolt-core = a typical Bolt app hits these; common = frequent in scripts;
@@ -84,13 +83,13 @@ scopes = []
 status = "implemented"
 tier = 3
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
-deviations = ["no-membership-check", "partial-conversation-fields"]
+deviations = ["partial-conversation-fields"]
 
 [methods."conversations.members"]
 status = "implemented"
 tier = 4
 scopes = ["channels:read", "groups:read", "im:read", "mpim:read"]
-deviations = ["no-membership-check", "limit-clamping", "cursor-format"]
+deviations = ["limit-clamping", "cursor-format"]
 
 [methods."users.info"]
 status = "implemented"
@@ -102,13 +101,13 @@ deviations = ["partial-user-fields"]
 status = "implemented"
 tier = 3
 scopes = ["chat:write"]
-deviations = ["no-membership-check", "partial-message-fields"]
+deviations = ["partial-message-fields"]
 
 [methods."chat.delete"]
 status = "implemented"
 tier = 3
 scopes = ["chat:write"]
-deviations = ["no-membership-check", "tombstone-shape"]
+deviations = ["tombstone-shape"]
 
 [methods."chat.postEphemeral"]
 status = "implemented"
@@ -120,7 +119,7 @@ deviations = ["ephemeral-not-delivered"]
 status = "implemented"
 tier = 3
 scopes = ["reactions:write"]
-deviations = ["no-membership-check"]
+deviations = []
 
 [methods."conversations.join"]
 status = "planned"
@@ -218,14 +217,14 @@ summary = "multipart/form-data requests (file uploads)."
 deviations = ["multipart-ignored"]
 
 [behaviors.membership-enforcement]
-status = "planned"
-summary = "not_in_channel / channel_not_found for non-members reading or posting in channels and DMs."
-deviations = ["no-membership-check"]
+status = "implemented"
+summary = "Strict, scope-gated membership (service/access.go): private channels and DMs are channel_not_found for non-members; a bot not in a public channel gets not_in_channel on history/replies and on post unless its app has chat:write.public (default scopes do); a user token not in a public channel can read but not post; reactions need membership; archived is is_archived on post/update/react/ephemeral. The web UI actor auto-joins a public channel when posting or reacting; registered apps auto-join public channels at registration and after reset."
+evidence = "llm"
 
 [behaviors.private-channels]
-status = "planned"
-summary = "Private channels and groups."
-deviations = ["no-private-channels"]
+status = "implemented"
+summary = "conversations.create is_private=true makes a private channel (is_private, is_group true); types=private_channel lists only the caller's; the web UI shows a lock icon."
+evidence = "llm"
 
 [behaviors.block-kit]
 status = "implemented"
@@ -305,9 +304,6 @@ summary = "Snapshot, restore and diff workspace state; snapshot format doubles a
 severity = "medium"
 summary = "Any xoxb- token maps to the bot and xoxp-<userID> to that user; there is no token validation, revocation or scope checking."
 
-[deviations.no-membership-check]
-severity = "medium"
-summary = "Any caller can read or post in any channel or DM (Slack returns not_in_channel or channel_not_found); only im/mpim listings are filtered by membership."
 
 [deviations.name-targets-unresolved]
 severity = "medium"
@@ -317,9 +313,6 @@ summary = "The channel param must be an ID: \"#general\" and user IDs as DM targ
 severity = "medium"
 summary = "Messages omit bot_profile, team, app_id, client_msg_id, subtype and reply_users."
 
-[deviations.no-private-channels]
-severity = "medium"
-summary = "Only public channels exist; types=private_channel returns nothing and is_private is never true for channels."
 
 [deviations.multipart-ignored]
 severity = "medium"

@@ -900,7 +900,10 @@ func TestConversationIsPrivate(t *testing.T) {
 		t.Fatalf("Team: %v", err)
 	}
 	err = st.Write(t.Context(), func(tx *store.Tx) error {
-		return tx.InsertConversation(t.Context(), store.Conversation{ID: "CPRIV", TeamID: team.ID, Name: "secret", Kind: store.KindChannel, IsPrivate: true})
+		if err := tx.InsertConversation(t.Context(), store.Conversation{ID: "CPRIV", TeamID: team.ID, Name: "secret", Kind: store.KindChannel, IsPrivate: true}); err != nil {
+			return err
+		}
+		return tx.AddMember(t.Context(), "CPRIV", caller.ID)
 	})
 	if err != nil {
 		t.Fatalf("insert: %v", err)

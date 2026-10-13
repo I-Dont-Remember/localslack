@@ -53,7 +53,7 @@ func (s *Service) PostEphemeral(ctx context.Context, sender User, o EphemeralOpt
 	if err != nil {
 		return "", notFoundAs(err, ErrChannelNotFound)
 	}
-	if err := s.checkAccess(ctx, sender, conv); err != nil {
+	if err := s.checkWrite(ctx, sender, conv); err != nil {
 		return "", err
 	}
 	members, err := s.st.MembersOf(ctx, []string{conv.ID})

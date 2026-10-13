@@ -1,0 +1,42 @@
+{
+  "state": "passing",
+  "note": "Slack: posting to an archived channel is is_archived",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxb-test",
+      "params": {
+        "name": "fx-post-arch"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.archive",
+      "token": "xoxb-test",
+      "params": {
+        "channel": "{{chan}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/chat.postMessage",
+    "token": "xoxb-test",
+    "params": {
+      "channel": "{{chan}}",
+      "text": "hi"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "is_archived"
+    }
+  }
+}

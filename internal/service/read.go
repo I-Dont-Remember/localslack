@@ -17,8 +17,8 @@ func (s *Service) User(ctx context.Context, id string) (User, error) {
 }
 
 // Members pages a conversation's member ids, ordered by id.
-func (s *Service) Members(ctx context.Context, _ User, channelID string, o PageOpts) (Page[string], error) {
-	if err := s.requireChannel(ctx, channelID); err != nil {
+func (s *Service) Members(ctx context.Context, u User, channelID string, o PageOpts) (Page[string], error) {
+	if err := s.requireVisible(ctx, u, channelID); err != nil {
 		return Page[string]{}, err
 	}
 	after, err := decodeCursor(cursorMembers, o.Cursor)

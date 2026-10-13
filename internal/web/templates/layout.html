@@ -53,7 +53,7 @@
   <ul id="switcher-results" data-testid="switcher-results"></ul>
   <h2>Channels</h2>
   <ul data-testid="channel-list">
-    {{range .Channels}}<li><a data-testid="channel-link" class="{{if .Active}}active{{end}}" href="/ui/c/{{.ID}}">#{{.Title}}</a></li>{{end}}
+    {{range .Channels}}<li><a data-testid="channel-link" class="{{if .Active}}active{{end}}" href="/ui/c/{{.ID}}">{{if .Private}}<span data-testid="private-lock" title="Private channel">&#128274;</span> {{else}}#{{end}}{{.Title}}</a></li>{{end}}
   </ul>
   <h2>Direct messages</h2>
   <ul data-testid="dm-list">

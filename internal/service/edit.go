@@ -25,7 +25,7 @@ func (s *Service) UpdateMessage(ctx context.Context, actor User, o UpdateOpts) (
 		if err != nil {
 			return notFoundAs(err, ErrChannelNotFound)
 		}
-		if err := s.checkAccess(ctx, actor, conv); err != nil {
+		if err := s.checkWrite(ctx, actor, conv); err != nil {
 			return err
 		}
 		cur, err := tx.Message(ctx, o.Channel, o.TS)

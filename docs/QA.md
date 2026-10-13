@@ -10,8 +10,8 @@ Hands-on walkthroughs for the test-loop features (agent-docs/plans/test-loop.md)
 | [Fault injection](qa/faults.md) | Rate limits, server errors, delays and nth-call faults | ready to QA |
 | [Blocks, attachments, metadata](qa/blocks.md) | Rich message content round-trips | ready to QA |
 | [Socket Mode](qa/socket-mode.md) | apps.connections.open, WebSocket envelopes, acks, disconnects (`make demo-socket`) | ready to QA |
-| [Access edge cases](qa/access.md) | Membership, private channels, archived channels | not yet implemented |
+| [Access edge cases](qa/access.md) | Membership, private channels, archived channels | ready to QA |
 | [Scenarios, snapshots, diff](qa/scenarios.md) | Fixtures, generated data, snapshot/restore, diff | not yet implemented |
-| [Inspector UI](qa/inspector.md) | /ui/inspector live panels | not yet implemented |
+| [Inspector UI](qa/inspector.md) | /ui/inspector live panels | ready to QA |
 
 Each stream fills in its own page; pages keep the sections Setup, Steps, Expected, Feedback prompts.

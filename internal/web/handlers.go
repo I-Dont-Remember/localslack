@@ -59,6 +59,11 @@ func (w *Web) post(rw http.ResponseWriter, r *http.Request, threadTS string, aga
 		return
 	}
 	if text := strings.TrimSpace(r.PostForm.Get("text")); text != "" {
+		// The UI actor joins a public channel by posting in it (the API has no join in this tier).
+		if err := w.svc.EnsureMember(ctx, actor, chi.URLParam(r, "id")); err != nil {
+			w.fail(rw, r, err)
+			return
+		}
 		if _, err := w.svc.PostMessage(ctx, actor, service.PostOpts{Channel: chi.URLParam(r, "id"), ThreadTS: threadTS, Content: service.Content{Text: text}}); err != nil {
 			w.fail(rw, r, err)
 			return
@@ -131,7 +136,7 @@ func (w *Web) switcher(rw http.ResponseWriter, r *http.Request) {
 			w.fail(rw, r, err)
 			return
 		}
-		chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel"}, true)
+		chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel", "private_channel"}, true)
 		if err != nil {
 			w.fail(rw, r, err)
 			return
