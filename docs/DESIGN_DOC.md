@@ -293,6 +293,15 @@ Track events and deliver to subscribed HTTP endpoints; Bolt app smoke test.
 
 Same as M2 delivery, through Socket Mode; Socket Mode smoke test.
 
+### What shipped differently (test-loop, 2026-10)
+
+- **`/_localslack/*` uses real HTTP statuses** (2xx resource bodies, errors `{"error":{"code","message"}}`), not Slack-shaped `200 + ok:false`; only `/api/*` mimics Slack. Contract: `docs/TESTING_API.md`.
+- **Multiple apps** per workspace, each with its own bot user, `bot_id`, tokens, signing secret and subscriptions (registered from a manifest via CLI, `--app-manifest` or `POST /_localslack/apps`), instead of one implicit app.
+- **Two reset modes:** partial (default; re-seeds workspace data, keeps apps and sockets) and `--all` (also removes apps). There is no `keep` list.
+- **`deliver_to`:** event URLs resolve per-app `deliver_to` > global `LOCALSLACK_DELIVER_TO` > manifest `request_url` only if loopback/private; otherwise the app is `blocked` until fixed (`localslack apps set-url`). Remote hosts need `--allow-remote-request-urls`.
+- **Fault injection landed before opt-in rate-limit tiers** (M5 below is still open for tiers); Socket Mode reuses the HTTP delivery engine as a transport.
+- The inspector UI, scenarios/snapshots/diff and the `make demo` apps were not in the original milestones.
+
 ### Milestone 4: mock OAuth & scopes
 
 Build the mocked out version of the OAuth experience that apps go through, and support emulation of scope errors so they find out while testing against LocalSlack. Endpoints have the right scopes tied to them and block tokens without them.
