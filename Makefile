@@ -61,11 +61,11 @@ lint-changed:
 gen: docs
 
 hooks-test:
-	scripts/hooks_test.sh
+	@$(Q) hooks-test scripts/hooks_test.sh
 
 # Tests for scripts/trace_stats.py. Usage of the tool: make trace-stats SESSION=<id|path> [VS=<id|path>]
 trace-test:
-	uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/trace -q
+	@$(Q) trace-test uv run --project tests/smoke pytest -c tests/smoke/pyproject.toml tests/trace -q
 
 trace-stats:
 	@test -n "$(SESSION)" || { echo "usage: make trace-stats SESSION=<id|path> [VS=<id|path>]"; exit 2; }

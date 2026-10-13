@@ -71,6 +71,12 @@ check "precommit-test dedupes package dirs" 0 "go test -shuffle=on ./internal/a 
 out=$(PRECOMMIT_TEST_DRY=1 "$root/scripts/precommit-test.sh" go.mod 2>&1); code=$?
 check "precommit-test go.mod runs everything" 0 "./..." "$code" "$out"
 
+# --- agent-bench.sh dry run ---
+out=$(DRY=1 "$root/scripts/agent-bench.sh" before "$root/agent-docs/bench/b1-read-methods.md" 9d20c27 2>&1); code=$?
+check "agent-bench dry run" 0 "git worktree add -b bench/before" "$code" "$out"
+out=$(DRY=1 "$root/scripts/agent-bench.sh" after "$root/agent-docs/bench/b1-read-methods.md" 9d20c27 HEAD 2>&1); code=$?
+check "agent-bench dry run overlay" 0 "overlay: git checkout HEAD" "$code" "$out"
+
 # --- merge-stream.sh: generated-file conflicts regenerate; real conflicts abort ---
 repo="$work/repo"
 git init -q -b main "$repo"

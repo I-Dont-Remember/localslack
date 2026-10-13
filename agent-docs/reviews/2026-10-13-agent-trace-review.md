@@ -95,6 +95,19 @@ hiding in [make verify output]".
    pre-change and post-change refs, 2 runs each, scored with `trace_stats.py`. Costs ~30–40M tokens;
    run manually. Pass bar: median tokens −25% or better, refusals ~0, `make verify` green.
 
+Running the A/B replay (manual, ~7M cache-read tokens per run for the B1 task):
+
+```
+scripts/agent-bench.sh before-1 agent-docs/bench/b1-read-methods.md 9d20c27            # old tooling
+scripts/agent-bench.sh after-1  agent-docs/bench/b1-read-methods.md 9d20c27 agent-loop-tooling  # new tooling overlaid
+make trace-stats SESSION=tmp/bench/before-1.jsonl VS=tmp/bench/after-1.jsonl
+```
+
+Repeat each arm twice, then run `make verify` in each `tmp/bench/wt-*` worktree and record green/red
+and diff size next to the token numbers. `DRY=1` prints the plan without spending tokens. The "after"
+arm only includes the hooks once `.claude/settings.json` on the overlay ref has them wired
+(`scripts/claude-hooks/INSTALL.md`). Clean up with `git worktree remove` + `git branch -D bench/<label>`.
+
 Caveats: small n; model/harness versions confound comparisons (record them per run); different
 tasks have different scope, so never compare raw totals across tasks.
 
