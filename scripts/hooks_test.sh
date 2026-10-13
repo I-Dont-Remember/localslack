@@ -65,6 +65,36 @@ grep -q 'func F()' "$work/bad.go" || check "fmt hook formats go" 0 "" 1 "$(cat "
 hook post-edit-fmt.sh "$(edit_json "$work/notes.md")" >/dev/null; code=$?
 check "fmt hook ignores other files" 0 "" "$code" ""
 
+# --- precommit-test.sh: staged files -> unique package dirs ---
+out=$(PRECOMMIT_TEST_DRY=1 "$root/scripts/precommit-test.sh" internal/a/x.go internal/a/y_test.go internal/b/z.go 2>&1); code=$?
+check "precommit-test dedupes package dirs" 0 "go test -shuffle=on ./internal/a ./internal/b" "$code" "$out"
+out=$(PRECOMMIT_TEST_DRY=1 "$root/scripts/precommit-test.sh" go.mod 2>&1); code=$?
+check "precommit-test go.mod runs everything" 0 "./..." "$code" "$out"
+
+# --- merge-stream.sh: generated-file conflicts regenerate; real conflicts abort ---
+repo="$work/repo"
+git init -q -b main "$repo"
+(
+	cd "$repo"
+	git config user.email t@t && git config user.name t
+	printf 'docs/COMPATIBILITY.md -merge\n' >.gitattributes
+	mkdir docs && echo base >docs/COMPATIBILITY.md && echo base >code.txt
+	git add -A && git commit -qm base
+	git checkout -qb gen-side && echo gen-side >docs/COMPATIBILITY.md && echo gen >gen.txt && git add -A && git commit -qm gen-side
+	git checkout -qb code-side main && echo code-side >code.txt && git add -A && git commit -qm code-side
+	git checkout -qb code-side2 main && echo other >code.txt && git add -A && git commit -qm code-side2
+	git checkout -q main && echo main >docs/COMPATIBILITY.md && git add -A && git commit -qm main-doc
+)
+export GEN_CMD='echo regenerated >docs/COMPATIBILITY.md' VERIFY_CMD=true
+out=$(cd "$repo" && "$root/scripts/merge-stream.sh" gen-side 2>&1); code=$?
+check "merge-stream regenerates doc conflict" 0 "regenerated" "$code" "$out"
+[ "$(cat "$repo/docs/COMPATIBILITY.md")" = regenerated ] || check "merge-stream result content" 0 "" 1 "$(cat "$repo/docs/COMPATIBILITY.md")"
+(cd "$repo" && git merge -q --no-edit code-side >/dev/null)
+out=$(cd "$repo" && "$root/scripts/merge-stream.sh" code-side2 2>&1); code=$?
+check "merge-stream aborts on real conflict" 1 "code.txt" "$code" "$out"
+[ -z "$(cd "$repo" && git status --porcelain --untracked-files=no)" ] || check "merge-stream leaves clean tree" 0 "" 1 "dirty"
+unset GEN_CMD VERIFY_CMD
+
 if [ "$fails" -gt 0 ]; then
 	echo "$fails hooks/quiet test(s) failed" >&2
 	exit 1
