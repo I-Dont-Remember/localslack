@@ -1,0 +1,14 @@
+id: no-time-sleep-bare-in-tests
+language: go
+severity: error
+message: Bare time.Sleep in a test is a flake (it guesses how long async work takes). Poll a condition in a bounded loop, or block on a channel/WaitGroup. Intentional waits need an ast-grep-ignore comment with a reason.
+files:
+  - '**/*_test.go'
+rule:
+  pattern:
+    context: 'func _() { time.Sleep($$$) }'
+    selector: call_expression
+  not:
+    inside:
+      kind: for_statement
+      stopBy: end

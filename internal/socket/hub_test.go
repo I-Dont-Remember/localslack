@@ -445,6 +445,7 @@ func TestPingsKeepConnectionAlive(t *testing.T) {
 	c, _ := f.dial(t, "A1")
 	// A client that keeps reading answers pings automatically; the connection must survive several.
 	forward(t, "a", c, make(chan inboxMsg, 1))
+	// ast-grep-ignore: no-time-sleep-bare-in-tests (negative test: the connection must still be up after several pings)
 	time.Sleep(200 * time.Millisecond)
 	if n := len(f.hub.Connections()); n != 1 {
 		t.Errorf("connections = %d after pings, want 1", n)

@@ -42,13 +42,8 @@ def general(client) -> str:
     return next(c["id"] for c in client.conversations_list()["channels"] if c["name"] == "general")
 
 
-def register_or_skip(admin):
-    try:
-        return admin.register_app(MANIFEST, verify=False)
-    except AdminError as e:
-        if e.status == 404:
-            pytest.skip("apps API not available on this build")
-        raise
+def register_app(admin):
+    return admin.register_app(MANIFEST, verify=False)
 
 
 def test_reset_reply_shape(admin):
@@ -129,7 +124,7 @@ def test_reset_wakes_a_parked_call_poll(admin):
 
 
 def test_partial_reset_keeps_apps_and_all_removes_them(admin):
-    app = register_or_skip(admin)
+    app = register_app(admin)
     token = app["credentials"]["bot_token"]
     app_client = httpx.Client(base_url=admin.base_url, headers={"Authorization": f"Bearer {token}"})
 
@@ -171,12 +166,7 @@ def test_event_is_delivered_to_a_kept_app_after_reset(admin, client, unique):
 
 
 def test_reset_clears_faults(admin, client):
-    try:
-        admin.add_fault("auth.test", {"status": 500, "error": "boom"})
-    except AdminError as e:
-        if e.status == 404:
-            pytest.skip("faults API not available on this build")
-        raise
+    admin.add_fault("auth.test", {"status": 500, "error": "boom"})
 
     admin.reset()
 

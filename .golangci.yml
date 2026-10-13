@@ -19,7 +19,10 @@ linters:
     - thelper
     - paralleltest
     - depguard
+    - dupl
   settings:
+    dupl:
+      threshold: 80 # copied helpers across streams (long-poll parsing, writeJSON) were found only at review
     depguard:
       rules:
         api:
@@ -120,6 +123,9 @@ linters:
         - name: increment-decrement
         - name: range
   exclusions:
+    rules:
+      - path: _test\.go
+        linters: [dupl] # table-ish test setup repeats by design
     paths:
       - tmp
 
