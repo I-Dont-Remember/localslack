@@ -12,27 +12,13 @@ func (t *Tx) UpdateMessage(ctx context.Context, m Message) error {
 	if err != nil {
 		return err
 	}
-	res, err := t.tx.ExecContext(ctx,
+	return t.execOne(ctx, "update message", "update message "+m.TS,
 		`UPDATE messages SET text = ?, data = ? WHERE channel_id = ? AND ts = ?`, m.Text, data, m.ChannelID, m.TS)
-	if err != nil {
-		return fmt.Errorf("update message: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("update message %s: %w", m.TS, ErrNotFound)
-	}
-	return nil
 }
 
 // DeleteMessage removes a message row; ErrNotFound if it does not exist.
 func (t *Tx) DeleteMessage(ctx context.Context, channelID, ts string) error {
-	res, err := t.tx.ExecContext(ctx, `DELETE FROM messages WHERE channel_id = ? AND ts = ?`, channelID, ts)
-	if err != nil {
-		return fmt.Errorf("delete message: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("delete message %s: %w", ts, ErrNotFound)
-	}
-	return nil
+	return t.execOne(ctx, "delete message", "delete message "+ts, `DELETE FROM messages WHERE channel_id = ? AND ts = ?`, channelID, ts)
 }
 
 // RecountThread recomputes a root's reply_count and latest_reply from its replies.
