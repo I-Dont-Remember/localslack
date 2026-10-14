@@ -24,6 +24,7 @@ Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first uncheck
 | `make lint-changed` | golangci-lint on changes since `BASE` (default `main`; set to the parent branch when stacked) + ast-grep |
 | `make stress PKG=... RUN=TestY` | `-race -count=50` flake hunt |
 | `make gen` | regenerate generated files (`docs/COMPATIBILITY.md`); run it when `TestCompatibilityDocIsCurrent` fails |
+| `make debt` | report-only consolidation targets: near-duplicates, dead code, repeated patterns (`report-rules/`), size outliers, churn |
 | `make hooks-test` / `make trace-test` | tests for `scripts/` tooling (hooks, quiet.sh, merge-stream.sh, trace_stats.py) |
 | `make trace-stats SESSION=<id>` | token/efficiency stats of a Claude session (`VS=<id>` to compare); see `reviews/` |
 
@@ -79,6 +80,8 @@ Commits must be atomic — one logical change per commit, passing `make check &&
 git add <specific files>   # never git add -A blindly
 git commit -m "<concise imperative summary>"
 ```
+
+Before handback run `make debt BASE=<parent branch>`. If the branch adds a duplicate cluster or the third instance of a tracked pattern (`report-rules/`), launch the `simplifier` agent (`.claude/agents/simplifier.md`); it commits on a separate `simplify-<branch>` branch for the owner to take or drop.
 
 When done, open the branch for review with `difit`:
 
