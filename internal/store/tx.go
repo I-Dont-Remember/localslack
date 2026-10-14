@@ -27,6 +27,18 @@ func (t *Tx) exec(ctx context.Context, what, q string, args ...any) error {
 	return execErr(what, err)
 }
 
+// execOne runs a write that must touch a row; otherwise ErrNotFound wrapped with missing.
+func (t *Tx) execOne(ctx context.Context, what, missing, q string, args ...any) error {
+	res, err := t.tx.ExecContext(ctx, q, args...)
+	if err != nil {
+		return fmt.Errorf("%s: %w", what, err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("%s: %w", missing, ErrNotFound)
+	}
+	return nil
+}
+
 // execErr names the failed statement and maps unique violations to ErrDuplicate.
 func execErr(what string, err error) error {
 	if err == nil {
@@ -65,14 +77,8 @@ func (t *Tx) AddMember(ctx context.Context, conversationID, userID string) error
 
 // RemoveMember removes a user from a conversation; ErrNotFound if they were not a member.
 func (t *Tx) RemoveMember(ctx context.Context, conversationID, userID string) error {
-	res, err := t.tx.ExecContext(ctx, `DELETE FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID)
-	if err != nil {
-		return fmt.Errorf("remove member: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("remove member %s from %s: %w", userID, conversationID, ErrNotFound)
-	}
-	return nil
+	return t.execOne(ctx, "remove member", "remove member "+userID+" from "+conversationID,
+		`DELETE FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID)
 }
 
 // IsMember reports whether a user is in a conversation, seeing this txn's writes.
@@ -122,14 +128,7 @@ func (t *Tx) ConversationWithMembers(ctx context.Context, kind string, userIDs [
 
 // SetArchived flips a conversation's archived flag; ErrNotFound if it does not exist.
 func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
-	res, err := t.tx.ExecContext(ctx, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
-	if err != nil {
-		return fmt.Errorf("set archived: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("set archived %s: %w", id, ErrNotFound)
-	}
-	return nil
+	return t.execOne(ctx, "set archived", "set archived "+id, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
 }
 
 // BotMemberIDs returns the ids (sorted) of a conversation's members that are bot users.

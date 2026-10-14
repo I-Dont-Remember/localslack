@@ -75,31 +75,17 @@ func (t *Tx) UpdateApp(ctx context.Context, a App) error {
 	if manifest == "" {
 		manifest = "{}"
 	}
-	res, err := t.tx.ExecContext(ctx,
+	return t.execOne(ctx, "update app", "update app "+a.ID,
 		`UPDATE apps SET name = ?, manifest = ?, signing_secret = ?, bot_token = ?, app_token = ?,
 		 verification_token = ?, request_url = ?, bot_events = ?, scopes = ?, socket_mode = ?, verified = ?,
 		 bot_user_id = ?, bot_id = ?, deliver_to = ? WHERE id = ?`,
 		a.Name, manifest, a.SigningSecret, a.BotToken, a.AppToken, a.VerificationToken, a.RequestURL,
 		string(events), string(scopes), a.SocketMode, a.Verified, a.BotUserID, a.BotID, a.DeliverTo, a.ID)
-	if err != nil {
-		return fmt.Errorf("update app: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("update app %s: %w", a.ID, ErrNotFound)
-	}
-	return nil
 }
 
 // DeleteApp removes an app; ErrNotFound if it does not exist.
 func (t *Tx) DeleteApp(ctx context.Context, id string) error {
-	res, err := t.tx.ExecContext(ctx, `DELETE FROM apps WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("delete app: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("delete app %s: %w", id, ErrNotFound)
-	}
-	return nil
+	return t.execOne(ctx, "delete app", "delete app "+id, `DELETE FROM apps WHERE id = ?`, id)
 }
 
 // App returns an app by id, seeing this txn's writes.

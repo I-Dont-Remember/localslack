@@ -65,16 +65,9 @@ func (t *Tx) Message(ctx context.Context, channelID, ts string) (Message, error)
 
 // BumpThread records a new reply on a thread parent; ErrNotFound if the parent is missing.
 func (t *Tx) BumpThread(ctx context.Context, channelID, parentTS, replyTS string) error {
-	res, err := t.tx.ExecContext(ctx,
+	return t.execOne(ctx, "bump thread", "bump thread: parent "+parentTS,
 		`UPDATE messages SET reply_count = reply_count + 1, latest_reply = ? WHERE channel_id = ? AND ts = ?`,
 		replyTS, channelID, parentTS)
-	if err != nil {
-		return fmt.Errorf("bump thread: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("bump thread: parent %s: %w", parentTS, ErrNotFound)
-	}
-	return nil
 }
 
 // Message returns a message by key.
