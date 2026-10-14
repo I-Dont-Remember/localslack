@@ -1,0 +1,21 @@
+id: art-dupl-accept-needs-reason
+valid:
+  - |
+    //art-dupl:accept gates must stay independent: socket handshake vs HTTP middleware (expires=2027-01-01)
+    func f() {}
+  - |
+    // unrelated comment
+    func f() {}
+invalid:
+  - |
+    //art-dupl:accept
+    func f() {}
+  - |
+    //art-dupl:accept reviewed
+    func f() {}
+  - |
+    //art-dupl:accept gates must stay independent for fidelity reasons
+    func f() {}
+  - |
+    //art-dupl:accept too short (expires=2027-01-01)
+    func f() {}

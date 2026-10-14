@@ -31,6 +31,28 @@ echo "--- first hits"
 head -"$top" "$tmp/dupl.txt"
 
 echo
+echo "== art-dupl (semantic clones; //art-dupl:accept honored)"
+ad="$(cd "$here" && mise which art-dupl 2>/dev/null || command -v art-dupl)"
+if [ -x "$ad" ]; then
+	scan=""
+	for d in internal cmd; do [ -d "$d" ] && scan="$scan ./$d"; done
+	# shellcheck disable=SC2086
+	"$ad" --no-color -q --exclude-pattern '*_test.go' ${scan:-.} </dev/null 2>&1 | rg -v '^\s*(📖|[0-9]+ files|✅|$)' | head -$((top * 4))
+else
+	echo "(art-dupl not installed: mise install)"
+fi
+
+echo
+echo "== Accepted-clone markers (//art-dupl:accept <reason> (expires=YYYY-MM-DD))"
+today="$(date +%F)"
+rg -n --no-heading --glob '*.go' --glob '!.claude/**' --glob '!tmp/**' 'art-dupl:accept' . 2>/dev/null |
+	awk -v today="$today" -F: '{
+		sub(/^\.\//, "", $1); loc = $1 ":" $2; text = $0; n++
+		if (match(text, /expires=[0-9-]+/)) { d = substr(text, RSTART + 8, RLENGTH - 8); if (d < today) print "EXPIRED " loc " (" d ")" }
+		else print "NO-EXPIRY " loc
+	} END { print n + 0 " markers" }'
+
+echo
 echo "== Dead code (unreachable from main packages; test-only helpers show up here too)"
 {
 	# pinned in mise.toml; resolve the real binary from the repo (shims only work inside it)

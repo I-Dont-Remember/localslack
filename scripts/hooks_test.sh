@@ -116,6 +116,7 @@ printf 'id: demo-panic\nlanguage: go\nrule:\n  pattern: panic($A)\n' >"$mod/repo
 		printf '\t\tout = append(out, strings.ToLower(s))\n\t\tn += len(s)\n\t}\n'
 		printf '\tif n > 100 {\n\t\tout = out[:1]\n\t}\n\treturn out, n\n}\n'
 	done
+	echo '//art-dupl:accept kept deliberately for the test (expires=2020-01-01)'
 	echo 'func neverCalled() { panic("x") }'
 	echo 'func main() { copyA(nil); copyB(nil); copyC(nil) }'
 } >"$mod/main.go"
@@ -123,6 +124,8 @@ out=$(DEBT_ROOT="$mod" DEBT_BASE=HEAD "$root/scripts/debt.sh" 2>&1); code=$?
 check "debt exits 0" 0 "" "$code" "$out"
 check "debt reports duplicates" 0 "main.go" "$code" "$(sed -n '/== Near-duplicates/,/== Dead code/p' <<<"$out")"
 check "debt reports dead code" 0 "neverCalled" "$code" "$out"
+check "debt runs art-dupl" 0 "main.go" "$code" "$(sed -n '/== art-dupl/,/== Dead code/p' <<<"$out")"
+check "debt flags expired accept marker" 0 "EXPIRED main.go" "$code" "$out"
 check "debt reports tracked patterns" 0 "demo-panic" "$code" "$out"
 
 if [ "$fails" -gt 0 ]; then

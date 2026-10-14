@@ -1,0 +1,9 @@
+id: art-dupl-accept-needs-reason
+language: go
+severity: error
+message: "//art-dupl:accept must say why the clone is intentional (>=20 chars) and end with (expires=YYYY-MM-DD). A bare 'reviewed' hides real duplication."
+rule:
+  kind: comment
+  regex: 'art-dupl:accept'
+  not:
+    regex: 'art-dupl:accept\s+\S.{19,}\(expires=\d{4}-\d{2}-\d{2}\)\s*$'

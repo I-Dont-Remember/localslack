@@ -1,0 +1,34 @@
+id: art-dupl-accept-needs-reason
+snapshots:
+  ? |
+    //art-dupl:accept
+    func f() {}
+  : labels:
+    - source: //art-dupl:accept
+      style: primary
+      start: 0
+      end: 17
+  ? |
+    //art-dupl:accept gates must stay independent for fidelity reasons
+    func f() {}
+  : labels:
+    - source: //art-dupl:accept gates must stay independent for fidelity reasons
+      style: primary
+      start: 0
+      end: 66
+  ? |
+    //art-dupl:accept reviewed
+    func f() {}
+  : labels:
+    - source: //art-dupl:accept reviewed
+      style: primary
+      start: 0
+      end: 26
+  ? |
+    //art-dupl:accept too short (expires=2027-01-01)
+    func f() {}
+  : labels:
+    - source: //art-dupl:accept too short (expires=2027-01-01)
+      style: primary
+      start: 0
+      end: 48
