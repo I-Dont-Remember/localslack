@@ -14,6 +14,7 @@ import (
 type navItem struct {
 	ID, Title string
 	Active    bool
+	Private   bool
 }
 
 type msgView struct {
@@ -21,6 +22,10 @@ type msgView struct {
 	ReplyCount                      int
 	RepliesLabel                    string
 	InThread                        bool
+	// Root is the thread root's ts for messages shown in a thread pane.
+	Root      string
+	Reactions []reactionView
+	Picker    []emoji
 }
 
 type threadView struct {
@@ -50,12 +55,15 @@ func names(users []service.User) map[string]string {
 	return m
 }
 
-func msgViews(msgs []service.Message, who map[string]string, inThread bool) []msgView {
+// msgViews maps messages for display; root is the thread root's ts inside a thread pane, "" otherwise.
+func msgViews(msgs []service.Message, who map[string]string, root string) []msgView {
 	out := make([]msgView, 0, len(msgs))
+	picker := pickerEmoji()
 	for _, m := range msgs {
 		v := msgView{
 			ChannelID: m.ChannelID, TS: m.TS, User: who[m.UserID], Time: clock(m.TS), Text: m.Text,
-			ReplyCount: m.ReplyCount, InThread: inThread,
+			ReplyCount: m.ReplyCount, InThread: root != "", Root: root,
+			Reactions: reactionViews(m.Reactions), Picker: picker,
 		}
 		if v.User == "" {
 			v.User = m.UserID
@@ -107,7 +115,7 @@ func (w *Web) page(ctx context.Context, actor service.User, path, channelID stri
 		return nil, err
 	}
 	who := names(users)
-	chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel"}, true)
+	chans, err := w.svc.ListAll(ctx, actor, []string{"public_channel", "private_channel"}, true)
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +138,7 @@ func (w *Web) page(ctx context.Context, actor service.User, path, channelID stri
 func nav(cs []service.Conversation, active string, label func(service.Conversation) string) []navItem {
 	out := make([]navItem, 0, len(cs))
 	for _, c := range cs {
-		out = append(out, navItem{ID: c.ID, Title: label(c), Active: c.ID == active})
+		out = append(out, navItem{ID: c.ID, Title: label(c), Active: c.ID == active, Private: c.IsPrivate && c.Kind == service.KindChannel})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Title < out[j].Title })
 	return out
@@ -145,7 +153,7 @@ func (w *Web) channelMessagesView(ctx context.Context, actor service.User, chann
 	for i, j := 0, len(msgs)-1; i < j; i, j = i+1, j-1 { // oldest first
 		msgs[i], msgs[j] = msgs[j], msgs[i]
 	}
-	return msgViews(msgs, who, false), nil
+	return msgViews(msgs, who, ""), nil
 }
 
 func (w *Web) threadMessagesView(ctx context.Context, actor service.User, channelID, ts string, who map[string]string) (*threadView, error) {
@@ -157,7 +165,7 @@ func (w *Web) threadMessagesView(ctx context.Context, actor service.User, channe
 	if len(page.Items) > 0 {
 		root = page.Items[0].TS
 	}
-	return &threadView{RootTS: root, Messages: msgViews(page.Items, who, true)}, nil
+	return &threadView{RootTS: root, Messages: msgViews(page.Items, who, root)}, nil
 }
 
 func (w *Web) whoIs(ctx context.Context) (map[string]string, error) {

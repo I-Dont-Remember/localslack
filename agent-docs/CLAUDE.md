@@ -4,8 +4,12 @@
 
 - `coding_standards.md` provides guidance on how agents should write high-quality effective Go code that matches our preferred styles.
 - `conventions.md` covers project-level conventions (file paths, XDG, etc.).
+- `workflow.md` is the required process for repo changes; `endpoint_guide.md` the steps for a new Slack API endpoint (package map: `internal/CLAUDE.md`).
+- `orchestration.md` is required reading before fanning out parallel subagents (concurrency cap, briefs, merging).
 - `capabilities.md` explains the test-enforced capability manifest (what is implemented/planned/in progress, how well verified, known deviations); read it before starting or claiming feature work.
 - `ROADMAP.md` ranks what to work on next (impact tiers, S/M/L sizing); read it to pick work.
+- `consolidation-decisions.md` lists duplication candidates already reviewed and declined (with reasons); read it before a DRY pass.
+- `reviews/` holds agent-trace efficiency reviews (baseline metrics, history table; re-measure with `make trace-stats`).
 - `plans/` holds per-milestone checklists + handoff protocol; read `plans/README.md` when resuming work.
 
 See `STATUS.md` for current milestone and progress.

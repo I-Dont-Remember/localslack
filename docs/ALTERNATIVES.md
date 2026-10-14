@@ -9,17 +9,17 @@ When should you use something other than LocalSlack? Last checked: 2026-10-09 fr
 | Model | stateful emulator server | stateful emulator server | in-process HTTP interception | intercept server, UI-screen simulation |
 | Runtime | single Go binary | Node (npm); suite of 15+ services | Node | Node / TypeScript, Jest |
 | Web API breadth | small, Bolt/SDK core; evidence-graded | broad (~75 methods incl. files, pins, bookmarks, views) | canned responses | canned responses |
-| Events over HTTP, signed | planned | signed payloads, but no CLI way to register a subscriber | simulated | simulated |
-| Socket Mode | planned | not implemented | RTM only | no |
+| Events over HTTP, signed | yes (retries, redelivery, injection) | signed payloads, but no CLI way to register a subscriber | simulated | simulated |
+| Socket Mode | yes (`events_api` envelopes) | not implemented | RTM only | no |
 | Slash commands / interactions | planned (later) | not implemented (open issue #289) | yes | yes (App Home, buttons) |
 | OAuth | not planned | yes | no | no |
-| Scope enforcement | planned (permissive default) | opt-in `strict_scopes` | no | no |
-| Rate limits / fault injection | planned | none | no | no |
-| Call log / assertions | planned | none in CLI (event-delivery inspector tab only) | `slackMock.web.calls` | via test library |
-| Reset / seeded scenarios | seed + reset planned | YAML seed; no reset; random IDs | n/a | n/a |
+| Scope enforcement | partial (membership + `chat:write.public`; permissive otherwise) | opt-in `strict_scopes` | no | no |
+| Rate limits / fault injection | fault injection yes (429, errors, delay); rate limits planned | none | no | no |
+| Call log / assertions | yes (`/_localslack/calls`, long-poll) | none in CLI (event-delivery inspector tab only) | `slackMock.web.calls` | via test library |
+| Reset / seeded scenarios | seed, reset, scenario files, snapshots + diff | YAML seed; no reset; random IDs | n/a | n/a |
 | Fidelity evidence per method | yes (recorded/docs/llm) | not documented | no | no |
 
-"Planned" = see `agent-docs/ROADMAP.md`; not shipped.
+"Planned" = see `agent-docs/ROADMAP.md`; not shipped. Shipped capabilities: `docs/COMPATIBILITY.md`.
 
 **Stance:** we know emulate is broader and moves fast, and we are not trying to match its method count. LocalSlack is built to explore the gaps above (the test loop) and as a deliberate exercise in building a service like this. Where we need breadth, emulate is the reference.
 
@@ -39,6 +39,6 @@ Ran it, our `tests/smoke` suite against it, and dozens of probes. Corrects the t
 - **emulate:** you need broad method coverage or OAuth today, or already use its other service emulators.
 - **slack-testing-library:** Jest tests of interactive UI flows (App Home, buttons) in-process.
 - **slack-mock:** simple call assertions in a Node test, no workspace state needed.
-- **LocalSlack:** non-Node CI (single binary), stateful workspace you can reset and seed, and (as the roadmap lands) Socket Mode, deterministic fault injection, and per-method trust levels.
+- **LocalSlack:** non-Node CI (single binary), stateful workspace you can reset and seed, and Socket Mode, deterministic fault injection, a call log, snapshots and per-method trust levels.
 
 Competitor gaps feed roadmap ranking: roadmap items that close one are tagged `(gap)`.

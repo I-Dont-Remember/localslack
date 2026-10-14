@@ -13,31 +13,35 @@ import (
 	"localslack/internal/constants"
 )
 
-// parseParams merges query, form body and JSON body into one value set.
-func parseParams(r *http.Request) (url.Values, error) {
+// parseParams merges query, form body and JSON body into one value set. For
+// JSON bodies it also returns the decoded object with types intact.
+func parseParams(r *http.Request) (url.Values, map[string]any, error) {
 	vals := url.Values{}
 	for k, v := range r.URL.Query() {
 		vals[k] = v
 	}
+	var raw map[string]any
 	ct := r.Header.Get("Content-Type")
 	switch {
 	case strings.HasPrefix(ct, constants.ContentTypeJSON):
-		var m map[string]any
-		if err := json.NewDecoder(r.Body).Decode(&m); err != nil && !errors.Is(err, io.EOF) {
-			return nil, fmt.Errorf("decode json body: %w: %w", errInvalidArguments, err)
+		if err := json.NewDecoder(r.Body).Decode(&raw); err != nil && !errors.Is(err, io.EOF) {
+			return nil, nil, fmt.Errorf("decode json body: %w: %w", errInvalidArguments, err)
 		}
-		for k, v := range m {
+		for k, v := range raw {
+			if k == "token" { // Slack takes the token from the header, query or form only
+				continue
+			}
 			vals.Set(k, stringify(v))
 		}
 	case strings.HasPrefix(ct, constants.ContentTypeForm):
 		if err := r.ParseForm(); err != nil {
-			return nil, fmt.Errorf("parse form: %w: %w", errInvalidArguments, err)
+			return nil, nil, fmt.Errorf("parse form: %w: %w", errInvalidArguments, err)
 		}
 		for k, v := range r.PostForm {
 			vals[k] = v
 		}
 	}
-	return vals, nil
+	return vals, raw, nil
 }
 
 // stringify renders a JSON value the way form params would carry it (arrays comma-joined).
@@ -50,6 +54,10 @@ func stringify(v any) string {
 	case float64:
 		return strconv.FormatFloat(x, 'f', -1, 64)
 	case []any:
+		if hasStructured(x) { // blocks, attachments: keep the JSON array intact
+			b, _ := json.Marshal(x)
+			return string(b)
+		}
 		parts := make([]string, 0, len(x))
 		for _, e := range x {
 			parts = append(parts, stringify(e))
@@ -62,6 +70,16 @@ func stringify(v any) string {
 	return string(b)
 }
 
+func hasStructured(xs []any) bool {
+	for _, e := range xs {
+		switch e.(type) {
+		case map[string]any, []any:
+			return true
+		}
+	}
+	return false
+}
+
 func csv(s string) []string {
 	var out []string
 	for _, p := range strings.Split(s, ",") {
@@ -72,6 +90,7 @@ func csv(s string) []string {
 	return out
 }
 
+//nolint:unparam // generic helper; only "limit" so far
 func intParam(v url.Values, key string) int {
 	n, err := strconv.Atoi(v.Get(key))
 	if err != nil {

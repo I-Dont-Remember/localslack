@@ -1,0 +1,14 @@
+id: no-time-sleep-bare-in-tests
+valid:
+  - |
+    func waitFor(t *testing.T) {
+    	for i := 0; i < 10; i++ {
+    		time.Sleep(time.Millisecond)
+    	}
+    }
+invalid:
+  - |
+    func TestX(t *testing.T) {
+    	go work()
+    	time.Sleep(50 * time.Millisecond)
+    }

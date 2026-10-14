@@ -20,21 +20,16 @@ type queryer interface {
 type scanner interface{ Scan(dest ...any) error }
 
 const (
-	userCols = `id, team_id, name, real_name, is_bot`
-	convCols = `id, team_id, name, kind, creator, created, is_archived`
-	msgCols  = `channel_id, ts, user_id, text, thread_ts, reply_count, latest_reply`
+	userCols = `id, team_id, name, real_name, is_bot, bot_id`
+	convCols = `id, team_id, name, kind, creator, created, is_archived, is_private`
 )
 
 func scanUser(r scanner, u *User) error {
-	return r.Scan(&u.ID, &u.TeamID, &u.Name, &u.RealName, &u.IsBot)
+	return r.Scan(&u.ID, &u.TeamID, &u.Name, &u.RealName, &u.IsBot, &u.BotID)
 }
 
 func scanConv(r scanner, c *Conversation) error {
-	return r.Scan(&c.ID, &c.TeamID, &c.Name, &c.Kind, &c.Creator, &c.Created, &c.IsArchived)
-}
-
-func scanMsg(r scanner, m *Message) error {
-	return r.Scan(&m.ChannelID, &m.TS, &m.UserID, &m.Text, &m.ThreadTS, &m.ReplyCount, &m.LatestReply)
+	return r.Scan(&c.ID, &c.TeamID, &c.Name, &c.Kind, &c.Creator, &c.Created, &c.IsArchived, &c.IsPrivate)
 }
 
 // IsEmpty reports whether the database has no teams (i.e. is unseeded).
@@ -47,17 +42,21 @@ func (s *Store) IsEmpty(ctx context.Context) (bool, error) {
 }
 
 // MaxTS returns the greatest message ts, or "" if there are no messages.
-func (s *Store) MaxTS(ctx context.Context) (string, error) {
+func (s *Store) MaxTS(ctx context.Context) (string, error) { return maxTS(ctx, s.reader) }
+
+func maxTS(ctx context.Context, q queryer) (string, error) {
 	var ts sql.NullString
-	if err := s.reader.QueryRowContext(ctx, `SELECT max(ts) FROM messages`).Scan(&ts); err != nil {
+	if err := q.QueryRowContext(ctx, `SELECT max(ts) FROM messages`).Scan(&ts); err != nil {
 		return "", fmt.Errorf("max ts: %w", err)
 	}
 	return ts.String, nil
 }
 
 // Team returns the workspace (LocalSlack hosts exactly one).
-func (s *Store) Team(ctx context.Context) (Team, error) {
-	return getOne(ctx, s.reader, "team", `SELECT id, name, domain FROM teams ORDER BY id LIMIT 1`,
+func (s *Store) Team(ctx context.Context) (Team, error) { return teamOf(ctx, s.reader) }
+
+func teamOf(ctx context.Context, q queryer) (Team, error) {
+	return getOne(ctx, q, "team", `SELECT id, name, domain FROM teams ORDER BY id LIMIT 1`,
 		func(r scanner, t *Team) error { return r.Scan(&t.ID, &t.Name, &t.Domain) })
 }
 
@@ -66,14 +65,20 @@ func (s *Store) User(ctx context.Context, id string) (User, error) {
 	return userByID(ctx, s.reader, id)
 }
 
-// BotUser returns the workspace bot user.
+// BotUser returns the workspace's built-in bot: the first-inserted bot user that
+// does not belong to an app. App bot users are inserted after the workspace data
+// (registration, reset, restore), so insertion order also keeps the built-in bot
+// ahead of the orphan bot user a deleted app leaves behind.
 func (s *Store) BotUser(ctx context.Context) (User, error) {
-	return getOne(ctx, s.reader, "bot user", `SELECT `+userCols+` FROM users WHERE is_bot = 1 ORDER BY id LIMIT 1`, scanUser)
+	return getOne(ctx, s.reader, "bot user",
+		`SELECT `+userCols+` FROM users WHERE is_bot = 1 AND id NOT IN (SELECT bot_user_id FROM apps) ORDER BY rowid LIMIT 1`, scanUser)
 }
 
 // Users returns all users ordered by id.
-func (s *Store) Users(ctx context.Context) ([]User, error) {
-	return query(ctx, s.reader, "users", `SELECT `+userCols+` FROM users ORDER BY id`, scanUser)
+func (s *Store) Users(ctx context.Context) ([]User, error) { return usersOf(ctx, s.reader) }
+
+func usersOf(ctx context.Context, q queryer) ([]User, error) {
+	return query(ctx, q, "users", `SELECT `+userCols+` FROM users ORDER BY id`, scanUser)
 }
 
 // Conversation returns a conversation by id.
@@ -83,18 +88,11 @@ func (s *Store) Conversation(ctx context.Context, id string) (Conversation, erro
 
 // Conversations returns all conversations ordered by id.
 func (s *Store) Conversations(ctx context.Context) ([]Conversation, error) {
-	return query(ctx, s.reader, "conversations", `SELECT `+convCols+` FROM conversations ORDER BY id`, scanConv)
+	return conversationsOf(ctx, s.reader)
 }
 
-// Message returns a message by key.
-func (s *Store) Message(ctx context.Context, channelID, ts string) (Message, error) {
-	return messageByTS(ctx, s.reader, channelID, ts)
-}
-
-// Messages returns every message in a channel, oldest first (replies included).
-func (s *Store) Messages(ctx context.Context, channelID string) ([]Message, error) {
-	return query(ctx, s.reader, "messages",
-		`SELECT `+msgCols+` FROM messages WHERE channel_id = ? ORDER BY ts`, scanMsg, channelID)
+func conversationsOf(ctx context.Context, q queryer) ([]Conversation, error) {
+	return query(ctx, q, "conversations", `SELECT `+convCols+` FROM conversations ORDER BY id`, scanConv)
 }
 
 func userByID(ctx context.Context, q queryer, id string) (User, error) {
@@ -103,10 +101,6 @@ func userByID(ctx context.Context, q queryer, id string) (User, error) {
 
 func conversationByID(ctx context.Context, q queryer, id string) (Conversation, error) {
 	return getOne(ctx, q, "conversation", `SELECT `+convCols+` FROM conversations WHERE id = ?`, scanConv, id)
-}
-
-func messageByTS(ctx context.Context, q queryer, channelID, ts string) (Message, error) {
-	return getOne(ctx, q, "message", `SELECT `+msgCols+` FROM messages WHERE channel_id = ? AND ts = ?`, scanMsg, channelID, ts)
 }
 
 func getOne[T any](ctx context.Context, q queryer, what, sqlStr string, scan func(scanner, *T) error, args ...any) (T, error) {

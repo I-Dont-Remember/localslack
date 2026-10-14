@@ -1,0 +1,20 @@
+id: admin-use-respond-helpers
+snapshots:
+  func f() { http.Error(w, "x", 400) }:
+    labels:
+    - source: http.Error(w, "x", 400)
+      style: primary
+      start: 11
+      end: 34
+  func f() { json.NewEncoder(w).Encode(v) }:
+    labels:
+    - source: json.NewEncoder(w)
+      style: primary
+      start: 11
+      end: 29
+  func f() { w.WriteHeader(204) }:
+    labels:
+    - source: w.WriteHeader(204)
+      style: primary
+      start: 11
+      end: 29

@@ -27,6 +27,8 @@ var ErrDuplicate = errors.New("store: duplicate")
 type Store struct {
 	writer *sql.DB
 	reader *sql.DB
+	// wmu is held from begin through after-commit hooks, so hooks run in commit order.
+	wmu chan struct{}
 }
 
 // Open opens (creating if needed) the database at path and applies migrations.
@@ -48,7 +50,7 @@ func Open(ctx context.Context, path string) (*Store, error) {
 		_ = writer.Close()
 		return nil, err
 	}
-	return &Store{writer: writer, reader: reader}, nil
+	return &Store{writer: writer, reader: reader, wmu: make(chan struct{}, 1)}, nil
 }
 
 // Close closes both pools.
@@ -83,7 +85,13 @@ func migrate(ctx context.Context, db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("migrations fs: %w", err)
 	}
-	p, err := goose.NewProvider(goose.DialectSQLite3, db, sub)
+	return migrateFS(ctx, db, sub)
+}
+
+// migrateFS applies migrations out of order: parallel streams own number ranges
+// and may land a lower version after a higher one.
+func migrateFS(ctx context.Context, db *sql.DB, sub fs.FS) error {
+	p, err := goose.NewProvider(goose.DialectSQLite3, db, sub, goose.WithAllowOutofOrder(true))
 	if err != nil {
 		return fmt.Errorf("goose provider: %w", err)
 	}
@@ -94,22 +102,46 @@ func migrate(ctx context.Context, db *sql.DB) error {
 }
 
 // Write runs fn in a transaction on the writer connection; it commits if fn
-// returns nil and rolls back otherwise. Do not call Write from inside fn: the
-// single writer connection would deadlock.
+// returns nil and rolls back otherwise. Hooks registered with Tx.AfterCommit run
+// after a successful commit, still serialized with other writers, so they fire
+// in commit order. Do not call Write from inside fn: the single writer would deadlock.
 func (s *Store) Write(ctx context.Context, fn func(*Tx) error) error {
+	select {
+	case s.wmu <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-s.wmu }()
+
 	tx, err := s.writer.BeginTx(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("begin: %w", err)
 	}
 	// Release the single writer connection even if fn panics (no-op after commit).
 	defer func() { _ = rollback(tx) }()
-	if err := fn(&Tx{tx: tx}); err != nil {
+	t := &Tx{tx: tx}
+	if err := fn(t); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit: %w", err)
 	}
+	for _, h := range t.after {
+		h()
+	}
 	return nil
+}
+
+// Read runs fn in one read transaction: every Reader call inside sees the same
+// point-in-time snapshot, unaffected by concurrent writes. Use it for export,
+// diff and state dumps that must be internally consistent.
+func (s *Store) Read(ctx context.Context, fn func(*Reader) error) error {
+	tx, err := s.reader.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin read: %w", err)
+	}
+	defer func() { _ = rollback(tx) }() // read-only: nothing to commit
+	return fn(&Reader{tx: tx})
 }
 
 func rollback(tx *sql.Tx) error {

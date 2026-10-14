@@ -1,0 +1,66 @@
+{
+  "state": "passing",
+  "note": "Slack: inviting a member fails with already_in_channel, with a per-user errors array",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/users.list",
+      "token": "xoxb-test",
+      "capture": {
+        "human": "members.0.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth.test",
+      "token": "xoxb-test",
+      "capture": {
+        "bot": "user_id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "name": "fx-invite-twice"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.invite",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "channel": "{{chan}}",
+        "users": "{{bot}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.invite",
+    "token": "xoxp-{{human}}",
+    "params": {
+      "channel": "{{chan}}",
+      "users": "{{bot}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": false,
+      "error": "already_in_channel",
+      "errors": [
+        {
+          "user": "<id:U>",
+          "ok": false,
+          "error": "already_in_channel"
+        }
+      ]
+    }
+  }
+}

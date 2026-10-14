@@ -1,0 +1,14 @@
+id: admin-use-respond-helpers
+language: go
+severity: error
+message: admin endpoints use real HTTP statuses; use respond/writeError/writeJSON/writeNoContent; see docs/TESTING_API.md
+rule:
+  any:
+    - pattern: {context: 'func _() { http.Error($$$) }', selector: call_expression}
+    - pattern: {context: 'func _() { $W.WriteHeader($$$) }', selector: call_expression}
+    - pattern: {context: 'func _() { json.NewEncoder($$$) }', selector: call_expression}
+files:
+  - internal/admin/**
+ignores:
+  - "**/*_test.go"
+  - internal/admin/admin.go

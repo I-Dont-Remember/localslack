@@ -94,7 +94,7 @@ On startup, it should pick a random seed value, log it, and then generate & popu
 - 2 - 50 channels
 - 1 channel will have between 3 - 25 messages between up to 4 people.
 
-TODO: eventually we will find a way for users to define custom seed data/scenarios, but that is a long-term roadmap and should not be built in the near future.
+Custom seed data/scenarios shipped: scenario fixtures (`--scenario`, `reset --scenario`), `generate` recipes and snapshots (see `docs/TESTING_API.md`).
 
 ### API/ webserver
 
@@ -292,6 +292,15 @@ Track events and deliver to subscribed HTTP endpoints; Bolt app smoke test.
 ### Milestone 3: Socket Mode
 
 Same as M2 delivery, through Socket Mode; Socket Mode smoke test.
+
+### What shipped differently (test-loop, 2026-10)
+
+- **`/_localslack/*` uses real HTTP statuses** (2xx resource bodies, errors `{"error":{"code","message"}}`), not Slack-shaped `200 + ok:false`; only `/api/*` mimics Slack. Contract: `docs/TESTING_API.md`.
+- **Multiple apps** per workspace, each with its own bot user, `bot_id`, tokens, signing secret and subscriptions (registered from a manifest via CLI, `--app-manifest` or `POST /_localslack/apps`), instead of one implicit app.
+- **Two reset modes:** partial (default; re-seeds workspace data, keeps apps and sockets) and `--all` (also removes apps). There is no `keep` list.
+- **`deliver_to`:** event URLs resolve per-app `deliver_to` > global `LOCALSLACK_DELIVER_TO` > manifest `request_url` only if loopback/private; otherwise the app is `blocked` until fixed (`localslack apps set-url`). Remote hosts need `--allow-remote-request-urls`.
+- **Fault injection landed before opt-in rate-limit tiers** (M5 below is still open for tiers); Socket Mode reuses the HTTP delivery engine as a transport.
+- The inspector UI, scenarios/snapshots/diff and the `make demo` apps were not in the original milestones.
 
 ### Milestone 4: mock OAuth & scopes
 

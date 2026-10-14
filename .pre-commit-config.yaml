@@ -40,11 +40,10 @@ repos:
         pass_filenames: false
 
       - id: go-test
-        name: go test -short
-        entry: go test -short -shuffle=on ./...
+        name: go test (changed packages)
+        entry: scripts/precommit-test.sh # full suite: make verify / CI
         language: system
-        types: [go]
-        pass_filenames: false
+        files: '(\.go|go\.mod|go\.sum)$'
 
       - id: go-mod-tidy
         name: go mod tidy check

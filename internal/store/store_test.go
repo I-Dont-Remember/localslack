@@ -2,7 +2,9 @@ package store
 
 import (
 	"errors"
+	"fmt"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -197,5 +199,129 @@ func TestReadWhileWriteDoesNotBlock(t *testing.T) {
 	msgs, err := s.Messages(t.Context(), "C1")
 	if err != nil || len(msgs) != 2 {
 		t.Errorf("after commit: %d msgs, err %v; want 2, nil", len(msgs), err)
+	}
+}
+
+func TestAfterCommit(t *testing.T) {
+	t.Parallel()
+
+	s := openTemp(t)
+	fixtureTx(t, s)
+	boom := errors.New("boom")
+
+	t.Run("runs after commit, seeing the write", func(t *testing.T) {
+		t.Parallel()
+		var seen bool
+		err := s.Write(t.Context(), func(tx *Tx) error {
+			if err := tx.InsertMessage(t.Context(), Message{ChannelID: "C1", TS: "5.000001", UserID: "U1"}); err != nil {
+				return err
+			}
+			tx.AfterCommit(func() {
+				_, err := s.Message(t.Context(), "C1", "5.000001")
+				seen = err == nil
+			})
+			return nil
+		})
+		if err != nil || !seen {
+			t.Errorf("Write err = %v, hook saw committed row = %v; want nil, true", err, seen)
+		}
+	})
+
+	t.Run("skipped on rollback", func(t *testing.T) {
+		t.Parallel()
+		ran := false
+		err := s.Write(t.Context(), func(tx *Tx) error {
+			tx.AfterCommit(func() { ran = true })
+			return boom
+		})
+		if !errors.Is(err, boom) || ran {
+			t.Errorf("err = %v, hook ran = %v; want boom, false", err, ran)
+		}
+	})
+
+	t.Run("hook order is commit order", func(t *testing.T) {
+		t.Parallel()
+		const n = 20
+		var mu sync.Mutex
+		var order []int
+		var wg sync.WaitGroup
+		for i := range n {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				_ = s.Write(t.Context(), func(tx *Tx) error {
+					ts := fmt.Sprintf("7.%06d", i+1)
+					if err := tx.InsertMessage(t.Context(), Message{ChannelID: "C1", TS: ts, UserID: "U1"}); err != nil {
+						return err
+					}
+					tx.AfterCommit(func() { mu.Lock(); order = append(order, i); mu.Unlock() })
+					return nil
+				})
+			}()
+		}
+		wg.Wait()
+		rows, err := s.reader.QueryContext(t.Context(), `SELECT ts FROM messages WHERE ts LIKE '7.%' ORDER BY rowid`)
+		if err != nil {
+			t.Fatalf("query: %v", err)
+		}
+		defer func() { _ = rows.Close() }()
+		var want []int
+		for rows.Next() {
+			var ts string
+			var i int
+			if err := rows.Scan(&ts); err != nil {
+				t.Fatalf("scan: %v", err)
+			}
+			if _, err := fmt.Sscanf(ts, "7.%d", &i); err != nil {
+				t.Fatalf("parse %q: %v", ts, err)
+			}
+			want = append(want, i-1)
+		}
+		if diff := cmp.Diff(want, order); diff != "" {
+			t.Errorf("hook order vs commit order (-commit +hooks):\n%s", diff)
+		}
+	})
+}
+
+func TestReadIsOneConsistentSnapshot(t *testing.T) {
+	t.Parallel()
+
+	s := openTemp(t)
+	fixtureTx(t, s)
+	var first, second []User
+	err := s.Read(t.Context(), func(r *Reader) error {
+		var err error
+		if first, err = r.Users(t.Context()); err != nil {
+			return err
+		}
+		// A write committing mid-read must not leak into this snapshot.
+		werr := s.Write(t.Context(), func(tx *Tx) error {
+			return tx.InsertUser(t.Context(), User{ID: "U2", TeamID: "T1", Name: "bob"})
+		})
+		if werr != nil {
+			return werr
+		}
+		second, err = r.Users(t.Context())
+		return err
+	})
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if diff := cmp.Diff(first, second); diff != "" {
+		t.Errorf("snapshot changed mid-read (-first +second):\n%s", diff)
+	}
+	after, err := s.Users(t.Context())
+	if err != nil || len(after) != len(first)+1 {
+		t.Errorf("users after read = %d, %v; want %d", len(after), err, len(first)+1)
+	}
+}
+
+func TestReadReturnsCallbackError(t *testing.T) {
+	t.Parallel()
+
+	s := openTemp(t)
+	boom := errors.New("boom")
+	if err := s.Read(t.Context(), func(*Reader) error { return boom }); !errors.Is(err, boom) {
+		t.Errorf("Read err = %v, want boom", err)
 	}
 }

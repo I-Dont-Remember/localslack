@@ -1,0 +1,8 @@
+id: admin-no-ok-key
+snapshots:
+  'func f() { x := map[string]any{"ok": true}; _ = x }':
+    labels:
+    - source: '"ok"'
+      style: primary
+      start: 31
+      end: 35

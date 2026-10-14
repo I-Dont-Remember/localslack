@@ -38,16 +38,18 @@ Process for adding a new Slack API endpoint. Check `internal/capabilities/capabi
 
 - All responses: JSON with `"ok": true` on success, `"ok": false, "error": "<code>"` on failure.
 - Real Slack API errors are HTTP **200** with `ok:false` (e.g. `channel_not_found`, `name_taken`).
-  LocalSlack's deliberate or infrastructural non-200s: 404 `not_implemented` (unknown method; Slack
-  returns 200 `unknown_method`, see the `unknown-method-404` deviation), 403 `invalid_host` /
+  An unknown method is also 200 `unknown_method` (as Slack), marked by an `X-LocalSlack-Not-Implemented: 1`
+  header and `not_implemented:true` in the call log. LocalSlack's deliberate or infrastructural non-200s: 403 `invalid_host` /
   `forbidden_origin` (guard), 405 `method_not_allowed`, 500 `internal_error` (unmapped fault), and
-  later 429 for rate limits (M5).
+  later 429 for rate limits (M5). Under `/_localslack/` the same server-level failures use the control-API
+  shape `{"error":{"code","message"}}` instead (`not_found`, `method_not_allowed`, `invalid_host`,
+  `forbidden_origin`, `payload_too_large` 413, `internal_error`); one writer: `internal/respond`.
 - Always accept POST: the Slack Python SDK sends POST even to GET-documented methods.
 - Handler tests for `api`/`web` must be external packages (`api_test`, `web_test`): `storetest`
   imports `server`, which imports them, so in-package tests would be an import cycle.
-- Authorization is deliberately permissive for channels: no membership checks on read/post (`caller`
-  is passed through so a rule can be added later); only im/mpim listings are filtered by membership.
-  This is a documented deviation (`no-membership-check`).
+- Authorization is one rule set in `service/access.go` (`canSee`/`canRead`/`checkAccess`/`canReact`): private
+  channels and DMs are `channel_not_found` for non-members; public non-member bots get `not_in_channel` (post
+  allowed with `chat:write.public`). New methods that touch a conversation must call it with the acting User.
 - Rate-limit tiers are the manifest's per-method `tier` (Slack tiers: 1 = 1/min, 2 = 20/min,
   3 = 50/min, 4 = 100/min; default 60/min). M5 enforces them; do not add a second table.
 - Web UI errors: map new `service.Err*` in `web.fail` (HTTP status) as well as in `api/errors.go`.

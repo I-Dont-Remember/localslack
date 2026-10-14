@@ -12,17 +12,43 @@ import (
 )
 
 // Tx is a write transaction handed to Store.Write callbacks.
-type Tx struct{ tx *sql.Tx }
+type Tx struct {
+	tx    *sql.Tx
+	after []func()
+}
+
+// AfterCommit registers fn to run once the transaction commits (never on rollback).
+// Hooks run in registration order while other writers wait, so they must be O(1)
+// and non-blocking: hand work off, never do I/O inline.
+func (t *Tx) AfterCommit(fn func()) { t.after = append(t.after, fn) }
 
 func (t *Tx) exec(ctx context.Context, what, q string, args ...any) error {
-	if _, err := t.tx.ExecContext(ctx, q, args...); err != nil {
-		var se *sqlite.Error
-		if errors.As(err, &se) && se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE {
-			return fmt.Errorf("%s: %w", what, ErrDuplicate)
-		}
+	_, err := t.tx.ExecContext(ctx, q, args...)
+	return execErr(what, err)
+}
+
+// execOne runs a write that must touch a row; otherwise ErrNotFound wrapped with missing.
+func (t *Tx) execOne(ctx context.Context, what, missing, q string, args ...any) error {
+	res, err := t.tx.ExecContext(ctx, q, args...)
+	if err != nil {
 		return fmt.Errorf("%s: %w", what, err)
 	}
+	if n, err := res.RowsAffected(); err != nil || n == 0 {
+		return fmt.Errorf("%s: %w", missing, ErrNotFound)
+	}
 	return nil
+}
+
+// execErr names the failed statement and maps unique violations to ErrDuplicate.
+func execErr(what string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var se *sqlite.Error
+	if errors.As(err, &se) && (se.Code() == sqlite3.SQLITE_CONSTRAINT_UNIQUE || se.Code() == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY) {
+		return fmt.Errorf("%s: %w", what, ErrDuplicate)
+	}
+	return fmt.Errorf("%s: %w", what, err)
 }
 
 // InsertTeam adds a team.
@@ -33,20 +59,36 @@ func (t *Tx) InsertTeam(ctx context.Context, m Team) error {
 // InsertUser adds a user.
 func (t *Tx) InsertUser(ctx context.Context, u User) error {
 	return t.exec(ctx, "insert user",
-		`INSERT INTO users (id, team_id, name, real_name, is_bot) VALUES (?, ?, ?, ?, ?)`,
-		u.ID, u.TeamID, u.Name, u.RealName, u.IsBot)
+		`INSERT INTO users (id, team_id, name, real_name, is_bot, bot_id) VALUES (?, ?, ?, ?, ?, ?)`,
+		u.ID, u.TeamID, u.Name, u.RealName, u.IsBot, u.BotID)
 }
 
 // InsertConversation adds a conversation; a duplicate channel name yields ErrDuplicate.
 func (t *Tx) InsertConversation(ctx context.Context, c Conversation) error {
 	return t.exec(ctx, "insert conversation",
-		`INSERT INTO conversations (id, team_id, name, kind, creator, created, is_archived) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		c.ID, c.TeamID, c.Name, c.Kind, c.Creator, c.Created, c.IsArchived)
+		`INSERT INTO conversations (id, team_id, name, kind, creator, created, is_archived, is_private) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, c.TeamID, c.Name, c.Kind, c.Creator, c.Created, c.IsArchived, c.IsPrivate)
 }
 
 // AddMember adds a user to a conversation.
 func (t *Tx) AddMember(ctx context.Context, conversationID, userID string) error {
 	return t.exec(ctx, "add member", `INSERT INTO members (conversation_id, user_id) VALUES (?, ?)`, conversationID, userID)
+}
+
+// RemoveMember removes a user from a conversation; ErrNotFound if they were not a member.
+func (t *Tx) RemoveMember(ctx context.Context, conversationID, userID string) error {
+	return t.execOne(ctx, "remove member", "remove member "+userID+" from "+conversationID,
+		`DELETE FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID)
+}
+
+// IsMember reports whether a user is in a conversation, seeing this txn's writes.
+func (t *Tx) IsMember(ctx context.Context, conversationID, userID string) (bool, error) {
+	var n int
+	err := t.tx.QueryRowContext(ctx, `SELECT count(*) FROM members WHERE conversation_id = ? AND user_id = ?`, conversationID, userID).Scan(&n)
+	if err != nil {
+		return false, fmt.Errorf("is member: %w", err)
+	}
+	return n > 0, nil
 }
 
 // User returns a user by id, seeing this txn's writes.
@@ -55,11 +97,6 @@ func (t *Tx) User(ctx context.Context, id string) (User, error) { return userByI
 // Conversation returns a conversation by id, seeing this txn's writes.
 func (t *Tx) Conversation(ctx context.Context, id string) (Conversation, error) {
 	return conversationByID(ctx, t.tx, id)
-}
-
-// Message returns a message by key, seeing this txn's writes.
-func (t *Tx) Message(ctx context.Context, channelID, ts string) (Message, error) {
-	return messageByTS(ctx, t.tx, channelID, ts)
 }
 
 // ConversationWithMembers returns the id of the conversation of the given kind whose
@@ -89,35 +126,15 @@ func (t *Tx) ConversationWithMembers(ctx context.Context, kind string, userIDs [
 	return id, nil
 }
 
-// BumpThread records a new reply on a thread parent; ErrNotFound if the parent is missing.
-func (t *Tx) BumpThread(ctx context.Context, channelID, parentTS, replyTS string) error {
-	res, err := t.tx.ExecContext(ctx,
-		`UPDATE messages SET reply_count = reply_count + 1, latest_reply = ? WHERE channel_id = ? AND ts = ?`,
-		replyTS, channelID, parentTS)
-	if err != nil {
-		return fmt.Errorf("bump thread: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("bump thread: parent %s: %w", parentTS, ErrNotFound)
-	}
-	return nil
-}
-
 // SetArchived flips a conversation's archived flag; ErrNotFound if it does not exist.
 func (t *Tx) SetArchived(ctx context.Context, id string, archived bool) error {
-	res, err := t.tx.ExecContext(ctx, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
-	if err != nil {
-		return fmt.Errorf("set archived: %w", err)
-	}
-	if n, err := res.RowsAffected(); err != nil || n == 0 {
-		return fmt.Errorf("set archived %s: %w", id, ErrNotFound)
-	}
-	return nil
+	return t.execOne(ctx, "set archived", "set archived "+id, `UPDATE conversations SET is_archived = ? WHERE id = ?`, archived, id)
 }
 
-// InsertMessage adds a message.
-func (t *Tx) InsertMessage(ctx context.Context, m Message) error {
-	return t.exec(ctx, "insert message",
-		`INSERT INTO messages (channel_id, ts, user_id, text, thread_ts, reply_count, latest_reply) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		m.ChannelID, m.TS, m.UserID, m.Text, m.ThreadTS, m.ReplyCount, m.LatestReply)
+// BotMemberIDs returns the ids (sorted) of a conversation's members that are bot users.
+func (t *Tx) BotMemberIDs(ctx context.Context, conversationID string) ([]string, error) {
+	return query(ctx, t.tx, "bot members",
+		`SELECT m.user_id FROM members m JOIN users u ON u.id = m.user_id
+		 WHERE m.conversation_id = ? AND u.is_bot = 1 ORDER BY m.user_id`,
+		func(r scanner, id *string) error { return r.Scan(id) }, conversationID)
 }

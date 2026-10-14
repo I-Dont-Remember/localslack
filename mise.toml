@@ -6,3 +6,6 @@ python = "3.12"
 pre-commit = "latest"
 uv = "latest"
 ast-grep = "latest"
+# `make debt` (report-only consolidation targets)
+"go:golang.org/x/tools/cmd/deadcode" = "0.36.0"
+"github:LarsArtmann/art-dupl" = { version = "0.9.0", bin = "art-dupl" }

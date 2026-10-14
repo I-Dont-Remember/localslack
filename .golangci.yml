@@ -19,7 +19,10 @@ linters:
     - thelper
     - paralleltest
     - depguard
+    - dupl
   settings:
+    dupl:
+      threshold: 80 # copied helpers across streams (long-poll parsing, writeJSON) were found only at review
     depguard:
       rules:
         api:
@@ -29,6 +32,12 @@ linters:
               desc: api talks to service, never store
             - pkg: localslack/internal/web
               desc: api and web must not import each other
+            - pkg: localslack/internal/admin
+              desc: api must not import admin
+            - pkg: localslack/internal/events
+              desc: api must not import events
+            - pkg: localslack/internal/control
+              desc: api must not import control
         web:
           files: ["**/internal/web/**", "!$test"]
           deny:
@@ -36,6 +45,72 @@ linters:
               desc: web talks to service, never store
             - pkg: localslack/internal/api
               desc: api and web must not import each other
+            - pkg: localslack/internal/admin
+              desc: web must not import admin
+        admin:
+          files: ["**/internal/admin/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: admin talks to service, never store
+            - pkg: localslack/internal/api
+              desc: admin must not import api
+            - pkg: localslack/internal/web
+              desc: admin must not import web
+        events:
+          files: ["**/internal/events/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: events talks to service, never store
+            - pkg: localslack/internal/api
+              desc: events must not import api
+            - pkg: localslack/internal/web
+              desc: events must not import web
+            - pkg: localslack/internal/admin
+              desc: events must not import admin
+        control:
+          files: ["**/internal/control/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: control talks to service, never store
+            - pkg: localslack/internal/api
+              desc: control must not import api
+            - pkg: localslack/internal/web
+              desc: control must not import web
+            - pkg: localslack/internal/admin
+              desc: control must not import admin
+        socket:
+          files: ["**/internal/socket/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: socket talks to events, never store
+            - pkg: localslack/internal/api
+              desc: socket must not import api
+            - pkg: localslack/internal/web
+              desc: socket must not import web
+            - pkg: localslack/internal/admin
+              desc: socket must not import admin
+        service:
+          files: ["**/internal/service/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/events
+              desc: service emits events through its own seam (Subscribe); it must not import events
+            - pkg: localslack/internal/control
+              desc: service must not import control
+            - pkg: localslack/internal/admin
+              desc: service must not import admin
+            - pkg: localslack/internal/api
+              desc: service must not import api
+            - pkg: localslack/internal/web
+              desc: service must not import web
+        # api deliberately imports calllog (Recorder) and faults (Interceptor): those leaf
+        # packages ARE the seams api.serve plugs into, so denying them would break the design.
+        leaf:
+          files: ["**/internal/calllog/**", "**/internal/faults/**", "**/internal/scenario/**", "**/internal/appmanifest/**", "**/internal/respond/**", "!$test"]
+          deny:
+            - pkg: localslack/internal/store
+              desc: leaf packages must not import store
+            - pkg: localslack/internal/service
+              desc: leaf packages must not import service
     revive:
       rules:
         - name: blank-imports
@@ -48,6 +123,9 @@ linters:
         - name: increment-decrement
         - name: range
   exclusions:
+    rules:
+      - path: _test\.go
+        linters: [dupl] # table-ish test setup repeats by design
     paths:
       - tmp
 

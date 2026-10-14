@@ -20,9 +20,21 @@ type Generator struct {
 
 // NewGenerator returns a Generator seeded from an arbitrary string.
 func NewGenerator(seed string) *Generator {
+	return &Generator{rng: newRNG(seed)}
+}
+
+func newRNG(seed string) *rand.Rand {
 	h := fnv.New64a()
 	_, _ = h.Write([]byte(seed))
-	return &Generator{rng: rand.New(rand.NewPCG(h.Sum64(), 0))}
+	return rand.New(rand.NewPCG(h.Sum64(), 0))
+}
+
+// Reseed restarts the sequence as if g were NewGenerator(seed), in place and
+// safely alongside concurrent callers.
+func (g *Generator) Reseed(seed string) {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.rng = newRNG(seed)
 }
 
 // Team returns a team id (T...).
@@ -30,6 +42,9 @@ func (g *Generator) Team() string { return g.next('T') }
 
 // User returns a user id (U...).
 func (g *Generator) User() string { return g.next('U') }
+
+// Bot returns a bot identity id (B...), distinct from the bot's user id.
+func (g *Generator) Bot() string { return g.next('B') }
 
 // Channel returns a channel id (C...).
 func (g *Generator) Channel() string { return g.next('C') }

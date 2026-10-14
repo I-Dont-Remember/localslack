@@ -1,0 +1,85 @@
+{
+  "version": 1,
+  "team": { "id": "T0ACME00001", "name": "Acme Corp", "domain": "acme" },
+  "users": [
+    { "id": "U0ANN000001", "name": "ann", "real_name": "Ann Example" },
+    { "id": "U0BOB000001", "name": "bob", "real_name": "Bob Example" },
+    { "id": "U0CAROL0001", "name": "carol", "real_name": "Carol Example" },
+    { "id": "U0DAVE00001", "name": "dave", "real_name": "Dave Example" },
+    { "id": "U0EVE000001", "name": "eve", "real_name": "Eve Example" },
+    { "id": "U0ACMEBOT01", "name": "acme-bot", "real_name": "Acme Bot", "is_bot": true, "bot_id": "B0ACMEBOT01" }
+  ],
+  "channels": [
+    {
+      "id": "C0GENERAL01", "name": "general", "creator": "U0ANN000001", "created": 1767225600,
+      "members": ["U0ANN000001", "U0BOB000001", "U0CAROL0001", "U0DAVE00001", "U0EVE000001", "U0ACMEBOT01"]
+    },
+    {
+      "id": "C0ENG000001", "name": "engineering", "creator": "U0DAVE00001", "created": 1767225700,
+      "members": ["U0ANN000001", "U0BOB000001", "U0DAVE00001", "U0ACMEBOT01"]
+    },
+    {
+      "id": "C0RANDOM001", "name": "random", "creator": "U0ANN000001", "created": 1767225800,
+      "members": ["U0ANN000001", "U0BOB000001", "U0CAROL0001", "U0DAVE00001", "U0EVE000001", "U0ACMEBOT01"]
+    },
+    {
+      "id": "C0SUPPORT01", "name": "support", "creator": "U0EVE000001", "created": 1767225900,
+      "members": ["U0CAROL0001", "U0EVE000001", "U0ACMEBOT01"]
+    },
+    {
+      "id": "G0LEADERS01", "name": "leadership", "creator": "U0ANN000001", "created": 1767226000, "is_private": true,
+      "members": ["U0ANN000001", "U0BOB000001"]
+    },
+    {
+      "id": "C0OLDLAUNC1", "name": "old-launch", "creator": "U0BOB000001", "created": 1767226100, "is_archived": true,
+      "members": ["U0ANN000001", "U0BOB000001"]
+    }
+  ],
+  "dms": [
+    { "id": "D0ANNBOB001", "creator": "U0ANN000001", "created": 1767226200, "members": ["U0ANN000001", "U0BOB000001"] },
+    { "id": "G0TRIO00001", "creator": "U0ANN000001", "created": 1767226300, "members": ["U0ANN000001", "U0BOB000001", "U0CAROL0001"] }
+  ],
+  "messages": [
+    {
+      "channel": "C0GENERAL01", "ts": "1767312000.000100", "user": "U0ANN000001", "text": "Welcome to Acme! :wave:",
+      "reactions": [{ "name": "wave", "users": ["U0BOB000001", "U0CAROL0001"] }]
+    },
+    { "channel": "C0GENERAL01", "ts": "1767312060.000200", "user": "U0BOB000001", "text": "Glad to be here", "thread_ts": "1767312000.000100" },
+    {
+      "channel": "C0GENERAL01", "ts": "1767312120.000300", "user": "U0CAROL0001", "text": "Same! Where do I find the onboarding doc?",
+      "thread_ts": "1767312000.000100"
+    },
+    {
+      "channel": "C0GENERAL01", "ts": "1767312180.000400", "user": "U0ACMEBOT01", "bot_id": "B0ACMEBOT01", "text": "Onboarding doc",
+      "thread_ts": "1767312000.000100",
+      "blocks": [
+        { "type": "section", "text": { "type": "mrkdwn", "text": "*Onboarding doc*\nEverything you need in week one." } },
+        { "type": "actions", "elements": [{ "type": "button", "text": { "type": "plain_text", "text": "Open" }, "action_id": "open_doc" }] }
+      ]
+    },
+    {
+      "channel": "C0GENERAL01", "ts": "1767312240.000500", "user": "U0DAVE00001", "text": "Standup moved to 10:15 tomorrow",
+      "edited": { "user": "U0DAVE00001", "ts": "1767312300.000600" }
+    },
+    {
+      "channel": "C0ENG000001", "ts": "1767315600.000100", "user": "U0DAVE00001", "text": "Deploy 42 is green",
+      "reactions": [{ "name": "rocket", "users": ["U0ANN000001", "U0BOB000001"] }, { "name": "eyes", "users": ["U0ANN000001"] }]
+    },
+    { "channel": "C0ENG000001", "ts": "1767315660.000200", "user": "U0BOB000001", "text": "Rolling back the flag if p95 climbs", "thread_ts": "1767315600.000100" },
+    { "channel": "C0RANDOM001", "ts": "1767319200.000100", "user": "U0EVE000001", "text": "Anyone up for lunch? :sandwich:" },
+    {
+      "channel": "C0SUPPORT01", "ts": "1767322800.000100", "user": "U0EVE000001", "text": "Customer reports login failures since 09:00",
+      "reactions": [{ "name": "white_check_mark", "users": ["U0CAROL0001"] }]
+    },
+    {
+      "channel": "C0SUPPORT01", "ts": "1767322860.000200", "user": "U0ACMEBOT01", "bot_id": "B0ACMEBOT01", "text": "Ticket 1001 opened",
+      "thread_ts": "1767322800.000100", "attachments": [{ "color": "#36a64f", "title": "Ticket 1001", "text": "Login failures" }],
+      "metadata": { "event_type": "ticket_opened", "event_payload": { "ticket": 1001 } }
+    },
+    { "channel": "G0LEADERS01", "ts": "1767326400.000100", "user": "U0ANN000001", "text": "Q1 plan draft is ready for review" },
+    { "channel": "C0OLDLAUNC1", "ts": "1767226150.000100", "user": "U0BOB000001", "text": "Launch retro is done; archiving this channel." },
+    { "channel": "D0ANNBOB001", "ts": "1767330000.000100", "user": "U0ANN000001", "text": "Can you review the Q1 plan before lunch?" },
+    { "channel": "D0ANNBOB001", "ts": "1767330060.000200", "user": "U0BOB000001", "text": "On it." },
+    { "channel": "G0TRIO00001", "ts": "1767333600.000100", "user": "U0CAROL0001", "text": "Team offsite poll is open" }
+  ]
+}

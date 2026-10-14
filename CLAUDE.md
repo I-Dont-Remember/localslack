@@ -18,6 +18,12 @@ See `agent-docs/STATUS.md` for current milestone and progress.
   - `docs/DESIGN_DOC.md` has the  initial plans which will get us the core of the application built out, including relevant milestones & technical choices.
 - you can use `./tmp/` as a playground since I have it `gitignored`. Examples of use: if you need to write small scripts or things to test assumptions and see how bite-size pieces function, or drop some temporary log files, etc.
 
+## Working rules
+
+- Fidelity first: mimic real Slack. Any simplification or deviation needs owner sign-off; never label a simplification "Recommended".
+- Read files with Read (offset/limit), edit with Edit/Write. Bash is for `make`/`git`/`go`/`rg`, not `cat`/`sed -i`/heredoc edits.
+- Fanning out subagents: read `agent-docs/orchestration.md` first (max 3 at once).
+
 ## Tech choices
 
 - language: Go

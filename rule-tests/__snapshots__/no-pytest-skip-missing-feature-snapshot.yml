@@ -1,0 +1,22 @@
+id: no-pytest-skip-missing-feature
+snapshots:
+  pytest.skip("apps API not available on this build"):
+    labels:
+    - source: pytest.skip("apps API not available on this build")
+      style: primary
+      start: 0
+      end: 51
+    - source: '"apps API not available on this build"'
+      style: secondary
+      start: 12
+      end: 50
+  pytest.skip("reactions not implemented yet"):
+    labels:
+    - source: pytest.skip("reactions not implemented yet")
+      style: primary
+      start: 0
+      end: 44
+    - source: '"reactions not implemented yet"'
+      style: secondary
+      start: 12
+      end: 43

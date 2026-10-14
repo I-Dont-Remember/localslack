@@ -1,0 +1,21 @@
+# A tiny hand-written workspace: ids are omitted (drawn from the seed) and
+# users and channels are referenced by name. Give ids to pin them for exact
+# assertions (see acme.json). `ts` is always required.
+version: 1
+team: { name: Standup Co, domain: standup }
+users:
+  - { name: ann, real_name: Ann Example }
+  - { name: bob, real_name: Bob Example }
+  - { name: helper, real_name: Helper Bot, is_bot: true }
+channels:
+  - { name: general, creator: ann, members: [ann, bob, helper] }
+  - { name: standup, creator: ann, members: [ann, bob] }
+messages:
+  - { channel: standup, ts: "1767312000.000100", user: ann, text: "Standup: what are you shipping today?" }
+  - { channel: standup, ts: "1767312060.000200", user: bob, text: "Reviewing the snapshot PR", thread_ts: "1767312000.000100" }
+  - channel: general
+    ts: "1767312120.000100"
+    user: helper
+    text: "Good morning!"
+    reactions:
+      - { name: wave, users: [ann, bob] }

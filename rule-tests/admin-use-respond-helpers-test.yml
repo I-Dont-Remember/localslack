@@ -1,0 +1,8 @@
+id: admin-use-respond-helpers
+valid:
+  - 'func f() { writeError(ctx, log, w, 404, "not_found", "x") }'
+  - 'func f() { writeNoContent(w) }'
+invalid:
+  - 'func f() { http.Error(w, "x", 400) }'
+  - 'func f() { w.WriteHeader(204) }'
+  - 'func f() { json.NewEncoder(w).Encode(v) }'

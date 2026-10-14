@@ -7,7 +7,8 @@
   "response": {
     "status": 200,
     "body": {
-      "ok": true
+      "status": "ok",
+      "events_dropped": 0
     }
   }
 }

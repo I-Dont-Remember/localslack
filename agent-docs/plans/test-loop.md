@@ -16,6 +16,14 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - Execution: integration branch `test-loop`; parallel subagents in worktrees per wave; orchestrator merges + `make verify`; **pause for owner review at each gate**.
 - Out of scope: item 11 (owner recordings), Tier 3+.
 
+## Contract decisions (owner, 2026-10-12)
+Supersede conflicting text below. Full contract: `docs/TESTING_API.md`.
+- `/_localslack/*` uses real HTTP statuses (2xx resource body, no `ok` wrapper; errors `{"error":{"code","message","details"?}}`); `/api/*` stays Slack-shaped (`200 + ok:false`).
+- Reset has two modes: partial (default; keeps apps + sockets) and `?all=true` / `localslack reset --all` (also removes apps). No `keep` list, no `--keep-logs`.
+- Request URL resolution: per-app `deliver_to` > global `LOCALSLACK_DELIVER_TO` / `--deliver-to` > manifest `request_url` only if loopback/private; otherwise the app is `delivery: "blocked"`. Host-only override keeps the manifest path. Remote hosts only with `--allow-remote-request-urls`. No redirects.
+- CLI: `localslack apps add|list|set-url|env`; `PATCH /_localslack/apps/{id}` sets `deliver_to`.
+- Config fields `DeliverTo`, `AllowRemoteRequestURLs` exist (stream A consumes them).
+
 ## Design facts that shape the plan
 1. Bolt self-filters by `bot_id` from `auth.test`. Messages carry no `bot_id` today (`fabricated-bot-id` deviation) → store real `bot_id` on users/messages in Wave 0, or demo bot loops on its own replies.
 2. Membership enforcement breaks current flows (xoxp-created channel lacks bot; SDK-created channel lacks UI actor) → audit smoke/e2e in stream X.
@@ -78,7 +86,7 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - **C Call log + reset** — `internal/calllog`, `admin/{calls,reset}.go`, `control/reset.go`, `service/reset.go`, `store/wipe.go`, `cli/reset.go`.
   - Record: seq, time, request_id, method, status, ok, error, params (raw JSON; token/secret redacted), actor `{user_id, app_id, token_kind}`, response (≤64KB), duration, `fault_id`, `not_implemented`.
   - `GET /_localslack/calls?method=&channel=&app_id=&ok=&error=&since=&limit=&min=&timeout_ms=`; `DELETE`.
-  - `POST /_localslack/reset {seed?, scenario?, generate?, keep?[]}` → pause dispatcher, wipe+repopulate in one tx (keep apps; re-create app bot users), `ts.advanceTo`, reseed runtime id gen, clear calls/deliveries/faults unless kept, resume. CLI `localslack reset`.
+  - `POST /_localslack/reset[?all=true] {seed?, scenario?, generate?}` → pause dispatcher, wipe+repopulate in one tx (partial keeps apps and re-creates app bot users; `all` drops apps), `ts.advanceTo`, reseed runtime id gen, clear calls/deliveries/faults, resume. CLI `localslack reset [--all]`.
   - Tests: reset during concurrent posts (race), ts monotonic, redaction, filters, long-poll, ring wrap.
 - **D Faults** — `internal/faults`, `admin/faults.go`. Rule `{method|"*", match{channel,app_id}?, nth?, every?, times?, once?, action{status, error, retry_after, delay_ms, body}}`; first match in creation order wins; 429 sets `Retry-After`; `delay_ms` alone = slow then real call. CRUD endpoints. Smoke: SDK `RateLimitErrorRetryHandler`, `ServerErrorRetryHandler`, timeout, nth=3.
 - **E Blocks/attachments/metadata** — `service/content.go`, `addContent`. Accept JSON strings or decoded values; validate; blocks-only accepted; stored in `messages.data`; metadata only with `include_all_metadata`. Flips `no-blocks` red tests.
@@ -117,8 +125,53 @@ Owner chose depth over breadth: emulate/mocks cover method count; LocalSlack win
 - Wave 0 is large but is the main conflict-avoidance lever; don't start Wave 1 early.
 - Commits need unsandboxed pre-commit; no literal tokens in repo.
 
+## Arch-review amendments (supersede conflicting text above)
+**Extra/changed Wave 0 steps**
+- 0.2a **Principal**: `service.Principal{User, App *App, TokenKind, Scopes}`; `Identify(token)` (non-failing) + `Authenticate`; in-memory app cache (token->app) invalidated on register/delete/reset; migrate api/web; `state.go` uses an internal service call, not a fake token. Unregistered `xoxb-*` -> default bot (no app: no events, scope gating skipped); add `--strict-tokens` + per-app revoke so `invalid_auth`/`token_revoked` are testable.
+- 0.3 pipeline order: resolve -> parse -> Identify -> Interceptor(faults) -> enforce auth -> call, all inside Recorder (incl. unknown-method fallback). Faulted call with bad token is still faulted and logged.
+- 0.4 depguard as explicit step: deny store from admin/control/events/calllog/faults/scenario/appmanifest/seed; deny api->admin/events/control, web->admin, events->api/web, admin->api/web. `calllog`, `faults`, `scenario` are leaf pkgs (no service import); service consumes `scenario.Fixture` (`svc.Populate`, `svc.Export`). `seed` emits a Fixture, stops importing store.
+- 0.5 migration: goose `WithAllowOutofOrder(true)`; additive DDL only; Wave 0 ships only `apps`, `users.bot_id`, `conversations.is_private`; `reactions` table belongs to B2 (range 20).
+- 0.6 pre-split hot files: `service/{post,edit,react,access}.go`, `store/{messages,reactions,apps,wipe}.go`, `api/methods_*`, `dto_{content,reactions}.go`; stub one-line `emit`/`checkAccess` hooks in `PostMessage`.
+- 0.7 event seam: ordered publish (afterCommit hook in `Store.Write` or mutex spanning commit+enqueue), O(1) non-blocking; events self-contained (full message, channel kind/private/name, target bot user ids; Changed has prev+new; Deleted has message); bounded queue, drop+log+counter; `Subscribe` returns unsubscribe; seed/populate/restore/reset never emit (tested); collector-based tests.
+- 0.8 errors: export constants only; each stream adds mappings in its own `errors_<stream>.go` (map merge) instead of a frozen table.
+- 0.10 define interfaces + noop impls: `Dispatcher{Pause,Reset,Resume}`, CallLog, Faults. `Deps` = optional components list to avoid shared-line edits in `build.go`/`storetest`.
+- 0.11 test hygiene: fixtures restore global control state (faults, delivery-config, paused) on teardown; reset/snapshot suites run against a dedicated second server instance.
+- Add `Store.Read(ctx, fn)` (single read tx) for consistent export/diff/state.
+
+**Reset invariants**: ts `advanceTo` forward-only, inside reset write tx, >= max fixture ts; ids generator behind mutex/`Reseed` in place; team id stable across reset (keep team row) or apps re-stamped; app bot users inserted after populate, populate rejects id collisions with them, snapshot export excludes them; dispatcher reset = stop enqueue, cancel in-flight + timers, trace writes check generation; call/delivery `seq` monotonic across DELETE/reset, parked long-polls woken with `generation` change; reset scope documented (delivery-config -> defaults, sockets persist, UI cookie falls back if user gone); one write tx, batched prepared inserts; concurrent reset -> 409. Reset is global: one test session per server. Documented decisions: apps persist across partial reset, `?all=true` drops them (no `keep` list); snapshots volatile (lost on restart); single-team coupling is a known deviation (DESIGN_DOC multi-workspace is the eventual answer).
+
+**Extra tests**: concurrent-post event ordering; no events on seed/restore/reset; late delivery after reset not recorded; two-app Principal resolution; export->wipe->import->export identity; populate perf as benchmark + loose bound.
+
 ## Progress
-- [ ] Wave 0 (11 steps)  - [ ] Gate 0
-- [ ] Wave 1: A B1 B2 C D E  - [ ] Gate 1
-- [ ] Wave 2: S X F G I  - [ ] Gate 2
-- [ ] Wave 3
+- [x] Wave 0 (11 steps)  - [ ] Gate 0
+- [x] Wave 1: A B1 B2 C D E (merged, make verify green)  - [ ] Gate 1 (owner QA) - [x] Gate 1 arch review: findings C1-C4, H1-H6, M1, M5 fixed (see "Gate 1 review fixes")
+- [x] Wave 2: S X F G I (merged, make verify green)  - [ ] Gate 2 (owner QA via `docs/QA.md`)
+- [x] Wave 3: inspector socket panel, `docs/QA.md` walkthrough, README, STATUS/ROADMAP/CHANGELOG/DESIGN_DOC notes  - [x] final `arch-reviewer` pass (findings fixed: flaky tests, membership methods + helper, app_mention membership, snapshot `app_bots`, built-in bot resolution, depguard socket/respond)  - [ ] owner merges `test-loop` -> `main` (human only)
+- [ ] Gates: 0, 1 and 2 owner QA still open; `make verify` green on `test-loop` is the exit bar for Wave 3
+
+## Handoff: Wave 0 extension points (Wave 1 streams register here, nothing else)
+- API methods: new `a.<x>Methods()` in own `api/methods_<x>.go`, add to `registry()` in `api/api.go` (one line). Error codes: own `api/errors_<stream>.go` returning `map[error]string`, add to `errorCodes()` in `api/errors.go` (one line; stubs exist: messages, content, access, names). Web status: `web/errors.go` table.
+- Service: `service/{post,edit,react,access}.go` (access: `checkAccess` hook already called by `PostMessage`); events via `publishAfterCommit(s, tx, ev)` + `scopeOf` in `service/events.go`; `Subscribe` for consumers (must be O(1)).
+- Store: `store/{messages,reactions,apps,wipe}.go`; `Tx.AfterCommit`; `Store.Read` + `Reader` (add bulk reads there); migrations in reserved ranges.
+- Apps: `store` accessors + `Service.RefreshApps(ctx)` after register/delete (cache is token->app).
+- Wiring: `server.Components` in `server/build.go` (+ `admin.Deps` field, `storetest.App.Components`); `server.WithDispatcher` option. depguard in `.golangci.yml`.
+- admin: one `mountX` per file in `internal/admin` (stubs; `Deps` carries Calls, Faults, Events, Control).
+- calllog: `calllog.Log` is wired as the API Recorder (cap `CallLogSize`); `faults.Set` wired as Interceptor (no rules yet); `events.Noop` dispatcher subscribed to service events; `control.Reset` returns `ErrNotImplemented` after Pause/Resume.
+- Config fields exist (not yet consumed): AppManifest, EventTimeout, EventRetryDelays, Scenario, DeliveryLogSize, StrictTokens.
+- Python: `tests/smoke/localslack_admin.py` (`Admin`), fixtures `admin`, `calls_since`, `faults`; add own `*_test.py`. QA pages: `docs/qa/<stream>.md`.
+- Known gap: DBs created before bot_id existed keep an empty `bot_id` on their bot user (delete the DB or backfill).
+
+## Migration ranges actually used
+`00002_test_loop.sql` (Wave 0 base: apps, users.bot_id, conversations.is_private), `00010_apps_deliver_to.sql` and `00011_apps_unique_tokens.sql` (A), `00020_reactions.sql` (B2). Unused so far: E=30, G=40, X=50, S=60. goose runs with `WithAllowOutofOrder(true)`; `TestRealMigrationsApplyLateLowerVersion` proves a lower file added after a higher one is applied.
+
+## Gate 1 review fixes (decided with owner, 2026-10-12; contract in `docs/TESTING_API.md`)
+- **C1** partial reset re-joins kept app bots to public, unarchived channels inside `resetTx` via `service.JoinBotToPublicChannels(ctx, tx, botUserID)` (reuse it from scenario populate / snapshot restore, same write tx, after the channels exist).
+- **C2** `control.Reset`: Pause -> `svc.Reset` -> `disp.Reset` -> clear logs -> Resume. A failed service reset only resumes (trace untouched). `Engine.Publish` reads the generation before the paused check. Known limit: writes committed between the wipe and Resume lose their events.
+- **C3** `service.New(..., WithStrictTokens)`: strict => unregistered `xoxb-` is `invalid_auth`; deleted apps' tokens are tombstoned (`invalid_auth` in every mode) until `reset --all`/restart; bot/app tokens are unique across apps (409 `already_exists`, unique index in 00011); the default bot reports `DefaultBotScopes()`.
+- **C4** `/_localslack/*` server-level errors (guard 403, panic 500, 404 `not_found`, 405, 413 `payload_too_large`) use `{"error":{code,message}}`; `/api` and UI keep the Slack shape. One writer: `internal/respond`, used by server and admin.
+- **H1** `event_id` is per app per delivery (like Slack); `POST /events` and redeliver return `deliveries:[{app_id,event_id,delivery_id}]`; redeliver by `event_id` (unique, `app_id` optional) or by `delivery_id`.
+- **H2** first attempts to one app run serially in publish order (per-app lane); retries use independent timers.
+- **H3** delivery config: `PUT` = full replace with defaults, `PATCH` = merge; per-app config is a sparse override that inherits global changes live; `GET` per-app returns the effective config plus `override`; reset drops overrides.
+- **H4** `Service.Export()` (one `Store.Read` tx) returns a `scenario.Fixture` (app bot users excluded; their messages/reactions stay); `/state/conversations` is a view of it. Snapshots/diff stay in stream G.
+- **H5/M1/M5** depguard: `service` may not import events/control/admin/api/web (api keeps calllog/faults: they are its Recorder/Interceptor seams); `/health` reports `events_dropped`; the `faults` pytest fixture fails loudly and a session-end check asserts faults and delivery-config are back at their starting state; unbounded sleep/spin test waits are bounded polls.
+- **H6** 409 `app_exists` documented; the derived app id collides for equal display names unless `app_id` is given (error message says so).

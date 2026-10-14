@@ -10,9 +10,11 @@ require (
 )
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/google/go-cmp v0.7.0
 	github.com/pelletier/go-toml/v2 v2.2.4
 	github.com/pressly/goose/v3 v3.26.0
+	go.yaml.in/yaml/v3 v3.0.5
 	modernc.org/sqlite v1.40.1
 )
 

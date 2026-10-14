@@ -33,7 +33,20 @@ make run                      # serves on http://localhost:3232 (loopback only; 
   Tokens: `xoxb-<anything>` acts as the bot; `xoxp-<userID>` acts as that user (ids from `users.list`).
 - **Config (env):** `LOCALSLACK_ADDR` (default `127.0.0.1:3232`; auth is "any token works", so only expose with `0.0.0.0:3232` deliberately, e.g. in a container), `LOCALSLACK_DB_PATH`, `LOCALSLACK_SEED` (same seed, same demo data; a random one is logged otherwise), `LOCALSLACK_NO_SEED=1`.
 - **Inspect state:** `curl localhost:3232/_localslack/state/conversations`.
-- **What's supported:** see [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), generated from the capability manifest: every implemented and planned method, how well each is verified against real Slack, behaviors like rate limiting and scopes, and known deviations. Unimplemented methods return `404 not_implemented`.
+- **What's supported:** see [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md), generated from the capability manifest: every implemented and planned method, how well each is verified against real Slack, behaviors like rate limiting and scopes, and known deviations. Unimplemented methods return `200 unknown_method` with an `X-LocalSlack-Not-Implemented: 1` header.
+
+## Try the test loop
+
+```
+make demo               # LocalSlack on :3232 + two real Bolt apps (needs go, uv); DEMO_MODE=socket or `make demo-socket` for Socket Mode
+```
+
+- Open http://localhost:3232/ui, post `@demo-bolt ping` in `#general` (the bot replies `pong`), then watch it all at **http://localhost:3232/ui/inspector** (API calls, event deliveries, apps, faults, sockets, snapshots).
+- Guided 45-minute walkthrough with expected results and feedback prompts: [docs/QA.md](docs/QA.md). API contract: [docs/TESTING_API.md](docs/TESTING_API.md).
+- CLI niceties (server running on :3232):
+  - `localslack apps add manifest.json` / `apps set-url <app> http://localhost:3000` (fixes a `blocked` remote request URL) / `apps env <app>` (prints `SLACK_API_URL`, `SLACK_BOT_TOKEN`, `SLACK_SIGNING_SECRET`, `SLACK_APP_TOKEN` for your app).
+  - `localslack reset [--all]`: re-seed workspace data, keeping apps; `--all` also removes apps.
+  - `localslack start --scenario examples/scenarios/acme.json` (also `reset --scenario f`): exact, reproducible users/channels/messages.
 
 ## Key Notes
 

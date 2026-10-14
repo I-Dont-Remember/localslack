@@ -1,0 +1,6 @@
+id: no-pytest-skip-missing-feature
+valid:
+  - 'pytest.skip("run via `make smoke` (needs a live LocalSlack)")'
+invalid:
+  - 'pytest.skip("apps API not available on this build")'
+  - 'pytest.skip("reactions not implemented yet")'

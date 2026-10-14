@@ -1,0 +1,10 @@
+id: no-pytest-skip-missing-feature
+language: python
+severity: error
+message: Don't skip for a feature that "isn't available/implemented" - the test goes green while the feature is broken or absent. Fail, or mark with @deviation(id) so xfail_strict flags it when fixed.
+rule:
+  pattern: pytest.skip($MSG)
+  has:
+    kind: string
+    regex: '(?i)(not (yet )?(available|implemented|supported)|unavailable)'
+    stopBy: end

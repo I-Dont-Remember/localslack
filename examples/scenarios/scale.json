@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "generate": {
+    "seed": "scale",
+    "users": 400,
+    "channels": 50,
+    "messages_per_channel": 40,
+    "thread_ratio": 0.2,
+    "private_channels": 5
+  }
+}

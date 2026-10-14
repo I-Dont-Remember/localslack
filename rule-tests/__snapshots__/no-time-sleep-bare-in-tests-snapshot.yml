@@ -1,0 +1,8 @@
+id: no-time-sleep-bare-in-tests
+snapshots:
+  ? "func TestX(t *testing.T) {\n\tgo work()\n\ttime.Sleep(50 * time.Millisecond)\n}\n"
+  : labels:
+    - source: time.Sleep(50 * time.Millisecond)
+      style: primary
+      start: 39
+      end: 72

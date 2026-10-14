@@ -11,8 +11,10 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"localslack/internal/admin"
 	"localslack/internal/api"
 	"localslack/internal/config"
+	"localslack/internal/respond"
 	"localslack/internal/service"
 	"localslack/internal/web"
 )
@@ -25,6 +27,8 @@ type Deps struct {
 	Web *web.Web
 	// ListenAddr is the configured bind address; it drives the Host allowlist.
 	ListenAddr string
+	// Components are the optional seams (call log, faults, dispatcher, control); zero is fine.
+	Components Components
 }
 
 // NewRouter returns the configured HTTP handler for LocalSlack.
@@ -33,11 +37,11 @@ func NewRouter(d Deps) http.Handler {
 	r.Use(middleware.RequestID, echoRequestID, recoverer(d.Log), requestLogger(d.Log), func(next http.Handler) http.Handler {
 		return guard(d.Log, d.ListenAddr, next)
 	})
-	h := handlers{log: d.Log, svc: d.Svc}
-	r.Get("/_localslack/health", h.health)
+	h := handlers{log: d.Log}
+	c := d.Components
+	admin.Mount(r, admin.Deps{Log: d.Log, Svc: d.Svc, Calls: c.CallLog, Faults: c.Faults, Events: c.Events, Control: c.Control, Socket: c.Socket})
 	if d.Svc != nil {
-		r.Get("/_localslack/state/conversations", h.stateConversations)
-		api.Mount(r, d.Svc, d.Log, h.notImplemented)
+		api.Mount(r, d.Svc, d.Log, c.apiOptions()...)
 	}
 	if d.Web != nil {
 		if err := d.Web.Mount(r); err != nil {
@@ -101,17 +105,18 @@ func Run(ctx context.Context, log *slog.Logger, cfg config.Config) error {
 
 type handlers struct {
 	log *slog.Logger
-	svc *service.Service
 }
 
-func (h handlers) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.log, w, http.StatusOK, map[string]bool{"ok": true})
-}
-
+// notImplemented is the fallthrough: an unknown Slack method is 404 not_implemented
+// (Slack shape); an unknown /_localslack path is 404 not_found.
 func (h handlers) notImplemented(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.log, w, http.StatusNotFound, errorBody("not_implemented"))
+	if respond.IsAdminPath(r.URL.Path) {
+		respond.Error(r.Context(), h.log, w, http.StatusNotFound, "not_found", "no such /_localslack endpoint", nil)
+		return
+	}
+	respond.SlackError(r.Context(), h.log, w, http.StatusNotFound, "not_implemented")
 }
 
 func (h handlers) methodNotAllowed(w http.ResponseWriter, r *http.Request) {
-	writeJSON(r.Context(), h.log, w, http.StatusMethodNotAllowed, errorBody("method_not_allowed"))
+	respond.ForRequest(r.Context(), h.log, w, r, http.StatusMethodNotAllowed, "method_not_allowed", "method not allowed for this path")
 }

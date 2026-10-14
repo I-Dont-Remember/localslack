@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"localslack/internal/respond"
 )
 
 const maxBodyBytes = 2 << 20
@@ -51,6 +53,10 @@ func guard(log *slog.Logger, listenAddr string, next http.Handler) http.Handler 
 			deny(log, w, r, "forbidden_origin")
 			return
 		}
+		if respond.IsAdminPath(r.URL.Path) && r.ContentLength > maxBodyBytes {
+			respond.Error(r.Context(), log, w, http.StatusRequestEntityTooLarge, "payload_too_large", "request body exceeds the size limit", nil)
+			return
+		}
 		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 		next.ServeHTTP(w, r)
 	})
@@ -75,5 +81,9 @@ func crossOrigin(r *http.Request) bool {
 }
 
 func deny(log *slog.Logger, w http.ResponseWriter, r *http.Request, code string) {
-	writeJSON(r.Context(), log, w, http.StatusForbidden, errorBody(code))
+	msg := map[string]string{
+		"invalid_host":     "Host header is not a local name; this server only answers loopback hosts",
+		"forbidden_origin": "cross-origin write refused",
+	}[code]
+	respond.ForRequest(r.Context(), log, w, r, http.StatusForbidden, code, msg)
 }

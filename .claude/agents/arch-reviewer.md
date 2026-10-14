@@ -58,6 +58,7 @@ Conduct high-level architectural reviews. You are NOT a linter or style checker 
 - Are there seams in the code that will make future changes painful?
 - Are abstractions at the right level — neither too leaky nor over-engineered?
 - Are there missing interfaces or hardcoded dependencies that will hurt testability?
+- Given today's requirements, what should be consolidated or deleted (parallel copies of one pattern, code kept only for superseded designs)? Name the files; the `simplifier` agent acts on it.
 
 ### 5. Gaps & Omissions
 - What's planned in the design doc but not yet started that should be?

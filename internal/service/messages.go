@@ -2,63 +2,13 @@ package service
 
 import (
 	"context"
-	"errors"
 
 	"localslack/internal/store"
 )
 
-// PostMessage stores a message. A non-empty threadTS replies in that thread;
-// replying to a reply attaches to the thread root.
-func (s *Service) PostMessage(ctx context.Context, author User, channelID, text, threadTS string) (Message, error) {
-	if text == "" {
-		return Message{}, ErrNoText
-	}
-	var msg store.Message
-	err := s.st.Write(ctx, func(tx *store.Tx) error {
-		conv, err := tx.Conversation(ctx, channelID)
-		if err != nil {
-			return notFoundAs(err, ErrChannelNotFound)
-		}
-		if conv.IsArchived {
-			return ErrIsArchived
-		}
-		root, err := threadRoot(ctx, tx, channelID, threadTS)
-		if err != nil {
-			return err
-		}
-		msg = store.Message{ChannelID: channelID, TS: s.ts.next(s.now()), UserID: author.ID, Text: text, ThreadTS: root}
-		if err := tx.InsertMessage(ctx, msg); err != nil {
-			return err
-		}
-		if root == "" {
-			return nil
-		}
-		return tx.BumpThread(ctx, channelID, root, msg.TS)
-	})
-	if err != nil {
-		return Message{}, err
-	}
-	return msgFrom(msg), nil
-}
-
-// threadRoot resolves threadTS to the root message's ts ("" for a top-level post).
-func threadRoot(ctx context.Context, tx *store.Tx, channelID, threadTS string) (string, error) {
-	if threadTS == "" {
-		return "", nil
-	}
-	parent, err := tx.Message(ctx, channelID, threadTS)
-	if err != nil {
-		return "", notFoundAs(err, ErrThreadNotFound)
-	}
-	if parent.ThreadTS != "" {
-		return parent.ThreadTS, nil
-	}
-	return parent.TS, nil
-}
-
 // History returns a channel's top-level messages, newest first.
-func (s *Service) History(ctx context.Context, _ User, channelID string, o PageOpts) (Page[Message], error) {
-	if err := s.requireChannel(ctx, channelID); err != nil {
+func (s *Service) History(ctx context.Context, u User, channelID string, o PageOpts) (Page[Message], error) {
+	if err := s.requireReadable(ctx, u, channelID); err != nil {
 		return Page[Message]{}, err
 	}
 	before, err := decodeCursor(cursorHistory, o.Cursor)
@@ -72,12 +22,16 @@ func (s *Service) History(ctx context.Context, _ User, channelID string, o PageO
 	if err != nil {
 		return Page[Message]{}, err
 	}
-	return mapPage(paginate(cursorHistory, items, limit, func(m store.Message) string { return m.TS }), msgFrom), nil
+	out := mapPage(paginate(cursorHistory, items, limit, func(m store.Message) string { return m.TS }), msgFrom)
+	if err := s.withReactions(ctx, channelID, out.Items); err != nil {
+		return Page[Message]{}, err
+	}
+	return out, nil
 }
 
 // Replies returns a thread (root first, then replies oldest first).
-func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS string, o PageOpts) (Page[Message], error) {
-	if err := s.requireChannel(ctx, channelID); err != nil {
+func (s *Service) Replies(ctx context.Context, u User, channelID, threadTS string, o PageOpts) (Page[Message], error) {
+	if err := s.requireReadable(ctx, u, channelID); err != nil {
 		return Page[Message]{}, err
 	}
 	after, err := decodeCursor(cursorReplies, o.Cursor)
@@ -102,21 +56,32 @@ func (s *Service) Replies(ctx context.Context, _ User, channelID, threadTS strin
 		return Page[Message]{}, err
 	}
 	page := paginate(cursorReplies, items, limit, func(m store.Message) string { return m.TS })
-	return mapPage(page, func(m store.Message) Message {
-		out := msgFrom(m)
+	out := mapPage(page, func(m store.Message) Message {
+		msg := msgFrom(m)
 		if m.ThreadTS != "" {
-			out.ParentUserID = root.UserID
+			msg.ParentUserID = root.UserID
 		}
-		return out
-	}), nil
+		return msg
+	})
+	if err := s.withReactions(ctx, channelID, out.Items); err != nil {
+		return Page[Message]{}, err
+	}
+	return out, nil
 }
 
-func (s *Service) requireChannel(ctx context.Context, channelID string) error {
-	if _, err := s.st.Conversation(ctx, channelID); err != nil {
-		if errors.Is(err, store.ErrNotFound) {
-			return ErrChannelNotFound
-		}
-		return err
+func (s *Service) requireReadable(ctx context.Context, u User, channelID string) error {
+	c, err := s.st.Conversation(ctx, channelID)
+	if err != nil {
+		return notFoundAs(err, ErrChannelNotFound)
 	}
-	return nil
+	return s.canRead(ctx, u, c)
+}
+
+func (s *Service) requireVisible(ctx context.Context, u User, channelID string) error {
+	c, err := s.st.Conversation(ctx, channelID)
+	if err != nil {
+		return notFoundAs(err, ErrChannelNotFound)
+	}
+	_, err = s.canSee(ctx, u, c)
+	return err
 }

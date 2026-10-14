@@ -1,0 +1,135 @@
+#!/usr/bin/env bash
+# Tests for scripts/quiet.sh and scripts/claude-hooks/*. Run: make hooks-test
+set -uo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd)"
+fails=0
+
+# check <name> <want_exit> <want_substr_or_empty> <got_exit> <got_output>
+check() {
+	local name=$1 want=$2 sub=$3 code=$4 out=$5
+	if [ "$code" != "$want" ] || { [ -n "$sub" ] && [[ "$out" != *"$sub"* ]]; }; then
+		echo "FAIL $name: exit=$code (want $want), want substring '$sub', output: $out" >&2
+		fails=$((fails + 1))
+	fi
+}
+
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+export QUIET_LOG_DIR="$work/logs"
+export HOOK_EVENT_LOG="$work/events.jsonl"
+
+# --- quiet.sh ---
+out=$("$root/scripts/quiet.sh" demo bash -c 'echo noisy; echo noisy2'); code=$?
+check "quiet success is one line" 0 "ok demo" "$code" "$out"
+[[ "$out" == *noisy* ]] && check "quiet success hides output" 0 "" 1 "$out"
+
+out=$("$root/scripts/quiet.sh" demo bash -c 'echo "--- FAIL: TestX"; echo chatter; exit 3' 2>&1); code=$?
+check "quiet failure keeps exit code and fail lines" 3 "--- FAIL: TestX" "$code" "$out"
+
+out=$(V=1 "$root/scripts/quiet.sh" demo bash -c 'echo raw'); code=$?
+check "V=1 passes output through" 0 "raw" "$code" "$out"
+
+[ -s "$work/logs/demo.log" ] || check "quiet writes full log" 0 "" 1 "missing log"
+
+# --- hooks ---
+hook() { # hook <script> <json>; prints output, returns exit code
+	printf '%s' "$2" | "$root/scripts/claude-hooks/$1" 2>&1
+}
+bash_json() { jq -nc --arg c "$1" '{tool_name:"Bash",tool_input:{command:$c}}'; }
+
+while IFS='|' read -r want sub cmd; do
+	[ -z "$want" ] && continue
+	out=$(hook pre-bash-guard.sh "$(bash_json "$cmd")"); code=$?
+	check "guard: $cmd" "$want" "$sub" "$code" "$out"
+done <<'CASES'
+2|Edit tool|sed -i 's/a/b/' internal/x.go
+2|Edit tool|python3 - <<'E'\nprint(1)\nE
+2|Write tool|cat > internal/x.go <<'E'\npackage x\nE
+2|Write tool|cat >> internal/x.go <<'E'\nfoo\nE
+2|Write tool|tee internal/x.go
+2|sleep|sleep 120
+2|-r|rg -n foo -r . --glob '!tmp'
+0||sed -i 's/a/b/' tmp/scratch.txt
+0||python3 - <<'E'\nprint(1)\nE > $TMPDIR/out
+0||make check
+0||go test ./internal/service
+0||sleep 2
+0||rg -n foo internal
+CASES
+
+edit_json() { jq -nc --arg p "$1" '{tool_name:"Edit",tool_input:{file_path:$p}}'; }
+printf 'package x\nfunc  F( ) {}\n' >"$work/bad.go"
+hook post-edit-fmt.sh "$(edit_json "$work/bad.go")" >/dev/null; code=$?
+check "fmt hook exits 0" 0 "" "$code" ""
+grep -q 'func F()' "$work/bad.go" || check "fmt hook formats go" 0 "" 1 "$(cat "$work/bad.go")"
+hook post-edit-fmt.sh "$(edit_json "$work/notes.md")" >/dev/null; code=$?
+check "fmt hook ignores other files" 0 "" "$code" ""
+
+# --- precommit-test.sh: staged files -> unique package dirs ---
+out=$(PRECOMMIT_TEST_DRY=1 "$root/scripts/precommit-test.sh" internal/a/x.go internal/a/y_test.go internal/b/z.go 2>&1); code=$?
+check "precommit-test dedupes package dirs" 0 "go test -shuffle=on ./internal/a ./internal/b" "$code" "$out"
+out=$(PRECOMMIT_TEST_DRY=1 "$root/scripts/precommit-test.sh" go.mod 2>&1); code=$?
+check "precommit-test go.mod runs everything" 0 "./..." "$code" "$out"
+
+# --- agent-bench.sh dry run ---
+out=$(DRY=1 "$root/scripts/agent-bench.sh" before "$root/agent-docs/bench/b1-read-methods.md" 9d20c27 2>&1); code=$?
+check "agent-bench dry run" 0 "git worktree add -b bench/before" "$code" "$out"
+out=$(DRY=1 "$root/scripts/agent-bench.sh" after "$root/agent-docs/bench/b1-read-methods.md" 9d20c27 HEAD 2>&1); code=$?
+check "agent-bench dry run overlay" 0 "overlay: git checkout HEAD" "$code" "$out"
+
+# --- merge-stream.sh: generated-file conflicts regenerate; real conflicts abort ---
+repo="$work/repo"
+git init -q -b main "$repo"
+(
+	cd "$repo"
+	git config user.email t@t && git config user.name t
+	printf 'docs/COMPATIBILITY.md -merge\n' >.gitattributes
+	mkdir docs && echo base >docs/COMPATIBILITY.md && echo base >code.txt
+	git add -A && git commit -qm base
+	git checkout -qb gen-side && echo gen-side >docs/COMPATIBILITY.md && echo gen >gen.txt && git add -A && git commit -qm gen-side
+	git checkout -qb code-side main && echo code-side >code.txt && git add -A && git commit -qm code-side
+	git checkout -qb code-side2 main && echo other >code.txt && git add -A && git commit -qm code-side2
+	git checkout -q main && echo main >docs/COMPATIBILITY.md && git add -A && git commit -qm main-doc
+)
+export GEN_CMD='echo regenerated >docs/COMPATIBILITY.md' VERIFY_CMD=true
+out=$(cd "$repo" && "$root/scripts/merge-stream.sh" gen-side 2>&1); code=$?
+check "merge-stream regenerates doc conflict" 0 "regenerated" "$code" "$out"
+[ "$(cat "$repo/docs/COMPATIBILITY.md")" = regenerated ] || check "merge-stream result content" 0 "" 1 "$(cat "$repo/docs/COMPATIBILITY.md")"
+(cd "$repo" && git merge -q --no-edit code-side >/dev/null)
+out=$(cd "$repo" && "$root/scripts/merge-stream.sh" code-side2 2>&1); code=$?
+check "merge-stream aborts on real conflict" 1 "code.txt" "$code" "$out"
+[ -z "$(cd "$repo" && git status --porcelain --untracked-files=no)" ] || check "merge-stream leaves clean tree" 0 "" 1 "dirty"
+unset GEN_CMD VERIFY_CMD
+
+# --- debt.sh: reports near-duplicates, dead code and tracked patterns in a throwaway module ---
+mod="$work/mod"
+mkdir -p "$mod/report-rules"
+printf 'module example.com/debt\n\ngo 1.24\n' >"$mod/go.mod"
+printf 'ruleDirs:\n  - report-rules\n' >"$mod/sgconfig.report.yml"
+printf 'id: demo-panic\nlanguage: go\nrule:\n  pattern: panic($A)\n' >"$mod/report-rules/demo.yml"
+{
+	echo 'package main'
+	echo 'import "strings"'
+	for n in A B C; do
+		printf 'func copy%s(in []string) (out []string, n int) {\n' "$n"
+		printf '\tfor _, s := range in {\n\t\tif strings.TrimSpace(s) == "" {\n\t\t\tcontinue\n\t\t}\n'
+		printf '\t\tout = append(out, strings.ToLower(s))\n\t\tn += len(s)\n\t}\n'
+		printf '\tif n > 100 {\n\t\tout = out[:1]\n\t}\n\treturn out, n\n}\n'
+	done
+	echo '//art-dupl:accept kept deliberately for the test (expires=2020-01-01)'
+	echo 'func neverCalled() { panic("x") }'
+	echo 'func main() { copyA(nil); copyB(nil); copyC(nil) }'
+} >"$mod/main.go"
+out=$(DEBT_ROOT="$mod" DEBT_BASE=HEAD "$root/scripts/debt.sh" 2>&1); code=$?
+check "debt exits 0" 0 "" "$code" "$out"
+check "debt reports duplicates" 0 "main.go" "$code" "$(sed -n '/== Near-duplicates/,/== Dead code/p' <<<"$out")"
+check "debt reports dead code" 0 "neverCalled" "$code" "$out"
+check "debt runs art-dupl" 0 "main.go" "$code" "$(sed -n '/== art-dupl/,/== Dead code/p' <<<"$out")"
+check "debt flags expired accept marker" 0 "EXPIRED main.go" "$code" "$out"
+check "debt reports tracked patterns" 0 "demo-panic" "$code" "$out"
+
+if [ "$fails" -gt 0 ]; then
+	echo "$fails hooks/quiet test(s) failed" >&2
+	exit 1
+fi
+echo "hooks-test ok"

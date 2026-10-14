@@ -37,15 +37,20 @@ type Web struct {
 	svc  *service.Service
 	log  *slog.Logger
 	tmpl *template.Template
+	insp Inspector
 }
 
 // New parses templates once at startup so a bad template fails fast.
-func New(svc *service.Service, log *slog.Logger) (*Web, error) {
+func New(svc *service.Service, log *slog.Logger, opts ...Option) (*Web, error) {
 	t, err := template.ParseFS(templatesFS, "templates/*.html")
 	if err != nil {
 		return nil, fmt.Errorf("parse templates: %w", err)
 	}
-	return &Web{svc: svc, log: log, tmpl: t}, nil
+	w := &Web{svc: svc, log: log, tmpl: t}
+	for _, o := range opts {
+		o(w)
+	}
+	return w, nil
 }
 
 // Mount registers the UI routes.
@@ -63,17 +68,20 @@ func (w *Web) Mount(r chi.Router) error {
 	r.Get("/ui/c/{id}/t/{ts}", w.threadPage)
 	r.Get("/ui/c/{id}/t/{ts}/messages", w.threadMessages)
 	r.Post("/ui/c/{id}/t/{ts}/post", w.threadPost)
+	r.Post("/ui/c/{id}/react", w.channelReact)
+	r.Post("/ui/c/{id}/t/{ts}/react", w.threadReact)
 	r.Get("/ui/switch", w.switcher)
 	r.Post("/ui/dm", w.openDM)
 	r.Post("/ui/as", w.actAs)
+	w.mountInspector(r)
 	return nil
 }
 
 // actor resolves the acting user from the cookie, defaulting to the first human.
 func (w *Web) actor(ctx context.Context, r *http.Request) (service.User, error) {
 	if c, err := r.Cookie(actorCookie); err == nil {
-		if u, err := w.svc.Authenticate(ctx, "xoxp-"+c.Value); err == nil {
-			return u, nil
+		if p, err := w.svc.Authenticate(ctx, "xoxp-"+c.Value); err == nil {
+			return p.User, nil
 		}
 	}
 	users, err := w.svc.Users(ctx)
@@ -85,7 +93,8 @@ func (w *Web) actor(ctx context.Context, r *http.Request) (service.User, error) 
 			return u, nil
 		}
 	}
-	return w.svc.Authenticate(ctx, "xoxb-ui")
+	p, err := w.svc.DefaultBot(ctx)
+	return p.User, err
 }
 
 func (w *Web) render(rw http.ResponseWriter, r *http.Request, name string, data any) {
@@ -102,15 +111,12 @@ func (w *Web) render(rw http.ResponseWriter, r *http.Request, name string, data 
 
 // fail maps domain errors to HTTP statuses (the UI's analogue of Slack error codes).
 func (w *Web) fail(rw http.ResponseWriter, r *http.Request, err error) {
-	switch {
-	case errors.Is(err, service.ErrChannelNotFound), errors.Is(err, service.ErrThreadNotFound), errors.Is(err, service.ErrUserNotFound):
-		http.Error(rw, "not found", http.StatusNotFound)
-	case errors.Is(err, service.ErrIsArchived):
-		http.Error(rw, "channel is archived", http.StatusConflict)
-	default:
-		w.log.ErrorContext(r.Context(), "web error", slog.Any("error", err))
-		http.Error(rw, "internal error", http.StatusInternalServerError)
+	if status, text, ok := statusFor(err); ok {
+		http.Error(rw, text, status)
+		return
 	}
+	w.log.ErrorContext(r.Context(), "web error", slog.Any("error", err))
+	http.Error(rw, "internal error", http.StatusInternalServerError)
 }
 
 func (w *Web) home(rw http.ResponseWriter, r *http.Request) {

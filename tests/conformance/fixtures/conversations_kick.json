@@ -1,0 +1,58 @@
+{
+  "state": "passing",
+  "note": "Slack: kicking a member returns ok",
+  "source": "llm",
+  "setup": [
+    {
+      "method": "POST",
+      "path": "/api/users.list",
+      "token": "xoxb-test",
+      "capture": {
+        "human": "members.0.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth.test",
+      "token": "xoxb-test",
+      "capture": {
+        "bot": "user_id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.create",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "name": "fx-kick"
+      },
+      "capture": {
+        "chan": "channel.id"
+      }
+    },
+    {
+      "method": "POST",
+      "path": "/api/conversations.invite",
+      "token": "xoxp-{{human}}",
+      "params": {
+        "channel": "{{chan}}",
+        "users": "{{bot}}"
+      }
+    }
+  ],
+  "request": {
+    "method": "POST",
+    "path": "/api/conversations.kick",
+    "token": "xoxp-{{human}}",
+    "params": {
+      "channel": "{{chan}}",
+      "user": "{{bot}}"
+    }
+  },
+  "response": {
+    "status": 200,
+    "body": {
+      "ok": true
+    }
+  }
+}

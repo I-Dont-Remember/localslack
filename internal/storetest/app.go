@@ -27,6 +27,8 @@ type App struct {
 	Config  config.Config
 	Store   *store.Store
 	Service *service.Service
+	// Components are the optional seams (call log, faults, dispatcher, control).
+	Components server.Components
 }
 
 // NewApp starts an isolated app (temp DB, pinned seed) and stops it on cleanup.
@@ -50,22 +52,32 @@ func NewApp(t *testing.T) *App {
 	})
 	srv := httptest.NewServer(built.Handler)
 	t.Cleanup(srv.Close)
-	return &App{URL: srv.URL, Config: cfg, Store: built.Store, Service: built.Service}
+	return &App{URL: srv.URL, Config: cfg, Store: built.Store, Service: built.Service, Components: built.Components}
 }
 
 // NewStore opens a seeded (pinned seed and clock) temp-file store, closed on cleanup.
-func NewStore(t *testing.T) *store.Store {
-	t.Helper()
+func NewStore(tb testing.TB) *store.Store {
+	tb.Helper()
+	return openStore(tb, config.Config{DBPath: filepath.Join(tb.TempDir(), "localslack.db"), Seed: PinnedSeed})
+}
 
-	cfg := config.Config{DBPath: filepath.Join(t.TempDir(), "localslack.db"), Seed: PinnedSeed}
+// NewEmptyStore opens a migrated but unseeded temp-file store, closed on cleanup.
+func NewEmptyStore(tb testing.TB) *store.Store {
+	tb.Helper()
+	return openStore(tb, config.Config{DBPath: filepath.Join(tb.TempDir(), "localslack.db"), NoSeed: true})
+}
+
+func openStore(tb testing.TB, cfg config.Config) *store.Store {
+	tb.Helper()
+
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	st, err := server.OpenStore(t.Context(), log, cfg, PinnedNow())
+	st, err := server.OpenStore(tb.Context(), log, cfg, PinnedNow())
 	if err != nil {
-		t.Fatalf("open store: %v", err)
+		tb.Fatalf("open store: %v", err)
 	}
-	t.Cleanup(func() {
+	tb.Cleanup(func() {
 		if err := st.Close(); err != nil {
-			t.Errorf("close store: %v", err)
+			tb.Errorf("close store: %v", err)
 		}
 	})
 	return st
