@@ -33,8 +33,10 @@ head -"$top" "$tmp/dupl.txt"
 echo
 echo "== Dead code (unreachable from main packages; test-only helpers show up here too)"
 {
-	if command -v deadcode >/dev/null; then # pinned in mise.toml
-		deadcode ./...
+	# pinned in mise.toml; resolve the real binary from the repo (shims only work inside it)
+	dc="$(cd "$here" && mise which deadcode 2>/dev/null || command -v deadcode)"
+	if [ -x "$dc" ]; then
+		"$dc" ./...
 	else # fallback: needs network on first use
 		GOSUMDB=off go run golang.org/x/tools/cmd/deadcode@v0.36.0 ./...
 	fi
