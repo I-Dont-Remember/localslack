@@ -117,9 +117,13 @@ Raw LOC growth is expected for a large Slack emulation, so track duplication and
 instead. Rationale: requirements shift mid-build, leaving near-copies a full-requirements design would
 have unified; the `dry-consolidator` agent (own `consolidate-*` branch) consolidates them at checkpoints.
 
-| Date | Ref | dupl>=50 hits (non-test, pairs x2) | deadcode unreachable | url-param-read | decode-guard | hand-rolled-json-decode | consolidator branch |
-|---|---|---|---|---|---|---|---|
-| 2026-10-13 | 9c3ca39 | 8 | 39 (some test-only helpers) | 30 | 5 | 3 | n/a (baseline) |
+| Date | Ref | dupl>=50 hits (non-test, pairs x2) | deadcode unreachable | decode-guard | consolidator branch |
+|---|---|---|---|---|---|
+| 2026-10-13 | 9c3ca39 | 8 | 39 (some test-only helpers) | 5 | n/a (baseline) |
+| 2026-10-13 | d48536a | 6 | n/a | 5 | `consolidate-agent-loop-tooling`: 1 commit, 6 copies -> `Tx.execOne`, net -36 LOC, ~38k tokens |
+
+Trial finding: `url-param-read` (30) and `hand-rolled-json-decode` (3) were dropped as noise (already
+one-liners / test helpers); the agent correctly skipped pairs that fail the rule of three.
 
 Per dry-consolidator run also record: merged or dropped by the owner, clusters removed, LOC delta, tokens
 (`make trace-stats`). Branches that keep getting dropped mean the brief or the agent needs retuning.

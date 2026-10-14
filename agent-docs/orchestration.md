@@ -20,6 +20,10 @@ idle ~6h; cost came from large contexts x many turns, not command time. Evidence
    no background Monitors running".
 6. **Worktrees:** branch from the current integration branch (check `git branch --show-current`),
    flat names (`w1-events`, not `test-loop/w1-events` - it collides with the `test-loop` ref).
+   The Agent tool's `isolation: worktree` branches from an old default commit, not the current
+   branch (and the agent then can't read the branch's `.claude/` files): create the worktree
+   yourself, `git worktree add -b w1-events tmp/w1-events <integration-branch>`, and give the agent
+   its absolute path (`git -C`/`make -C`, no `cd x;` chains).
    Inside a worktree use Read/Edit/Write; shell heredocs and `cd x; ...` chains get refused.
 7. **Merge with `scripts/merge-stream.sh <branch>`.** It regenerates `docs/COMPATIBILITY.md` on
    conflict, aborts on real conflicts, then runs `make check test`.

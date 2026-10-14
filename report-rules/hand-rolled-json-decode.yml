@@ -1,6 +1,0 @@
-id: hand-rolled-json-decode
-language: go
-severity: hint
-message: json.NewDecoder(...).Decode outside the shared decode helpers
-rule:
-  pattern: json.NewDecoder($R).Decode($V)

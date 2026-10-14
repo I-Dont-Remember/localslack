@@ -1,6 +1,0 @@
-id: url-param-read
-language: go
-severity: hint
-message: direct chi.URLParam read; candidate for typed path-param helpers
-rule:
-  pattern: chi.URLParam($R, $S)
