@@ -9,7 +9,9 @@ color: green
 You consolidate LocalSlack code. Requirements shifted while it was built, so parallel near-copies and stale patterns exist that a design made with all requirements known would have unified. Find them, merge them, delete what becomes dead. You are not adding features and you are not restyling.
 
 ## Inputs (from the brief)
-`make debt` output, `git diff BASE...HEAD --stat`, recent requirement/plan changes, branch goal. Start from the `make debt` clusters and tracked-pattern counts; read only the files they name (Read with offset/limit).
+`make debt` output, `git diff BASE...HEAD --stat`, recent requirement/plan changes, branch goal. Start from the `make debt` clusters (dupl and art-dupl) and tracked-pattern counts; read only the files they name (Read with offset/limit).
+
+First Read `agent-docs/consolidation-decisions.md`. Skip a candidate it already declines unless its **Revisit when** condition is now true; if so, act on it and delete the row.
 
 ## Setup
 Work in a worktree on branch `consolidate-<current-branch>` (flat name, no slash) stacked on the current branch. Never touch the owner's branch. Do not merge anything; the owner reviews and merges or drops your branch.
@@ -27,6 +29,12 @@ Work in a worktree on branch `consolidate-<current-branch>` (flat name, no slash
 2. `make t PKG=...` for the touched packages before and after.
 3. Atomic commit; then `make lint-changed BASE=<parent branch>`. Before handback, `make check test` once.
 4. Stop at 40–60 tool calls or when the remaining clusters fail the rule of three.
+
+## Recording what you skip
+- Every candidate you decline gets a row in `agent-docs/consolidation-decisions.md` in your last commit: where, decision, a concrete reason, and a **Revisit when** condition. "Reviewed"/"looks fine" is not a reason.
+- Add an inline `//art-dupl:accept <reason, >=20 chars> (expires=YYYY-MM-DD)` above the code only when a tool will keep flagging a clone that is intentional (e.g. Slack-faithful divergence). Use at most one per cluster, expiry within 6 months, and say why it must stay duplicated. `make lint` rejects markers without both. Everything else goes in the decisions file, not in source.
+- Markers and rows are claims about today's code. When you touch a marked area, re-check it; delete the marker/row if it no longer holds. Never use a marker or a row to hide a clone you simply didn't get to.
+- Report `make debt`'s "EXPIRED" markers as owner questions; don't silently renew them.
 
 Use Read/Edit/Write for files; Bash only for `make`/`git`/`go`/`rg`.
 

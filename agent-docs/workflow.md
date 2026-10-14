@@ -24,7 +24,7 @@ Read `STATUS.md` -> active plan in `plans/` -> any `## Handoff` -> first uncheck
 | `make lint-changed` | golangci-lint on changes since `BASE` (default `main`; set to the parent branch when stacked) + ast-grep |
 | `make stress PKG=... RUN=TestY` | `-race -count=50` flake hunt |
 | `make gen` | regenerate generated files (`docs/COMPATIBILITY.md`); run it when `TestCompatibilityDocIsCurrent` fails |
-| `make debt` | report-only consolidation targets: near-duplicates, dead code, repeated patterns (`report-rules/`), size outliers, churn |
+| `make debt` | report-only consolidation targets: near-duplicates (dupl + art-dupl), expired `//art-dupl:accept` markers, dead code, repeated patterns (`report-rules/`), size outliers, churn |
 | `make hooks-test` / `make trace-test` | tests for `scripts/` tooling (hooks, quiet.sh, merge-stream.sh, trace_stats.py) |
 | `make trace-stats SESSION=<id>` | token/efficiency stats of a Claude session (`VS=<id>` to compare); see `reviews/` |
 
