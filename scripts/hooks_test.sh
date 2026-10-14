@@ -101,6 +101,30 @@ check "merge-stream aborts on real conflict" 1 "code.txt" "$code" "$out"
 [ -z "$(cd "$repo" && git status --porcelain --untracked-files=no)" ] || check "merge-stream leaves clean tree" 0 "" 1 "dirty"
 unset GEN_CMD VERIFY_CMD
 
+# --- debt.sh: reports near-duplicates, dead code and tracked patterns in a throwaway module ---
+mod="$work/mod"
+mkdir -p "$mod/report-rules"
+printf 'module example.com/debt\n\ngo 1.24\n' >"$mod/go.mod"
+printf 'ruleDirs:\n  - report-rules\n' >"$mod/sgconfig.report.yml"
+printf 'id: demo-panic\nlanguage: go\nrule:\n  pattern: panic($A)\n' >"$mod/report-rules/demo.yml"
+{
+	echo 'package main'
+	echo 'import "strings"'
+	for n in A B C; do
+		printf 'func copy%s(in []string) (out []string, n int) {\n' "$n"
+		printf '\tfor _, s := range in {\n\t\tif strings.TrimSpace(s) == "" {\n\t\t\tcontinue\n\t\t}\n'
+		printf '\t\tout = append(out, strings.ToLower(s))\n\t\tn += len(s)\n\t}\n'
+		printf '\tif n > 100 {\n\t\tout = out[:1]\n\t}\n\treturn out, n\n}\n'
+	done
+	echo 'func neverCalled() { panic("x") }'
+	echo 'func main() { copyA(nil); copyB(nil); copyC(nil) }'
+} >"$mod/main.go"
+out=$(DEBT_ROOT="$mod" DEBT_BASE=HEAD "$root/scripts/debt.sh" 2>&1); code=$?
+check "debt exits 0" 0 "" "$code" "$out"
+check "debt reports duplicates" 0 "main.go" "$code" "$(sed -n '/== Near-duplicates/,/== Dead code/p' <<<"$out")"
+check "debt reports dead code" 0 "neverCalled" "$code" "$out"
+check "debt reports tracked patterns" 0 "demo-panic" "$code" "$out"
+
 if [ "$fails" -gt 0 ]; then
 	echo "$fails hooks/quiet test(s) failed" >&2
 	exit 1

@@ -4,7 +4,7 @@ export PLAYWRIGHT_BROWSERS_PATH ?= $(CURDIR)/tmp/pw-browsers
 # Use system Chrome when Playwright's bundled Chromium is not installed (e.g. downloads blocked).
 E2E_ARGS ?= $(if $(wildcard $(PLAYWRIGHT_BROWSERS_PATH)/chromium-*),,$(if $(shell command -v google-chrome),--browser-channel chrome))
 
-.PHONY: demo demo-check tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check check-raw review merge wsl-cover t stress lint-changed gen hooks-test trace-test trace-stats
+.PHONY: demo demo-check tools-test redact-check docs evidence-gaps lint-py build run dev tidy clean test conformance conformance-gaps conformance-update-gaps smoke smoke-reset e2e test-all verify setup fmt lint vet check check-raw review merge wsl-cover t stress lint-changed gen hooks-test trace-test trace-stats debt
 
 AIR 		  := air
 APP           := localslack
@@ -70,6 +70,10 @@ trace-test:
 trace-stats:
 	@test -n "$(SESSION)" || { echo "usage: make trace-stats SESSION=<id|path> [VS=<id|path>]"; exit 2; }
 	python3 scripts/trace_stats.py $(SESSION) $(if $(VS),--compare $(VS))
+
+# Consolidation targets (near-duplicates, dead code, repeated patterns, churn). Report only; BASE as lint-changed.
+debt:
+	@DEBT_BASE=$(BASE) scripts/debt.sh
 
 conformance:
 	@$(Q) conformance go test $(GOTESTFLAGS) ./tests/conformance/...

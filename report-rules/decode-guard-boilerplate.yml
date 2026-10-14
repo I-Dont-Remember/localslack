@@ -1,0 +1,9 @@
+id: decode-guard-boilerplate
+language: go
+severity: hint
+message: hand-rolled decode-or-return guard; candidate for a shared handler wrapper
+rule:
+  pattern: |
+    if !$E.decode($$$ARGS) {
+        return
+    }
