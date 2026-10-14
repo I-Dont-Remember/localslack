@@ -115,13 +115,13 @@ tasks have different scope, so never compare raw totals across tasks.
 
 Raw LOC growth is expected for a large Slack emulation, so track duplication and repeated patterns
 instead. Rationale: requirements shift mid-build, leaving near-copies a full-requirements design would
-have unified; the `simplifier` agent (own `simplify-*` branch) consolidates them at checkpoints.
+have unified; the `dry-consolidator` agent (own `consolidate-*` branch) consolidates them at checkpoints.
 
-| Date | Ref | dupl>=50 hits (non-test, pairs x2) | deadcode unreachable | url-param-read | decode-guard | hand-rolled-json-decode | simplifier branch |
+| Date | Ref | dupl>=50 hits (non-test, pairs x2) | deadcode unreachable | url-param-read | decode-guard | hand-rolled-json-decode | consolidator branch |
 |---|---|---|---|---|---|---|---|
 | 2026-10-13 | 9c3ca39 | 8 | 39 (some test-only helpers) | 30 | 5 | 3 | n/a (baseline) |
 
-Per simplifier run also record: merged or dropped by the owner, clusters removed, LOC delta, tokens
+Per dry-consolidator run also record: merged or dropped by the owner, clusters removed, LOC delta, tokens
 (`make trace-stats`). Branches that keep getting dropped mean the brief or the agent needs retuning.
 Judge the trend per feature, not absolute counts.
 

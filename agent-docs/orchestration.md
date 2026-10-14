@@ -26,8 +26,8 @@ idle ~6h; cost came from large contexts x many turns, not command time. Evidence
 8. **A "stopped with background work" notice is not a handback.** Check the worktree's `git log` /
    `git status` rather than waiting.
 9. **Consolidate after each wave merges:** run `make debt BASE=<wave start>` and launch one
-   `simplifier` (`.claude/agents/simplifier.md`) on the merged result; parallel streams are the main
-   source of near-copies. It works on its own `simplify-*` branch, counts toward the cap of 3.
+   `dry-consolidator` (`.claude/agents/dry-consolidator.md`) on the merged result; parallel streams are the
+   main source of near-copies. It works on its own `consolidate-*` branch, counts toward the cap of 3.
 10. **Rate-limit checkpoints:** before launching a wave, estimate tokens (streams x ~10-40M). If a
    limit hits, agents commit WIP and write `## Handoff` in the plan (see `plans/README.md`).
 

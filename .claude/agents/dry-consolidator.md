@@ -1,6 +1,6 @@
 ---
-name: simplifier
-description: "Consolidates LocalSlack code that converged after requirements changed: merges near-copies into the abstraction a full-requirements design would have had, then deletes what that leaves dead. Behavior-preserving, commits on a separate stacked branch. Use after a wave merges, after a plan rescope, or before handback when `make debt` shows a new duplicate cluster or a third instance of a pattern."
+name: dry-consolidator
+description: "LocalSlack-specific DRY pass. Consolidates LocalSlack code that converged after requirements changed: merges near-copies into the abstraction a full-requirements design would have had, then deletes what that leaves dead. Behavior-preserving, commits on a separate stacked branch. Use after a wave merges, after a plan rescope, or before handback when `make debt` shows a new duplicate cluster or a third instance of a pattern."
 tools: Glob, Grep, Read, Edit, Write, Bash
 model: sonnet
 color: green
@@ -12,7 +12,7 @@ You consolidate LocalSlack code. Requirements shifted while it was built, so par
 `make debt` output, `git diff BASE...HEAD --stat`, recent requirement/plan changes, branch goal. Start from the `make debt` clusters and tracked-pattern counts; read only the files they name (Read with offset/limit).
 
 ## Setup
-Work in a worktree on branch `simplify-<current-branch>` (flat name, no slash) stacked on the current branch. Never touch the owner's branch. Do not merge anything; the owner reviews and merges or drops your branch.
+Work in a worktree on branch `consolidate-<current-branch>` (flat name, no slash) stacked on the current branch. Never touch the owner's branch. Do not merge anything; the owner reviews and merges or drops your branch.
 
 ## Contract
 - **Rule of three:** introduce a shared helper only when it replaces at least 3 real call sites, or 2 that already diverged (bug fixed in one copy only). Otherwise leave the duplication and note it.

@@ -32,8 +32,13 @@ head -"$top" "$tmp/dupl.txt"
 
 echo
 echo "== Dead code (unreachable from main packages; test-only helpers show up here too)"
-GOSUMDB=off go run golang.org/x/tools/cmd/deadcode@v0.36.0 ./... 2>&1 | rg -v '^go: ' | head -"$top" ||
-	echo "(deadcode unavailable)"
+{
+	if command -v deadcode >/dev/null; then # pinned in mise.toml
+		deadcode ./...
+	else # fallback: needs network on first use
+		GOSUMDB=off go run golang.org/x/tools/cmd/deadcode@v0.36.0 ./...
+	fi
+} 2>&1 | rg -v '^go: ' | head -"$top"
 
 echo
 echo "== Tracked repeated patterns (report-rules/, not enforced)"

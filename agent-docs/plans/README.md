@@ -6,7 +6,7 @@ One file per milestone, checkbox tasks. Source of truth for resuming work after 
 - Start: read `../STATUS.md` -> active plan -> any `## Handoff` section -> first unchecked task.
 - Tick the box in the same commit that completes the task.
 - Stopping mid-task (rate limit etc): append `## Handoff` to the plan: what you were doing, next command, gotchas. Remove it when resumed.
-- Rescoping: edit the plan + `docs/DESIGN_DOC.md` together, then run `make debt` and launch the `simplifier` agent on the code the change affects (earlier patterns often no longer fit).
+- Rescoping: edit the plan + `docs/DESIGN_DOC.md` together, then run `make debt` and launch the `dry-consolidator` agent on the code the change affects (earlier patterns often no longer fit).
 - New plans open with `## Fit with existing code` (<=3 lines): which existing patterns this extends; whether it makes code redundant or creates a third copy of something; what the design would be if planned from the start.
 - Edit plans **in place**. Never append "supersede conflicting text above" sections: every agent reads the whole plan, so contradictions cost tokens and cause mistakes. Fold amendments into the original text before the next wave.
 - Fan-out waves follow `../orchestration.md` (concurrency cap, stream briefs, contract gate).

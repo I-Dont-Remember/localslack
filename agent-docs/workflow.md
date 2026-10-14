@@ -81,7 +81,7 @@ git add <specific files>   # never git add -A blindly
 git commit -m "<concise imperative summary>"
 ```
 
-Before handback run `make debt BASE=<parent branch>`. If the branch adds a duplicate cluster or the third instance of a tracked pattern (`report-rules/`), launch the `simplifier` agent (`.claude/agents/simplifier.md`); it commits on a separate `simplify-<branch>` branch for the owner to take or drop.
+Before handback run `make debt BASE=<parent branch>`. If the branch adds a duplicate cluster or the third instance of a tracked pattern (`report-rules/`), launch the `dry-consolidator` agent (`.claude/agents/dry-consolidator.md`); it commits on a separate `consolidate-<branch>` branch for the owner to take or drop.
 
 When done, open the branch for review with `difit`:
 
